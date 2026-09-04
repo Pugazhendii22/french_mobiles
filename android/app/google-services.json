@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "530574210824",
+    "project_id": "fren-75087",
+    "storage_bucket": "fren-75087.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:530574210824:android:98160269e3fe051fb89ebd",
+        "android_client_info": {
+          "package_name": "com.example.french_mobiles"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvw7e_CddKBj3edgx4_PV_rBvKy9vBn6U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
