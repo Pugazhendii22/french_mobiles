@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../firebase/catalog_firebase.dart';
+import '../widgets/app_back_button.dart';
 import 'profile_widgets.dart';
 
 class SavedAddressesPage extends StatefulWidget {
@@ -149,6 +150,23 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
     Share.share('$label: $fullAddress');
   }
 
+  Future<void> _setAsDefault(String docId) async {
+    if (_addressesRef == null) return;
+    try {
+      final batch = catalogFirestore.batch();
+      final snap = await _addressesRef!.get();
+      for (final d in snap.docs) {
+        batch.update(d.reference, {'isDefault': d.id == docId});
+      }
+      await batch.commit();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to set default: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = catalogAuth.currentUser;
@@ -157,21 +175,8 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: InkWell(
-            onTap: () => Navigator.pop(context),
-            borderRadius: BorderRadius.circular(24),
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: const Icon(Icons.arrow_back_ios_new,
-                  size: 18, color: Colors.black87),
-            ),
-          ),
-        ),
+        centerTitle: true,
+        leading: const AppBackButton.light(),
         title: const Text(
           'Select Location',
           style: TextStyle(
@@ -301,10 +306,16 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
                         ),
                         StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                           stream: _addressesRef!
-                              .orderBy('isDefault', descending: true)
                               .orderBy('createdAt', descending: true)
                               .snapshots(),
                           builder: (context, snapshot) {
+                            if (snapshot.hasError) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 40),
+                                child: Center(
+                                    child: Text('Error: ${snapshot.error}')),
+                              );
+                            }
                             if (snapshot.connectionState ==
                                 ConnectionState.waiting) {
                               return const Padding(
@@ -314,6 +325,15 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
                               );
                             }
                             var docs = snapshot.data?.docs ?? [];
+                            docs.sort((a, b) {
+                              final aDef =
+                                  a.data()['isDefault'] == true;
+                              final bDef =
+                                  b.data()['isDefault'] == true;
+                              if (aDef && !bDef) return -1;
+                              if (!aDef && bDef) return 1;
+                              return 0;
+                            });
                             if (_searchQuery.isNotEmpty) {
                               docs = docs.where((doc) {
                                 final data = doc.data();
@@ -340,6 +360,7 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
                                     (data['label'] as String?) ?? 'Other';
                                 final fullAddress =
                                     (data['fullAddress'] as String?) ?? '';
+                                final isDefault = data['isDefault'] == true;
 
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 12),
@@ -347,11 +368,17 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(14),
+                                    border: isDefault
+                                        ? Border.all(
+                                            color: const Color(0xFF00B69B),
+                                            width: 1.5)
+                                        : null,
                                   ),
                                   child: InkWell(
                                     onTap: widget.selectMode
                                         ? () {
                                             Navigator.pop(context, {
+                                              'id': doc.id,
                                               'label': label,
                                               'fullAddress': fullAddress,
                                               'latitude': data['latitude'],
@@ -375,11 +402,41 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(label,
-                                                  style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 15)),
+                                              Row(
+                                                children: [
+                                                  Text(label,
+                                                      style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize: 15)),
+                                                  if (isDefault) ...[
+                                                    const SizedBox(width: 6),
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets
+                                                              .symmetric(
+                                                              horizontal: 6,
+                                                              vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(
+                                                            0xFF00B69B),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(4),
+                                                      ),
+                                                      child: const Text(
+                                                          'DEFAULT',
+                                                          style: TextStyle(
+                                                              color: Colors
+                                                                  .white,
+                                                              fontSize: 9,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold)),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
                                               const SizedBox(height: 2),
                                               Text(
                                                 fullAddress,
@@ -415,12 +472,20 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
                                                   _openAddEdit(doc: doc);
                                                 } else if (value == 'delete') {
                                                   _deleteAddress(doc.id);
+                                                } else if (value ==
+                                                    'setDefault') {
+                                                  _setAsDefault(doc.id);
                                                 }
                                               },
                                               itemBuilder: (context) => [
                                                 const PopupMenuItem(
                                                     value: 'edit',
                                                     child: Text('Edit')),
+                                                if (!isDefault)
+                                                  const PopupMenuItem(
+                                                      value: 'setDefault',
+                                                      child: Text(
+                                                          'Set as default')),
                                                 const PopupMenuItem(
                                                     value: 'delete',
                                                     child: Text('Delete')),
@@ -675,10 +740,7 @@ class PaymentMethodsPage extends StatelessWidget {
           'Payment Methods',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton.dark(),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -798,10 +860,7 @@ class _NotificationPreferencesPageState
           'Notifications',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton.dark(),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -899,10 +958,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
           'Privacy & Security',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton.dark(),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -983,10 +1039,7 @@ class HelpCenterPage extends StatelessWidget {
           'Help Center',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton.dark(),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -1072,10 +1125,7 @@ class AboutUsPage extends StatelessWidget {
           'About Us',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton.dark(),
       ),
       body: Center(
         child: Padding(

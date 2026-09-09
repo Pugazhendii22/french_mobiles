@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../firebase/catalog_firebase.dart';
+import '../widgets/app_back_button.dart';
 
 class OrderTrackingPage extends StatefulWidget {
   final String orderId;
@@ -23,10 +24,7 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton.light(),
       ),
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream: catalogFirestore.collection('orders').doc(widget.orderId).snapshots(),

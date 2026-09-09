@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../firebase/catalog_firebase.dart';
 import '../profile/account_pages.dart';
+import '../widgets/app_back_button.dart';
 
 import 'order_tracking_page.dart';
 import 'login_page.dart';
@@ -135,10 +136,7 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton.light(),
         titleSpacing: 0,
         title: GestureDetector(
           onTap: () async {

@@ -17,8 +17,16 @@ Future<void> initializeCatalogApp() async {
   );
 }
 
+FirebaseApp get catalogApp {
+  try {
+    return Firebase.app('catalogApp');
+  } catch (_) {
+    return Firebase.app();
+  }
+}
+
 FirebaseFirestore get catalogFirestore =>
-    FirebaseFirestore.instanceFor(app: Firebase.app('catalogApp'));
+    FirebaseFirestore.instanceFor(app: catalogApp);
 
 FirebaseAuth get catalogAuth =>
-  FirebaseAuth.instanceFor(app: Firebase.app('catalogApp'));
+  FirebaseAuth.instanceFor(app: catalogApp);

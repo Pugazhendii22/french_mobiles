@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/app_back_button.dart';
 import 'profile_widgets.dart';
 
 class SupportPage extends StatelessWidget {
@@ -35,10 +36,7 @@ class SupportPage extends StatelessWidget {
           'Help & Support',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton.dark(),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),

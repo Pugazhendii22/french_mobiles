@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import '../widgets/app_back_button.dart';
 import 'device_evaluation_wizard.dart';
 
 class VariantSelectionPage extends StatefulWidget {
@@ -83,10 +84,7 @@ class _VariantSelectionPageState extends State<VariantSelectionPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton.light(),
         title: const Text(
           'Select Storage',
           style: TextStyle(

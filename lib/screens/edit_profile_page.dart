@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../firebase/catalog_firebase.dart';
+import '../widgets/app_back_button.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -103,10 +104,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF00B69B),
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton.dark(),
         title: const Text('Edit Profile', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(

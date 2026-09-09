@@ -9,6 +9,7 @@ import 'wishlist_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../firebase/catalog_firebase.dart';
 import '../screens/edit_profile_page.dart';
+import '../widgets/app_back_button.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -27,10 +28,7 @@ class _ProfilePageState extends State<ProfilePage> {
         appBar: AppBar(
           backgroundColor: kProfilePrimaryTheme,
           elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
+          leading: const AppBackButton.dark(),
           title: const Text(
             'My Profile',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
@@ -56,10 +54,7 @@ class _ProfilePageState extends State<ProfilePage> {
       appBar: AppBar(
         backgroundColor: kProfilePrimaryTheme,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton.dark(),
         title: const Text(
           'My Profile',
           style: TextStyle(

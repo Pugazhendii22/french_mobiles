@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import '../models/model_detail.dart';
+import '../widgets/app_back_button.dart';
 import 'variant_selection_page.dart';
 
 class BrandDetailPage extends StatefulWidget {
@@ -234,10 +235,7 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton.light(),
         title: Text(
           'Select ${widget.brandName} Model',
           style: const TextStyle(
@@ -275,39 +273,77 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
                   const SizedBox(height: 12),
                   SizedBox(
                     height: 36,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: categories.length,
-                      itemBuilder: (context, index) {
-                        final cat = categories[index];
-                        final isSelected = cat == _selectedCategory;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: ChoiceChip(
-                            label: Text(cat),
-                            selected: isSelected,
-                            selectedColor: const Color(0xFFE2E8F0),
-                            backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              side: BorderSide(
-                                color: isSelected ? Colors.transparent : const Color(0xFFE2E8F0),
-                              ),
-                            ),
-                            labelStyle: TextStyle(
-                              color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                              fontSize: 13,
-                            ),
-                            onSelected: (selected) {
-                              setState(() {
-                                _selectedCategory = cat;
-                                _filterModels(_modelSearchController.text);
-                              });
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.only(right: 32),
+                            itemCount: categories.length,
+                            itemBuilder: (context, index) {
+                              final cat = categories[index];
+                              final isSelected = cat == _selectedCategory;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: ChoiceChip(
+                                  label: Text(cat),
+                                  selected: isSelected,
+                                  checkmarkColor: const Color(0xFF1E9B1E),
+                                  selectedColor: const Color(
+                                      0xFF32CD32).withValues(alpha: 0.15),
+                                  backgroundColor: Colors.white,
+                                  side: BorderSide(
+                                    width: isSelected ? 1.2 : 1,
+                                    color: isSelected
+                                        ? const Color(
+                                            0xFF32CD32).withValues(alpha: 0.6)
+                                        : const Color(0xFFE2E8F0),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  labelStyle: TextStyle(
+                                    color: isSelected
+                                        ? const Color(0xFF1E9B1E)
+                                        : const Color(0xFF64748B),
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                    fontSize: 13,
+                                  ),
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      _selectedCategory = cat;
+                                      _filterModels(
+                                          _modelSearchController.text);
+                                    });
+                                  },
+                                ),
+                              );
                             },
                           ),
-                        );
-                      },
+                        ),
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: 28,
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerRight,
+                                  end: Alignment.centerLeft,
+                                  colors: [
+                                    Colors.white,
+                                    Colors.white.withValues(alpha: 0),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

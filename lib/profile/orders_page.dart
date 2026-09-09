@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../firebase/catalog_firebase.dart';
+import '../widgets/app_back_button.dart';
 import 'profile_widgets.dart';
 import '../screens/order_tracking_page.dart';
 
@@ -27,10 +28,7 @@ class _OrdersPageState extends State<OrdersPage> {
             'My Sell Orders',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
+          leading: const AppBackButton.dark(),
         ),
         body: const Center(
           child: Padding(
@@ -56,10 +54,7 @@ class _OrdersPageState extends State<OrdersPage> {
           'My Sell Orders',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton.dark(),
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: stream,

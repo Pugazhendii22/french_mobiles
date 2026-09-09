@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import '../widgets/app_back_button.dart';
 import 'pickup_checkout_page.dart';
 
 class DeviceEvaluationWizard extends StatefulWidget {
@@ -112,10 +113,7 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: _prevStep,
-        ),
+        leading: AppBackButton.light(onPressed: _prevStep),
         title: Text(
           stepTitle,
           style: const TextStyle(
