@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/app_back_button.dart';
+import '../shared/theme/app_colors.dart';
+import '../shared/theme/app_text_styles.dart';
+import '../shared/theme/app_theme.dart';
+import '../shared/widgets/widgets.dart';
 
+/// Detail view for a second-hand listing.
+///
+/// Still a placeholder in one respect: the buy action is not implemented and
+/// shows a snackbar, exactly as before.
 class InventoryDetailPlaceholder extends StatefulWidget {
   final String? documentId;
   final Map<String, dynamic> data;
 
   const InventoryDetailPlaceholder({
-    Key? key,
+    super.key,
     required this.data,
     this.documentId,
-  }) : super(key: key);
+  });
 
   @override
   State<InventoryDetailPlaceholder> createState() =>
@@ -43,12 +50,15 @@ class _InventoryDetailPlaceholderState
       return List<String>.from((d['photos'] as List).whereType<String>());
     }
     final candidates = <String>[];
-    if (d['photo1Url'] is String && (d['photo1Url'] as String).isNotEmpty)
+    if (d['photo1Url'] is String && (d['photo1Url'] as String).isNotEmpty) {
       candidates.add(d['photo1Url'] as String);
-    if (d['imageUrl'] is String && (d['imageUrl'] as String).isNotEmpty)
+    }
+    if (d['imageUrl'] is String && (d['imageUrl'] as String).isNotEmpty) {
       candidates.add(d['imageUrl'] as String);
-    if (d['photo'] is String && (d['photo'] as String).isNotEmpty)
+    }
+    if (d['photo'] is String && (d['photo'] as String).isNotEmpty) {
       candidates.add(d['photo'] as String);
+    }
     return candidates.isEmpty
         ? ['https://via.placeholder.com/600x400?text=No+Image']
         : candidates;
@@ -57,8 +67,9 @@ class _InventoryDetailPlaceholderState
   int _safeInt(dynamic v) {
     if (v is int) return v;
     if (v is double) return v.toInt();
-    if (v is String)
+    if (v is String) {
       return int.tryParse(v.replaceAll(RegExp('[^0-9]'), '')) ?? 0;
+    }
     return 0;
   }
 
@@ -94,27 +105,64 @@ class _InventoryDetailPlaceholderState
       'color',
       'os'
     ]) {
-      if (d.containsKey(key) && d[key] != null)
+      if (d.containsKey(key) && d[key] != null) {
         specs[key.toUpperCase()] = d[key].toString();
+      }
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(model.isNotEmpty ? '$brand $model' : 'Product Details'),
-        backgroundColor: const Color(0xFF32CD32),
-        foregroundColor: Colors.black,
-        leading: const AppBackButton.light(),
-      ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black12, blurRadius: 8, offset: Offset(0, -2))
-          ],
+    final title = model.isNotEmpty
+        ? '$brand $model'.trim()
+        : (brand.isNotEmpty ? brand : 'Product');
+
+    return Theme(
+      data: AppTheme.light,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          bottom: false,
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenGutter,
+                  AppSpacing.lg,
+                  AppSpacing.screenGutter,
+                  AppSpacing.lg,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: AppScreenHeader(title: title),
+                ),
+              ),
+              SliverToBoxAdapter(child: _buildGallery(images)),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenGutter,
+                  AppSpacing.xl,
+                  AppSpacing.screenGutter,
+                  AppSpacing.xxxl,
+                ),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _buildPricing(finalPrice, originalPrice, discountPercent),
+                    if (description.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.xl),
+                      Text('Description', style: AppTextStyles.h3),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(description, style: AppTextStyles.body),
+                    ],
+                    if (specs.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.xl),
+                      Text('Specifications', style: AppTextStyles.h3),
+                      const SizedBox(height: AppSpacing.md),
+                      _buildSpecs(specs),
+                    ],
+                  ]),
+                ),
+              ),
+            ],
+          ),
         ),
-        child: SafeArea(
+        bottomNavigationBar: AppBottomBar(
           child: Row(
             children: [
               Expanded(
@@ -122,184 +170,159 @@ class _InventoryDetailPlaceholderState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Final Price',
-                        style: TextStyle(color: Colors.grey, fontSize: 12)),
-                    Text('₹$finalPrice',
-                        style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black)),
+                    Text('Price', style: AppTextStyles.caption),
+                    Text('₹ $finalPrice', style: AppTextStyles.h3),
                   ],
                 ),
               ),
-              SizedBox(
-                height: 48,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF32CD32),
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 28),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(
+                child: AppPrimaryButton(
+                  label: 'Buy now',
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Buy flow not implemented')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Buy flow not implemented'),
+                      ),
+                    );
                   },
-                  child: const Text('Buy Now',
-                      style: TextStyle(
-                          color: Colors.black, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 320,
-              child: Stack(
+    );
+  }
+
+  Widget _buildGallery(List<String> images) {
+    return SizedBox(
+      height: 280,
+      child: Stack(
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            itemCount: images.length,
+            onPageChanged: (i) => setState(() => _currentIndex = i),
+            itemBuilder: (context, index) {
+              return Container(
+                margin: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.screenGutter,
+                ),
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: AppRadius.card,
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: AppNetworkImage(
+                  url: images[index],
+                  fit: BoxFit.contain,
+                  borderRadius: BorderRadius.zero,
+                ),
+              );
+            },
+          ),
+          if (images.length > 1)
+            Positioned(
+              bottom: AppSpacing.md,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(images.length, (i) {
+                  final active = _currentIndex == i;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: active ? 18 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: active ? AppColors.primary : AppColors.borderStrong,
+                      borderRadius: AppRadius.pill,
+                    ),
+                  );
+                }),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPricing(int finalPrice, int originalPrice, int discountPercent) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text('₹ $finalPrice', style: AppTextStyles.h1),
+        if (originalPrice > 0) ...[
+          const SizedBox(width: AppSpacing.md),
+          Text(
+            '₹ $originalPrice',
+            style: AppTextStyles.bodySmall.copyWith(
+              decoration: TextDecoration.lineThrough,
+            ),
+          ),
+        ],
+        if (discountPercent > 0) ...[
+          const SizedBox(width: AppSpacing.md),
+          AppBadge(
+            label: '$discountPercent% OFF',
+            tone: AppBadgeTone.success,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSpecs(Map<String, dynamic> specs) {
+    final entries = specs.entries.toList();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < entries.length; i++) ...[
+            if (i > 0)
+              const Divider(
+                height: 1,
+                thickness: 1,
+                indent: AppSpacing.lg,
+                endIndent: AppSpacing.lg,
+                color: AppColors.border,
+              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.md,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  PageView.builder(
-                    controller: _pageController,
-                    itemCount: images.length,
-                    onPageChanged: (i) => setState(() => _currentIndex = i),
-                    itemBuilder: (context, index) {
-                      return Container(
-                        color: Colors.grey[200],
-                        child: Image.network(
-                          images[index],
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          loadingBuilder: (context, child, progress) {
-                            if (progress == null) return child;
-                            return const Center(
-                                child: CircularProgressIndicator());
-                          },
-                        ),
-                      );
-                    },
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      entries[i].key,
+                      style: AppTextStyles.caption,
+                    ),
                   ),
-                  Positioned(
-                    bottom: 12,
-                    left: 0,
-                    right: 0,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(images.length, (i) {
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: _currentIndex == i ? 18 : 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: _currentIndex == i
-                                ? Colors.white
-                                : Colors.white70,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        );
-                      }),
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      '${entries[i].value}',
+                      style: AppTextStyles.bodyMedium,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    model.isNotEmpty
-                        ? '$brand $model'
-                        : (brand.isNotEmpty ? brand : 'Product'),
-                    style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      if (originalPrice > 0) ...[
-                        Text('₹$originalPrice',
-                            style: const TextStyle(
-                                decoration: TextDecoration.lineThrough,
-                                color: Colors.grey)),
-                        const SizedBox(width: 8),
-                      ],
-                      if (discountPercent > 0) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                              color: const Color(0xFFDFF8DF),
-                              borderRadius: BorderRadius.circular(6)),
-                          child: Text('-$discountPercent%',
-                              style: const TextStyle(
-                                  color: const Color(0xFF0B5A0B),
-                                  fontWeight: FontWeight.bold)),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      Text('₹$finalPrice',
-                          style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black)),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Overview',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Text(description.isNotEmpty
-                      ? description
-                      : 'No description available.'),
-                  const SizedBox(height: 16),
-                  const Text('Specifications',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Builder(builder: (context) {
-                    if (specs.isEmpty)
-                      return const Text('No specifications available.');
-                    return Column(
-                      children: specs.entries.map((e) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6.0),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                  child: Text(e.key.toString(),
-                                      style:
-                                          const TextStyle(color: Colors.grey))),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                  child: Text(e.value.toString(),
-                                      textAlign: TextAlign.right,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w600))),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  }),
-                  const SizedBox(height: 120),
-                ],
-              ),
-            ),
           ],
-        ),
+        ],
       ),
     );
   }
 }
-

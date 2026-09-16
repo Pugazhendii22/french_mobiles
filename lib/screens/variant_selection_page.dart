@@ -2,7 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
-import '../widgets/app_back_button.dart';
+import '../shared/theme/app_colors.dart';
+import '../shared/theme/app_text_styles.dart';
+import '../shared/theme/app_theme.dart';
+import '../shared/widgets/widgets.dart';
 import 'device_evaluation_wizard.dart';
 
 class VariantSelectionPage extends StatefulWidget {
@@ -77,196 +80,158 @@ class _VariantSelectionPageState extends State<VariantSelectionPage> {
     }
   }
 
+  void _continue() {
+    final selected = _variants[_selectedIndex!];
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DeviceEvaluationWizard(
+          brandName: widget.brandName,
+          modelDocId: widget.modelDocId,
+          modelName: widget.modelName,
+          imageUrl: widget.imageUrl,
+          basePrice: selected['base_price'] ?? 0,
+          storage: (selected['storage'] ?? '').toString(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: const AppBackButton.light(),
-        title: const Text(
-          'Select Storage',
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+    return Theme(
+      data: AppTheme.light,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenGutter,
+                  AppSpacing.lg,
+                  AppSpacing.screenGutter,
+                  AppSpacing.lg,
+                ),
+                child: AppScreenHeader(
+                  title: 'Select storage',
+                  content: _buildDeviceSummary(),
+                ),
+              ),
+              Expanded(child: _buildBody()),
+            ],
+          ),
+        ),
+        bottomNavigationBar: AppBottomBar(
+          child: AppPrimaryButton(
+            label: 'Continue',
+            icon: Icons.arrow_forward_rounded,
+            onPressed: _selectedIndex == null ? null : _continue,
           ),
         ),
       ),
-      body: Column(
+    );
+  }
+
+  Widget _buildDeviceSummary() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-            child: Row(
+          Container(
+            height: 56,
+            width: 56,
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceMuted,
+              borderRadius: AppRadius.field,
+            ),
+            child: AppNetworkImage(
+              url: widget.imageUrl ?? '',
+              fit: BoxFit.contain,
+              borderRadius: BorderRadius.zero,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(12),
+                Text(
+                  widget.brandName,
+                  style: AppTextStyles.overline.copyWith(
+                    color: AppColors.textSecondary,
                   ),
-                  child: (widget.imageUrl != null && widget.imageUrl!.isNotEmpty)
-                      ? Image.network(
-                          widget.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Icon(
-                            Icons.smartphone,
-                            size: 48,
-                            color: Colors.blueGrey.shade300,
-                          ),
-                        )
-                      : Icon(
-                          Icons.smartphone,
-                          size: 48,
-                          color: Colors.blueGrey.shade300,
-                        ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.modelName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Choose storage to continue',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF94A3B8),
-                        ),
-                      ),
-                    ],
-                  ),
+                const SizedBox(height: 2),
+                Text(
+                  widget.modelName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.bodyMedium,
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00B69B)),
-                    ),
-                  )
-                : _variants.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Pricing not available for this model yet',
-                          style: TextStyle(color: Color(0xFF94A3B8)),
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        itemCount: _variants.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final v = _variants[index];
-                          final selected = _selectedIndex == index;
-                          return GestureDetector(
-                            onTap: () => setState(() => _selectedIndex = index),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: selected ? const Color(0xFF00B69B) : const Color(0xFFE2E8F0),
-                                  width: selected ? 2 : 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    v['storage'] ?? 'Unknown',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: selected ? const Color(0xFF007A68) : const Color(0xFF0F172A),
-                                    ),
-                                  ),
-                                  Text(
-                                    '₹${v['base_price']}',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF16A34A),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
-            ),
-            child: SafeArea(
-              child: SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _selectedIndex == null
-                      ? null
-                      : () {
-                          final selected = _variants[_selectedIndex!];
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => DeviceEvaluationWizard(
-                                brandName: widget.brandName,
-                                modelDocId: widget.modelDocId,
-                                modelName: widget.modelName,
-                                imageUrl: widget.imageUrl,
-                                basePrice: selected['base_price'] ?? 0,
-                                storage: (selected['storage'] ?? '').toString(),
-                              ),
-                            ),
-                          );
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00B69B),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Continue',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward, color: Colors.white, size: 20),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return ListView.separated(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.screenGutter,
+        ),
+        itemCount: 4,
+        separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+        itemBuilder: (_, __) =>
+            const AppShimmer(width: double.infinity, height: 72),
+      );
+    }
+
+    if (_variants.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(AppSpacing.screenGutter),
+        child: AppEmptyState(
+          title: 'No storage options',
+          message: 'We could not load variants for this model.',
+          icon: Icons.sd_storage_outlined,
+          onRetry: _loadVariants,
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenGutter,
+        0,
+        AppSpacing.screenGutter,
+        AppSpacing.xxl,
+      ),
+      itemCount: _variants.length,
+      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+      itemBuilder: (context, index) {
+        final variant = _variants[index];
+        final storage = (variant['storage'] ?? '').toString();
+        final price = variant['base_price'] as int? ?? 0;
+
+        return AppSelectableTile(
+          title: storage.isEmpty ? 'Standard variant' : storage,
+          selected: _selectedIndex == index,
+          trailingLabel: 'Up to',
+          trailingText: '₹ $price',
+          onTap: () => setState(() => _selectedIndex = index),
+        );
+      },
     );
   }
 }

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../models/models.dart';
-import '../widgets/widgets.dart';
+import '../shared/theme/app_colors.dart';
+import '../shared/theme/app_theme.dart';
+import '../shared/widgets/widgets.dart';
 import 'brand_detail_page.dart';
 
 /// Full-screen, searchable list of every brand in the sell flow.
@@ -59,79 +60,70 @@ class _BrandListPageState extends State<BrandListPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 2,
-        shadowColor: Colors.black.withValues(alpha: 0.12),
-        systemOverlayStyle: const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          statusBarBrightness: Brightness.light,
-        ),
-        leading: const AppBackButton.light(),
-        title: const Text(
-          'All Brands',
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: _onSearchChanged,
-                decoration: const InputDecoration(
-                  hintText: 'Search brands',
-                  hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                  prefixIcon: Icon(Icons.search, color: Color(0xFF94A3B8)),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 12),
+    return Theme(
+      data: AppTheme.light,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenGutter,
+                    AppSpacing.lg,
+                    AppSpacing.screenGutter,
+                    AppSpacing.lg,
+                  ),
+                  child: AppScreenHeader(
+                    title: 'All brands',
+                    content: AppSearchField(
+                      controller: _searchController,
+                      hintText: 'Search brands',
+                      onChanged: _onSearchChanged,
+                    ),
+                  ),
                 ),
-              ),
+                Expanded(
+                  child: _filteredBrands.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.all(AppSpacing.screenGutter),
+                          child: AppEmptyState(
+                            title: 'No brands found',
+                            message: 'Try a different name.',
+                            icon: Icons.search_off_rounded,
+                          ),
+                        )
+                      : GridView.builder(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.screenGutter,
+                            0,
+                            AppSpacing.screenGutter,
+                            AppSpacing.xxl,
+                          ),
+                          itemCount: _filteredBrands.length,
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: AppSpacing.md,
+                            mainAxisSpacing: AppSpacing.md,
+                            childAspectRatio: 0.88,
+                          ),
+                          itemBuilder: (context, index) {
+                            final brand = _filteredBrands[index];
+                            return AppBrandCard(
+                              brand: brand,
+                              onTap: () => _navigateToBrandDetail(brand),
+                            );
+                          },
+                        ),
+                ),
+              ],
             ),
           ),
-          Expanded(
-            child: _filteredBrands.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No brands found.',
-                      style: TextStyle(color: Color(0xFF94A3B8)),
-                    ),
-                  )
-                : GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                    itemCount: _filteredBrands.length,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 0.9,
-                    ),
-                    itemBuilder: (context, index) {
-                      final brand = _filteredBrands[index];
-                      return GridBrandCard(
-                        brand: brand,
-                        onTap: () => _navigateToBrandDetail(brand),
-                      );
-                    },
-                  ),
-          ),
-        ],
+        ),
       ),
     );
   }
