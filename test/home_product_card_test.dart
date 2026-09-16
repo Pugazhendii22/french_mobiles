@@ -1,9 +1,12 @@
 // Tests for the Available now card.
 //
-// The card sits in a fixed-height rail, so the main risk is a long model name
+// The card fills a fixed-size grid cell, so the main risk is a long model name
 // or an extra spec line blowing its bounds. A RenderFlex overflow throws
 // during layout and fails the test on its own, so pumping a card with hostile
 // content IS the assertion — there is no separate expect for it.
+//
+// The harness reproduces a real cell: 178 x 302, which is what
+// HomeProductGrid's delegate produces on a 400px screen.
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,19 +37,18 @@ Future<void> _pumpCard(
 
   await t.pumpWidget(MaterialApp(
     home: Scaffold(
-      body: SizedBox(
-        height: 300,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          children: [
-            HomeProductCard(
-              product: product,
-              repository: const _FakeRepository(),
-              onTap: () {},
-              onWishlistTap: () {},
-              wishlistStream: (_) => null,
-            ),
-          ],
+      body: Align(
+        alignment: Alignment.topLeft,
+        child: SizedBox(
+          width: 178,
+          height: 302,
+          child: HomeProductCard(
+            product: product,
+            repository: const _FakeRepository(),
+            onTap: () {},
+            onWishlistTap: () {},
+            wishlistStream: (_) => null,
+          ),
         ),
       ),
     ),
@@ -168,7 +170,7 @@ void main() {
       expect(find.text('iPhone 13'), findsOneWidget);
     });
 
-    testWidgets('a very long name does not overflow the rail', (t) async {
+    testWidgets('a very long name does not overflow the cell', (t) async {
       await _pumpCard(
         t,
         const HomeProduct(

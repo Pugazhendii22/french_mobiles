@@ -7,7 +7,7 @@ import 'package:french_mobiles/features/home/widgets/home_bottom_nav.dart';
 import 'package:french_mobiles/features/home/widgets/home_category_grid.dart';
 import 'package:french_mobiles/features/home/widgets/home_header.dart';
 import 'package:french_mobiles/features/home/widgets/home_location_strip.dart';
-import 'package:french_mobiles/features/home/widgets/home_product_rail.dart';
+import 'package:french_mobiles/features/home/widgets/home_product_grid.dart';
 import 'package:french_mobiles/features/home/widgets/home_sell_cta.dart';
 import 'package:french_mobiles/features/home/widgets/home_trust_row.dart';
 import 'package:french_mobiles/firebase/wishlist_service.dart';
@@ -303,8 +303,7 @@ class _HomePageState extends State<HomePage> {
                     const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.md),
                     ),
-                    SliverToBoxAdapter(
-                      child: HomeProductRail(
+                    HomeProductGrid(
                         future: _productsFuture,
                         repository: _repository,
                         searchQuery: _searchQuery,
@@ -313,9 +312,8 @@ class _HomePageState extends State<HomePage> {
                         wishlistStream: (id) =>
                             WishlistService.watchIsSaved(id),
                         onRetry: _reloadProducts,
-                        emptyTitle: _emptyTitleForCategory,
-                        emptyMessage: _emptyMessageForCategory,
-                      ),
+                      emptyTitle: _emptyTitleForCategory,
+                      emptyMessage: _emptyMessageForCategory,
                     ),
                     const SliverToBoxAdapter(
                       child: SizedBox(height: AppSpacing.xxl),

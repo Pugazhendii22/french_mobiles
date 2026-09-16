@@ -22,6 +22,7 @@ class HomeProductCard extends StatelessWidget {
     required this.onTap,
     required this.onWishlistTap,
     required this.wishlistStream,
+    this.width,
   });
 
   final HomeProduct product;
@@ -31,6 +32,10 @@ class HomeProductCard extends StatelessWidget {
 
   /// Saved-state stream for this product, or null when signed out.
   final Stream<bool>? Function(String productId) wishlistStream;
+
+  /// Null fills the available width, which is what a grid cell wants. Set it
+  /// for a fixed-width card in a horizontally scrolling context.
+  final double? width;
 
   /// Grade chip colours, following the convention the refurbished
   /// marketplaces share: the top grade reads as reassurance (green), the
@@ -65,7 +70,7 @@ class HomeProductCard extends StatelessWidget {
       child: AppPressable(
         onTap: onTap,
         child: Container(
-          width: 172,
+          width: width,
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: AppRadius.card,
