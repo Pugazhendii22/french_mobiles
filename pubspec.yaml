@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
   flutter_svg: ^2.0.10+1
   cloud_firestore: ^5.6.0
   firebase_core: ^3.6.0
@@ -23,11 +24,25 @@ dependencies:
   http: ^1.6.0
   share_plus: ^13.0.0
   cached_network_image: ^4.0.0
+  camera: ^0.11.0
+  local_auth: ^2.3.0
+  connectivity_plus: ^6.1.0
+  wifi_scan: ^0.5.0
+  flutter_blue_plus: ^1.35.0
+  sim_data: ^0.0.2
+  permission_handler: ^12.0.0
+  sensors_plus: ^6.1.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+
+dependency_overrides:
+  sim_data:
+    path: third_party/sim_data
+  camera_android_camerax:
+    path: third_party/camera_android_camerax
 
 flutter:
   uses-material-design: true

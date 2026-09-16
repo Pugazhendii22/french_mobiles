@@ -14,6 +14,7 @@ import 'profile_page.dart';
 import 'screens/login_page.dart';
 import 'screens/inventory_detail_page.dart';
 import 'screens/sell_mobile_page.dart';
+import 'screens/checkup/checkup_entry_page.dart';
 
 // ==========================================
 // GLOBAL COLOR CONFIGURATION (home)
@@ -362,6 +363,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 16),
+                        _buildCheckupEntryButton(),
+                        const SizedBox(height: 16),
                         const PromoBannerSlider(),
                         const SizedBox(height: 16),
                         const HomeTrustStrip(),
@@ -423,6 +426,81 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               _buildSellBar(context),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCheckupEntryButton() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF32CD32).withValues(alpha: 0.35)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) => const CheckupEntryPage(),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF32CD32),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.build_circle_outlined,
+                      color: Colors.black, size: 20),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Device Auto Checkup',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Run 7 hardware tests',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.mutedText,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right,
+                    size: 20, color: Color(0xFF32CD32)),
+              ],
+            ),
           ),
         ),
       ),

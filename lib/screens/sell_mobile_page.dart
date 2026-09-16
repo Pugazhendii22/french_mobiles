@@ -308,76 +308,47 @@ class _SellMobilePageState extends State<SellMobilePage> {
   }
 
   Widget _buildHeader() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFEAFBE8), Colors.white],
+    return AppGradientHeader(
+      title: 'Sell Old Phone',
+      trailing: Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: IconButton(
+          tooltip: 'Sell help & FAQs',
+          icon: const Icon(Icons.live_help_outlined,
+              color: Color(0xFF1E9B1E)),
+          onPressed: _showHelpSheet,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SafeArea(
-            bottom: false,
-            child: Row(
+      content: const Padding(
+        padding: EdgeInsets.fromLTRB(20, 4, 20, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Get Instant Cash for Your Old Phone',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            SizedBox(height: 6),
+            Row(
               children: [
-                const AppBackButton.light(),
-                const Expanded(
+                Icon(Icons.verified_user,
+                    size: 16, color: Color(0xFF1E9B1E)),
+                SizedBox(width: 6),
+                Expanded(
                   child: Text(
-                    'Sell Old Phone',
-                    style: TextStyle(
-                      color: Colors.black87,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: IconButton(
-                    tooltip: 'Sell help & FAQs',
-                    icon: const Icon(Icons.live_help_outlined,
-                        color: Color(0xFF1E9B1E)),
-                    onPressed: _showHelpSheet,
+                    'Free doorstep pickup & instant payment',
+                    style:
+                        TextStyle(fontSize: 14, color: Color(0xFF4B5563)),
                   ),
                 ),
               ],
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'Get Instant Cash for Your Old Phone',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1E293B),
-                  ),
-                ),
-                SizedBox(height: 6),
-                Row(
-                  children: [
-                    Icon(Icons.verified_user,
-                        size: 16, color: Color(0xFF1E9B1E)),
-                    SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Free doorstep pickup & instant payment',
-                        style:
-                            TextStyle(fontSize: 14, color: Color(0xFF4B5563)),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -386,25 +357,6 @@ class _SellMobilePageState extends State<SellMobilePage> {
     return Row(
       children: [
         Expanded(child: _buildSearchField()),
-        const SizedBox(width: 12),
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: const Color(0xFFEAFBE8),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: const Color(0xFF32CD32).withValues(alpha: 0.25),
-            ),
-          ),
-          child: IconButton(
-            padding: EdgeInsets.zero,
-            tooltip: 'Sell help & FAQs',
-            icon: const Icon(Icons.live_help_outlined,
-                color: Color(0xFF1E9B1E)),
-            onPressed: _showHelpSheet,
-          ),
-        ),
       ],
     );
   }
