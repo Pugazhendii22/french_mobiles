@@ -4,6 +4,7 @@ import 'package:french_mobiles/features/home/data/home_models.dart';
 import 'package:french_mobiles/features/home/data/home_repository.dart';
 import 'package:french_mobiles/features/home/widgets/home_product_card.dart';
 import 'package:french_mobiles/shared/motion/motion.dart';
+import 'package:french_mobiles/shared/theme/app_colors.dart';
 import 'package:french_mobiles/shared/theme/app_theme.dart';
 import 'package:french_mobiles/shared/widgets/app_empty_state.dart';
 import 'package:french_mobiles/shared/widgets/app_shimmer.dart';
@@ -68,6 +69,14 @@ class HomeProductGrid extends StatelessWidget {
 
   static const double _gutter = AppSpacing.md;
 
+  /// Half the gutter sits on each side of a divider, so the line lands in the
+  /// centre of the gap rather than hanging off one card's edge.
+  static const double _halfGutter = _gutter / 2;
+
+  /// Divider thickness. Consumed from the cell by the border either way —
+  /// see [_GridCell].
+  static const double _rule = 1;
+
   List<HomeProduct> _applySearch(List<HomeProduct> products) {
     final q = searchQuery.trim().toLowerCase();
     if (q.isEmpty) return products;
@@ -78,12 +87,17 @@ class HomeProductGrid extends StatelessWidget {
         .toList();
   }
 
+  /// Spacing is zero because the gutter is drawn *inside* each cell now: a
+  /// cell pads itself by half a gutter and carries the divider on its
+  /// trailing edges, so adjacent cells meet exactly on the rule. Leaving the
+  /// spacing on the delegate instead would push the two halves apart and the
+  /// line would sit against one card rather than between them.
   static const SliverGridDelegateWithFixedCrossAxisCount _delegate =
       SliverGridDelegateWithFixedCrossAxisCount(
     crossAxisCount: 2,
-    crossAxisSpacing: _gutter,
-    mainAxisSpacing: _gutter,
-    mainAxisExtent: _cellHeight,
+    crossAxisSpacing: 0,
+    mainAxisSpacing: 0,
+    mainAxisExtent: _cellHeight + _gutter + _rule,
   );
 
   @override
@@ -96,7 +110,11 @@ class HomeProductGrid extends StatelessWidget {
             SliverGrid(
               gridDelegate: _delegate,
               delegate: SliverChildBuilderDelegate(
-                (_, __) => const _CellSkeleton(),
+                (_, index) => _GridCell(
+                  isLeftColumn: index.isEven,
+                  isLastRow: index ~/ 2 == 1,
+                  child: const _CellSkeleton(),
+                ),
                 childCount: 4,
               ),
             ),
@@ -143,12 +161,17 @@ class HomeProductGrid extends StatelessWidget {
                 return AppReveal(
                   index: index,
                   slots: 6,
-                  child: HomeProductCard(
-                    product: product,
-                    repository: repository,
-                    onTap: () => onProductTap(product),
-                    onWishlistTap: () => onWishlistTap(product),
-                    wishlistStream: wishlistStream,
+                  child: _GridCell(
+                    isLeftColumn: index.isEven,
+                    isLastRow:
+                        index ~/ 2 == (products.length - 1) ~/ 2,
+                    child: HomeProductCard(
+                      product: product,
+                      repository: repository,
+                      onTap: () => onProductTap(product),
+                      onWishlistTap: () => onWishlistTap(product),
+                      wishlistStream: wishlistStream,
+                    ),
                   ),
                 );
               },
@@ -168,6 +191,56 @@ class HomeProductGrid extends StatelessWidget {
       );
 
   Widget _box(Widget child) => _padded(SliverToBoxAdapter(child: child));
+}
+
+/// Draws the gutter and the rules between cells.
+///
+/// The card itself is untouched — this only occupies the space the grid
+/// delegate used to leave empty.
+///
+/// Both columns carry a right border and every row a bottom one, with the
+/// colour set to transparent where no line belongs. A [BorderSide] takes up
+/// layout space whether or not it is visible, so keeping the sides present
+/// and only varying the colour means every cell reserves the same width and
+/// height — otherwise the right column would be one pixel wider than the
+/// left and the cards would not align.
+class _GridCell extends StatelessWidget {
+  const _GridCell({
+    required this.isLeftColumn,
+    required this.isLastRow,
+    required this.child,
+  });
+
+  final bool isLeftColumn;
+  final bool isLastRow;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        // Outer edges stay flush with the screen gutter so the cards keep
+        // lining up with the section heading above them.
+        left: isLeftColumn ? 0 : HomeProductGrid._halfGutter,
+        right: isLeftColumn ? HomeProductGrid._halfGutter : 0,
+        top: HomeProductGrid._halfGutter,
+        bottom: HomeProductGrid._halfGutter,
+      ),
+      decoration: BoxDecoration(
+        border: Border(
+          right: BorderSide(
+            color: isLeftColumn ? AppColors.border : AppColors.transparent,
+            width: HomeProductGrid._rule,
+          ),
+          bottom: BorderSide(
+            color: isLastRow ? AppColors.transparent : AppColors.border,
+            width: HomeProductGrid._rule,
+          ),
+        ),
+      ),
+      child: child,
+    );
+  }
 }
 
 /// Mirrors the cell's shape — photo block, then three text lines — so nothing

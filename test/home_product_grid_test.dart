@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:french_mobiles/features/home/data/home_models.dart';
 import 'package:french_mobiles/features/home/data/home_repository.dart';
 import 'package:french_mobiles/features/home/widgets/home_product_card.dart';
+import 'package:french_mobiles/shared/theme/app_colors.dart';
 import 'package:french_mobiles/features/home/widgets/home_product_grid.dart';
 import 'package:french_mobiles/shared/widgets/app_shimmer.dart';
 
@@ -74,6 +75,20 @@ Future<void> _pumpGrid(
   await t.pump(const Duration(milliseconds: 600));
 }
 
+/// Every visible rule drawn by the grid cells.
+List<BoxDecoration> _cellDecorations(WidgetTester t) {
+  return find
+      .descendant(
+        of: find.byType(HomeProductGrid),
+        matching: find.byType(Container),
+      )
+      .evaluate()
+      .map((e) => (e.widget as Container).decoration)
+      .whereType<BoxDecoration>()
+      .where((d) => d.border != null)
+      .toList();
+}
+
 void main() {
   testWidgets('lays out two columns', (t) async {
     await _pumpGrid(t, count: 4);
@@ -133,6 +148,70 @@ void main() {
 
     expect(find.byType(AppShimmer), findsNothing);
     expect(find.text('SAMSUNG'), findsNWidgets(2));
+  });
+
+  group('dividers', () {
+    testWidgets('left column carries the vertical rule, right column does not',
+        (t) async {
+      await _pumpGrid(t, count: 4);
+
+      final borders = _cellDecorations(t)
+          .map((d) => d.border! as Border)
+          .toList();
+      expect(borders.length, 4);
+
+      // Cells alternate left, right, left, right.
+      expect(borders[0].right.color, AppColors.border,
+          reason: 'left column should draw the vertical rule');
+      expect(borders[1].right.color, AppColors.transparent,
+          reason: 'right column must not draw a rule at the screen edge');
+    });
+
+    testWidgets('every row but the last carries a horizontal rule',
+        (t) async {
+      await _pumpGrid(t, count: 4);
+
+      final borders = _cellDecorations(t)
+          .map((d) => d.border! as Border)
+          .toList();
+
+      // Row 0 (indices 0,1) has a rule beneath it; row 1 (2,3) is last.
+      expect(borders[0].bottom.color, AppColors.border);
+      expect(borders[1].bottom.color, AppColors.border);
+      expect(borders[2].bottom.color, AppColors.transparent);
+      expect(borders[3].bottom.color, AppColors.transparent);
+    });
+
+    testWidgets('rule thickness is uniform, never doubled', (t) async {
+      await _pumpGrid(t, count: 6);
+
+      for (final decoration in _cellDecorations(t)) {
+        final border = decoration.border! as Border;
+        expect(border.right.width, 1);
+        expect(border.bottom.width, 1);
+        // A left or top side would meet the neighbour's right or bottom and
+        // paint a 2px line in the gutter.
+        expect(border.left.style, BorderStyle.none);
+        expect(border.top.style, BorderStyle.none);
+      }
+    });
+
+    testWidgets('both columns get identical card widths', (t) async {
+      await _pumpGrid(t, count: 4);
+      final cards = find.byType(HomeProductCard);
+      expect(t.getSize(cards.at(0)).width, t.getSize(cards.at(1)).width,
+          reason: 'a transparent border side still consumes layout space, so '
+              'both columns must reserve one');
+    });
+
+    testWidgets('an odd count leaves the lone last cell without a rule',
+        (t) async {
+      await _pumpGrid(t, count: 5);
+      final borders = _cellDecorations(t)
+          .map((d) => d.border! as Border)
+          .toList();
+      expect(borders.last.bottom.color, AppColors.transparent);
+    });
   });
 
   testWidgets('empty state renders', (t) async {
