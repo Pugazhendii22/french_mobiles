@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:french_mobiles/features/home/data/home_models.dart';
 import 'package:french_mobiles/features/home/data/home_repository.dart';
 import 'package:french_mobiles/features/home/widgets/home_product_card.dart';
+import 'package:french_mobiles/shared/motion/motion.dart';
 import 'package:french_mobiles/shared/theme/app_theme.dart';
 import 'package:french_mobiles/shared/widgets/app_empty_state.dart';
 import 'package:french_mobiles/shared/widgets/app_shimmer.dart';
@@ -106,12 +107,16 @@ class HomeProductRail extends StatelessWidget {
             separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
             itemBuilder: (context, index) {
               final product = products[index];
-              return HomeProductCard(
+              return AppReveal(
+                index: index,
+                direction: Axis.horizontal,
+                child: HomeProductCard(
                 product: product,
                 repository: repository,
                 onTap: () => onProductTap(product),
-                onWishlistTap: () => onWishlistTap(product),
-                wishlistStream: wishlistStream,
+                  onWishlistTap: () => onWishlistTap(product),
+                  wishlistStream: wishlistStream,
+                ),
               );
             },
           ),

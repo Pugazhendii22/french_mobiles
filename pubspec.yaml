@@ -30,6 +30,7 @@ dependencies:
   sim_data: ^0.0.2
   permission_handler: ^12.0.0
   sensors_plus: ^6.1.2
+  flutter_animate: ^4.5.2
 
 dev_dependencies:
   flutter_test:

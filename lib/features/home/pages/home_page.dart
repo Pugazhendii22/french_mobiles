@@ -19,6 +19,7 @@ import 'package:french_mobiles/screens/checkup/checkup_entry_page.dart';
 import 'package:french_mobiles/screens/inventory_detail_page.dart';
 import 'package:french_mobiles/screens/login_page.dart';
 import 'package:french_mobiles/screens/sell_mobile_page.dart';
+import 'package:french_mobiles/shared/motion/motion.dart';
 import 'package:french_mobiles/shared/theme/app_colors.dart';
 import 'package:french_mobiles/shared/theme/app_text_styles.dart';
 import 'package:french_mobiles/shared/theme/app_theme.dart';
@@ -82,10 +83,8 @@ class _HomePageState extends State<HomePage> {
   // --- Navigation --------------------------------------------------------
 
   Future<void> _openLogin() {
-    return Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginPage()),
-    );
+    return context.pushScreen(const LoginPage(),
+        transition: AppTransition.rise);
   }
 
   Future<void> _openAddressPicker() async {
@@ -95,11 +94,9 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    final result = await Navigator.push<Map<String, dynamic>>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const SavedAddressesPage(selectMode: true),
-      ),
+    final result = await context.pushScreen<Map<String, dynamic>>(
+      const SavedAddressesPage(selectMode: true),
+      transition: AppTransition.rise,
     );
 
     if (result == null || !mounted) return;
@@ -119,19 +116,16 @@ class _HomePageState extends State<HomePage> {
   void _openProduct(HomeProduct product) {
     if (product.documentId == null && product.firestoreData == null) return;
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => InventoryDetailPlaceholder(
-          documentId: product.documentId,
-          data: product.firestoreData ??
-              {
-                'id': product.documentId,
-                'brand': product.brand,
-                'model': product.title,
-                'salePrice': product.price,
-              },
-        ),
+    context.pushScreen(
+      InventoryDetailPlaceholder(
+        documentId: product.documentId,
+        data: product.firestoreData ??
+            {
+              'id': product.documentId,
+              'brand': product.brand,
+              'model': product.title,
+              'salePrice': product.price,
+            },
       ),
     );
   }
@@ -167,30 +161,19 @@ class _HomePageState extends State<HomePage> {
       case HomeNavTab.home:
         return;
       case HomeNavTab.sell:
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SellMobilePage()),
-        );
+        await context.pushScreen(const SellMobilePage());
       case HomeNavTab.orders:
         if (_repository.currentUser == null) {
           await _openLogin();
           return;
         }
         if (!mounted) return;
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const OrdersPage()),
-        );
+        await context.pushScreen(const OrdersPage());
       case HomeNavTab.wishlist:
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const WishlistPage()),
-        );
+        await context.pushScreen(const WishlistPage());
       case HomeNavTab.profile:
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ProfilePage()),
-        );
+        await context.pushScreen(const ProfilePage(),
+            transition: AppTransition.fadeThrough);
     }
   }
 
@@ -231,22 +214,30 @@ class _HomePageState extends State<HomePage> {
                       ),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
-                          HomeHeader(
+                          AppReveal(
+                            index: 0,
+                            child: HomeHeader(
                             repository: _repository,
-                            onProfileTap: () =>
-                                _onNavTap(HomeNavTab.profile),
+                              onProfileTap: () =>
+                                  _onNavTap(HomeNavTab.profile),
+                            ),
                           ),
                           const SizedBox(height: AppSpacing.md),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: HomeLocationStrip(
-                              repository: _repository,
-                              uid: _repository.currentUser?.uid,
-                              onTap: _openAddressPicker,
+                          AppReveal(
+                            index: 1,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: HomeLocationStrip(
+                                repository: _repository,
+                                uid: _repository.currentUser?.uid,
+                                onTap: _openAddressPicker,
+                              ),
                             ),
                           ),
                           const SizedBox(height: AppSpacing.lg),
-                          AppSearchField(
+                          AppReveal(
+                            index: 2,
+                            child: AppSearchField(
                             controller: _searchController,
                             hintText: 'Search phones, brands…',
                             onChanged: (value) =>
@@ -262,29 +253,36 @@ class _HomePageState extends State<HomePage> {
                                     onPressed: () {
                                       _searchController.clear();
                                       setState(() => _searchQuery = '');
-                                    },
-                                  ),
+                                      },
+                                    ),
+                            ),
                           ),
                           const SizedBox(height: AppSpacing.xl),
-                          Text('Browse by category', style: AppTextStyles.h3),
+                          AppReveal(
+                            index: 3,
+                            child:
+                                Text('Browse by category', style: AppTextStyles.h3),
+                          ),
                           const SizedBox(height: AppSpacing.md),
-                          HomeCategoryGrid(
-                            categories: homeCategories,
-                            selectedId: _selectedCategoryId,
-                            onSelected: _onCategorySelected,
+                          AppReveal(
+                            index: 4,
+                            child: HomeCategoryGrid(
+                              categories: homeCategories,
+                              selectedId: _selectedCategoryId,
+                              onSelected: _onCategorySelected,
+                            ),
                           ),
                           const SizedBox(height: AppSpacing.xl),
-                          HomeSellCta(
+                          AppReveal(
+                            index: 5,
+                            child: HomeSellCta(
                             onSellTap: () => _onNavTap(HomeNavTab.sell),
-                            onCheckupTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const CheckupEntryPage(),
-                              ),
+                            onCheckupTap: () =>
+                                  context.pushScreen(const CheckupEntryPage()),
                             ),
                           ),
                           const SizedBox(height: AppSpacing.lg),
-                          const HomeTrustRow(),
+                          const AppReveal(index: 6, child: HomeTrustRow()),
                           const SizedBox(height: AppSpacing.xxl),
                         ]),
                       ),

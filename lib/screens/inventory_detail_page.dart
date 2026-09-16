@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
@@ -171,7 +172,11 @@ class _InventoryDetailPlaceholderState
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text('Price', style: AppTextStyles.caption),
-                    Text('₹ $finalPrice', style: AppTextStyles.h3),
+                    AppAnimatedCount(
+                      value: finalPrice,
+                      prefix: '₹ ',
+                      style: AppTextStyles.h3,
+                    ),
                   ],
                 ),
               ),
@@ -215,11 +220,22 @@ class _InventoryDetailPlaceholderState
                   borderRadius: AppRadius.card,
                   border: Border.all(color: AppColors.border),
                 ),
-                child: AppNetworkImage(
-                  url: images[index],
-                  fit: BoxFit.contain,
-                  borderRadius: BorderRadius.zero,
-                ),
+                child: index == 0 && widget.documentId != null
+                    // Receives the flight from the home rail / wishlist. Only
+                    // the first frame participates; the rest just page.
+                    ? Hero(
+                        tag: 'product-image-${widget.documentId}',
+                        child: AppNetworkImage(
+                          url: images[index],
+                          fit: BoxFit.contain,
+                          borderRadius: BorderRadius.zero,
+                        ),
+                      )
+                    : AppNetworkImage(
+                        url: images[index],
+                        fit: BoxFit.contain,
+                        borderRadius: BorderRadius.zero,
+                      ),
               );
             },
           ),

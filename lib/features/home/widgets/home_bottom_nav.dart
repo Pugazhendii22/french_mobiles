@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:french_mobiles/shared/motion/motion.dart';
 import 'package:french_mobiles/shared/theme/app_colors.dart';
 import 'package:french_mobiles/shared/theme/app_text_styles.dart';
 import 'package:french_mobiles/shared/theme/app_theme.dart';
@@ -109,7 +110,17 @@ class _NavItem extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(selected ? activeIcon : icon, size: 22, color: color),
+              AnimatedSwitcher(
+                duration: AppMotion.duration(context, AppMotion.fast),
+                transitionBuilder: (child, anim) =>
+                    ScaleTransition(scale: anim, child: child),
+                child: Icon(
+                  selected ? activeIcon : icon,
+                  key: ValueKey<bool>(selected),
+                  size: 22,
+                  color: color,
+                ),
+              ),
               const SizedBox(height: 2),
               Text(
                 label,

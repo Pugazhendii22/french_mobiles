@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:french_mobiles/features/home/data/home_models.dart';
 import 'package:french_mobiles/features/home/data/home_repository.dart';
+import 'package:french_mobiles/shared/motion/motion.dart';
 import 'package:french_mobiles/shared/theme/app_colors.dart';
 import 'package:french_mobiles/shared/theme/app_text_styles.dart';
 import 'package:french_mobiles/shared/theme/app_theme.dart';
@@ -38,9 +39,8 @@ class HomeProductCard extends StatelessWidget {
     return Semantics(
       button: true,
       label: product.title,
-      child: InkWell(
+      child: AppPressable(
         onTap: onTap,
-        borderRadius: AppRadius.card,
         child: Container(
           width: 164,
           decoration: BoxDecoration(
@@ -65,10 +65,15 @@ class HomeProductCard extends StatelessWidget {
                         top: Radius.circular(AppRadius.lg),
                       ),
                     ),
-                    child: AppNetworkImage(
-                      url: product.imageUrl,
-                      fit: BoxFit.contain,
-                      borderRadius: BorderRadius.zero,
+                    // Shares the image with the detail page, so the photo
+                    // flies into place instead of the screen cutting.
+                    child: Hero(
+                      tag: 'product-image-$productId',
+                      child: AppNetworkImage(
+                        url: product.imageUrl,
+                        fit: BoxFit.contain,
+                        borderRadius: BorderRadius.zero,
+                      ),
                     ),
                   ),
                   Positioned(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:french_mobiles/features/home/data/home_models.dart';
+import 'package:french_mobiles/shared/motion/motion.dart';
 import 'package:french_mobiles/shared/theme/app_colors.dart';
 import 'package:french_mobiles/shared/theme/app_text_styles.dart';
 import 'package:french_mobiles/shared/theme/app_theme.dart';
@@ -70,12 +71,11 @@ class _CategoryTile extends StatelessWidget {
       button: true,
       selected: selected,
       label: category.title,
-      child: InkWell(
+      child: AppPressable(
         onTap: onTap,
-        borderRadius: AppRadius.card,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
+          duration: AppMotion.duration(context, AppMotion.normal),
+          curve: AppMotion.enter,
           padding: const EdgeInsets.symmetric(
             vertical: AppSpacing.md,
             horizontal: AppSpacing.sm,
