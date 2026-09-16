@@ -420,22 +420,31 @@ class _SellMobilePageState extends State<SellMobilePage> {
 
 /// Fades and lifts a tile into place, staggered by position.
 ///
-/// Runs once on first build — there is no async load here to wait on, so the
-/// motion is only there to give the grid a sense of order as it appears.
+/// The stagger is expressed as an [Interval] on a single tween rather than a
+/// delayed start, so no timer is created per tile and nothing is left pending
+/// if the screen is popped mid-animation.
 class _Reveal extends StatelessWidget {
   const _Reveal({required this.index, required this.child});
 
   final int index;
   final Widget child;
 
+  static const int _slots = 9;
+  static const int _revealMs = 260;
+  static const int _stepMs = 40;
+  static const int _totalMs = _revealMs + _stepMs * (_slots - 1);
+
   @override
   Widget build(BuildContext context) {
-    final delay = Duration(milliseconds: 40 * (index % 9));
+    final slot = index % _slots;
+    final begin = (slot * _stepMs) / _totalMs;
+    final end = (slot * _stepMs + _revealMs) / _totalMs;
 
     return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOut,
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: _totalMs),
+      curve: Interval(begin, end, curve: Curves.easeOut),
+      child: child,
       builder: (context, value, child) {
         return Opacity(
           opacity: value,
@@ -445,10 +454,6 @@ class _Reveal extends StatelessWidget {
           ),
         );
       },
-      child: FutureBuilder<void>(
-        future: Future<void>.delayed(delay),
-        builder: (context, _) => child,
-      ),
     );
   }
 }
@@ -460,7 +465,13 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   final Widget child;
 
-  static const double _height = 76;
+  /// The child is pinned to exactly these dimensions rather than being left
+  /// to size itself: a pinned header derives paintExtent from the child's
+  /// real height but layoutExtent from [maxExtent], and Flutter asserts if
+  /// the two disagree by even a pixel.
+  static const double _fieldHeight = 48;
+  static const double _verticalPadding = AppSpacing.lg + AppSpacing.md;
+  static const double _height = _fieldHeight + _verticalPadding;
 
   @override
   double get minExtent => _height;
@@ -489,7 +500,7 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
           ),
         ),
       ),
-      child: child,
+      child: SizedBox(height: _fieldHeight, child: child),
     );
   }
 
