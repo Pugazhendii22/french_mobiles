@@ -1,12 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
-import '../theme/app_theme.dart';
-import '../widgets/widgets.dart';
+import '../shared/theme/app_colors.dart';
+import '../shared/theme/app_text_styles.dart';
+import '../shared/theme/app_theme.dart';
+import '../shared/widgets/widgets.dart';
 import 'brand_detail_page.dart';
 import 'brand_list_page.dart';
 import 'device_evaluation_wizard.dart';
 
+/// Entry point of the sell flow: pick a brand, or search for a model
+/// directly.
+///
+/// All data is local — [brandData], [moreBrandData] and the model list below.
+/// This screen performs no Firebase reads.
+///
+/// Wrapped in [AppTheme.light] locally because `MaterialApp` still carries the
+/// app's original inline theme; this can be dropped once the theme is adopted
+/// globally.
 class SellMobilePage extends StatefulWidget {
   const SellMobilePage({super.key});
 
@@ -68,17 +79,14 @@ class _SellMobilePageState extends State<SellMobilePage> {
     FocusScope.of(context).unfocus();
   }
 
-  void _showHelpSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => const _HelpSheetContent(),
-    );
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
   }
+
+  // --- Navigation --------------------------------------------------------
 
   void _navigateToBrandDetail(BrandModel brand) {
     Navigator.push(
@@ -92,376 +100,316 @@ class _SellMobilePageState extends State<SellMobilePage> {
     );
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _searchFocusNode.dispose();
-    super.dispose();
+  void _openBrandList() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const BrandListPage()),
+    );
   }
+
+  void _openModel(String modelName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DeviceEvaluationWizard(
+          brandName: '',
+          modelDocId: '',
+          modelName: modelName,
+          imageUrl: null,
+          basePrice: 50000,
+          storage: 'Standard Variant',
+        ),
+      ),
+    );
+  }
+
+  void _showHelpSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (_) => const _HelpSheet(),
+    );
+  }
+
+  // --- Build -------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
-    final topInset = MediaQuery.paddingOf(context).top;
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _buildHeader()),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SearchHeaderDelegate(_buildSearchBar(), topInset),
-          ),
-            if (_isSearching && _filteredModels.isNotEmpty)
-              SliverToBoxAdapter(child: _buildSearchResults()),
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      const Text(
-                        'TOP MOBILE BRANDS',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.1,
-                          color: Color(0xFF54535A),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF32CD32), Color(0xFF1E9B1E)],
-                          ),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.auto_awesome,
-                                size: 12, color: Colors.white),
-                            SizedBox(width: 4),
-                            Text(
-                              'AI PICKS',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.6,
-                                color: Colors.white,
+    return Theme(
+      data: AppTheme.light,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: CustomScrollView(
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenGutter,
+                    AppSpacing.lg,
+                    AppSpacing.screenGutter,
+                    0,
+                  ),
+                  sliver: SliverToBoxAdapter(child: _buildHeader()),
+                ),
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _SearchHeaderDelegate(
+                    child: AppSearchField(
+                      controller: _searchController,
+                      focusNode: _searchFocusNode,
+                      hintText: 'Search model (e.g. iPhone 13)',
+                      onChanged: _onSearchChanged,
+                      trailing: _isSearching
+                          ? IconButton(
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                size: 18,
+                                color: AppColors.textSecondary,
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                              onPressed: _clearSearch,
+                            )
+                          : null,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                _filteredBrands.isEmpty
-                    ? Container(
-                        height: 120,
-                        width: double.infinity,
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'No matching brands found.',
-                          style: TextStyle(color: Color(0xFF94A3B8)),
-                        ),
-                      )
-                    : SizedBox(
-                        height: 220,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
-                          clipBehavior: Clip.none,
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                          itemCount: _filteredBrands.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 12),
-                          itemBuilder: (context, index) {
-                            final brand = _filteredBrands[index];
-                            return BrandCard(
-                              brand: brand,
-                              onTap: () => _navigateToBrandDetail(brand),
-                            );
-                          },
-                        ),
-                      ),
-                const SizedBox(height: 28),
-                Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Text(
-                        'MORE BRANDS',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.1,
-                          color: Color(0xFF54535A),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Expanded(child: SizedBox()),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const BrandListPage(),
-                            ),
-                          );
-                        },
-                        child: const Text(
-                          'View all',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1E9B1E),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 0.9,
+                if (_isSearching && _filteredModels.isNotEmpty)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.screenGutter,
+                      AppSpacing.lg,
+                      AppSpacing.screenGutter,
+                      0,
                     ),
-                    itemCount: otherBrandData.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == otherBrandData.length) {
-                        return _ViewAllBrandsTile(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const BrandListPage(),
-                              ),
-                            );
-                          },
-                        );
-                      }
-                      final brand = otherBrandData[index];
-                      return GridBrandCard(
-                        brand: brand,
-                        onTap: () => _navigateToBrandDetail(brand),
-                      );
-                    },
+                    sliver: SliverToBoxAdapter(child: _buildModelResults()),
                   ),
-                  const SizedBox(height: 16),
-                  Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.search,
-                            size: 14, color: Color(0xFF94A3B8)),
-                        const SizedBox(width: 6),
-                        const Text(
-                          "Don't see your brand? ",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            FocusScope.of(context).requestFocus(
-                                _searchFocusNode);
-                          },
-                          child: const Text(
-                            'Search above',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1E9B1E),
-                            ),
-                          ),
-                        ),
-                      ],
+                const SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.screenGutter,
+                    AppSpacing.xxl,
+                    AppSpacing.screenGutter,
+                    0,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: AppSectionHeader(
+                      title: 'Top mobile brands',
+                      subtitle: 'Most traded on French Mobiles',
                     ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 28),
+                ),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: AppSpacing.md),
+                ),
+                SliverToBoxAdapter(child: _buildTopBrandRail()),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenGutter,
+                    AppSpacing.xxl,
+                    AppSpacing.screenGutter,
+                    0,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: AppSectionHeader(
+                      title: 'More brands',
+                      actionLabel: 'View all',
+                      onActionTap: _openBrandList,
+                    ),
+                  ),
+                ),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: AppSpacing.md),
+                ),
+                _buildBrandGrid(),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenGutter,
+                    AppSpacing.xl,
+                    AppSpacing.screenGutter,
+                    AppSpacing.xxxl,
+                  ),
+                  sliver: SliverToBoxAdapter(child: _buildMissingBrandHint()),
+                ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return AppScreenHeader(
+      title: 'Sell Old Phone',
+      trailing: IconButton(
+        tooltip: 'Sell help & FAQs',
+        icon: const Icon(
+          Icons.help_outline_rounded,
+          color: AppColors.primary,
+        ),
+        onPressed: _showHelpSheet,
+      ),
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Get instant cash for your old phone', style: AppTextStyles.h1),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              const Icon(
+                Icons.verified_user_outlined,
+                size: 16,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  'Free doorstep pickup & instant payment',
+                  style: AppTextStyles.bodySmall,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return AppGradientHeader(
-      title: 'Sell Old Phone',
-      trailing: Padding(
-        padding: const EdgeInsets.only(right: 4),
-        child: IconButton(
-          tooltip: 'Sell help & FAQs',
-          icon: const Icon(Icons.live_help_outlined,
-              color: Color(0xFF1E9B1E)),
-          onPressed: _showHelpSheet,
-        ),
-      ),
-      content: const Padding(
-        padding: EdgeInsets.fromLTRB(20, 4, 20, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildModelResults() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
           children: [
-            Text(
-              'Get Instant Cash for Your Old Phone',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF1E293B),
-              ),
-            ),
-            SizedBox(height: 6),
-            Row(
-              children: [
-                Icon(Icons.verified_user,
-                    size: 16, color: Color(0xFF1E9B1E)),
-                SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'Free doorstep pickup & instant payment',
-                    style:
-                        TextStyle(fontSize: 14, color: Color(0xFF4B5563)),
-                  ),
-                ),
-              ],
+            Text('Matching models', style: AppTextStyles.h3),
+            const SizedBox(width: AppSpacing.sm),
+            AppBadge(
+              label: '${_filteredModels.length}',
+              tone: AppBadgeTone.primary,
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return Row(
-      children: [
-        Expanded(child: _buildSearchField()),
+        const SizedBox(height: AppSpacing.md),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: AppRadius.card,
+            border: Border.all(color: AppColors.border),
+            boxShadow: AppShadows.card,
+          ),
+          child: Column(
+            children: [
+              for (var i = 0; i < _filteredModels.length; i++) ...[
+                if (i > 0)
+                  const Divider(
+                    height: 1,
+                    thickness: 1,
+                    indent: AppSpacing.lg,
+                    endIndent: AppSpacing.lg,
+                    color: AppColors.border,
+                  ),
+                AppListTile(
+                  title: _filteredModels[i],
+                  leadingIcon: Icons.smartphone_rounded,
+                  onTap: () => _openModel(_filteredModels[i]),
+                ),
+              ],
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildSearchField() {
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _isSearching
-              ? AppColors.primaryContainer
-              : const Color(0xFFE2E8F0),
-          width: _isSearching ? 1.5 : 1.0,
+  Widget _buildTopBrandRail() {
+    if (_filteredBrands.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenGutter),
+        child: AppEmptyState(
+          title: 'No matching brands',
+          message: 'Try a different name, or browse the full list below.',
+          icon: Icons.search_off_rounded,
         ),
-        boxShadow: _isSearching
-            ? [
-                BoxShadow(
-                  color: AppColors.primaryContainer.withValues(alpha: 0.25),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
+      );
+    }
+
+    return SizedBox(
+      height: 148,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.screenGutter,
+        ),
+        itemCount: _filteredBrands.length,
+        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
+        itemBuilder: (context, index) {
+          final brand = _filteredBrands[index];
+          return _Reveal(
+            index: index,
+            child: AppBrandCard(
+              brand: brand,
+              width: 132,
+              onTap: () => _navigateToBrandDetail(brand),
+            ),
+          );
+        },
       ),
-      child: TextField(
-        controller: _searchController,
-        focusNode: _searchFocusNode,
-        onChanged: _onSearchChanged,
-        decoration: InputDecoration(
-          icon: const Icon(Icons.search, color: Color(0xFF94A3B8)),
-          hintText: 'Search model (e.g. iPhone 13)',
-          hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
-          border: InputBorder.none,
-          suffixIcon: _isSearching
-              ? IconButton(
-                  icon: const Icon(Icons.clear,
-                      size: 18, color: Color(0xFF64748B)),
-                  onPressed: _clearSearch,
-                )
-              : null,
+    );
+  }
+
+  Widget _buildBrandGrid() {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.screenGutter,
+      ),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: AppSpacing.md,
+          mainAxisSpacing: AppSpacing.md,
+          childAspectRatio: 0.88,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            if (index == otherBrandData.length) {
+              return _ViewAllTile(onTap: _openBrandList);
+            }
+            final brand = otherBrandData[index];
+            return _Reveal(
+              index: index,
+              child: AppBrandCard(
+                brand: brand,
+                onTap: () => _navigateToBrandDetail(brand),
+              ),
+            );
+          },
+          childCount: otherBrandData.length + 1,
         ),
       ),
     );
   }
 
-  Widget _buildSearchResults() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildMissingBrandHint() {
+    return Center(
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          const Text(
-            'MATCHING MODELS',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF64748B),
-              letterSpacing: 1.0,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _filteredModels.length,
-              separatorBuilder: (context, index) =>
-                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
-              itemBuilder: (context, index) {
-                final modelName = _filteredModels[index];
-                return ListTile(
-                  leading: const Icon(Icons.phone_iphone,
-                      color: AppColors.primaryContainer),
-                  title: Text(
-                    modelName,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                  trailing: const Icon(Icons.arrow_forward_ios,
-                      size: 14, color: Color(0xFF94A3B8)),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => DeviceEvaluationWizard(
-                          brandName: '',
-                          modelDocId: '',
-                          modelName: modelName,
-                          imageUrl: null,
-                          basePrice: 50000,
-                          storage: 'Standard Variant',
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
+          Text("Don't see your brand? ", style: AppTextStyles.bodySmall),
+          GestureDetector(
+            onTap: () => FocusScope.of(context).requestFocus(_searchFocusNode),
+            child: Text(
+              'Search above',
+              style: AppTextStyles.label.copyWith(color: AppColors.primary),
             ),
           ),
         ],
@@ -470,17 +418,55 @@ class _SellMobilePageState extends State<SellMobilePage> {
   }
 }
 
+/// Fades and lifts a tile into place, staggered by position.
+///
+/// Runs once on first build — there is no async load here to wait on, so the
+/// motion is only there to give the grid a sense of order as it appears.
+class _Reveal extends StatelessWidget {
+  const _Reveal({required this.index, required this.child});
+
+  final int index;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final delay = Duration(milliseconds: 40 * (index % 9));
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOut,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, (1 - value) * 12),
+            child: child,
+          ),
+        );
+      },
+      child: FutureBuilder<void>(
+        future: Future<void>.delayed(delay),
+        builder: (context, _) => child,
+      ),
+    );
+  }
+}
+
+/// Pinned search bar. Keeps a solid background so content scrolls beneath it
+/// cleanly, and grows a hairline rule once it overlaps.
 class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _SearchHeaderDelegate(this.child, this.topInset);
+  const _SearchHeaderDelegate({required this.child});
 
   final Widget child;
-  final double topInset;
+
+  static const double _height = 76;
 
   @override
-  double get minExtent => topInset + 72;
+  double get minExtent => _height;
 
   @override
-  double get maxExtent => topInset + 72;
+  double get maxExtent => _height;
 
   @override
   Widget build(
@@ -489,19 +475,19 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return Container(
-      padding: EdgeInsets.fromLTRB(16, topInset + 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenGutter,
+        AppSpacing.lg,
+        AppSpacing.screenGutter,
+        AppSpacing.md,
+      ),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: const Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
-        boxShadow: overlapsContent
-            ? const [
-                BoxShadow(
-                  color: Color(0x14000000),
-                  blurRadius: 8,
-                  offset: Offset(0, 2),
-                ),
-              ]
-            : null,
+        color: AppColors.background,
+        border: Border(
+          bottom: BorderSide(
+            color: overlapsContent ? AppColors.border : AppColors.transparent,
+          ),
+        ),
       ),
       child: child,
     );
@@ -510,6 +496,51 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(covariant _SearchHeaderDelegate oldDelegate) =>
       oldDelegate.child != child;
+}
+
+/// Trailing grid cell that opens the full, searchable brand list.
+class _ViewAllTile extends StatelessWidget {
+  const _ViewAllTile({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'View all brands',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.card,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.primarySoft,
+            borderRadius: AppRadius.card,
+            border: Border.all(color: AppColors.primary),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.grid_view_rounded,
+                size: 26,
+                color: AppColors.onPrimarySoft,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'View all',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.label.copyWith(
+                  color: AppColors.onPrimarySoft,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _HelpItem {
@@ -524,14 +555,15 @@ class _HelpItem {
   final String answer;
 }
 
-class _HelpSheetContent extends StatefulWidget {
-  const _HelpSheetContent();
+/// Selling FAQs, opened from the header. One item expands at a time.
+class _HelpSheet extends StatefulWidget {
+  const _HelpSheet();
 
   @override
-  State<_HelpSheetContent> createState() => _HelpSheetContentState();
+  State<_HelpSheet> createState() => _HelpSheetState();
 }
 
-class _HelpSheetContentState extends State<_HelpSheetContent> {
+class _HelpSheetState extends State<_HelpSheet> {
   static const List<_HelpItem> _items = [
     _HelpItem(
       icon: Icons.local_shipping_outlined,
@@ -559,119 +591,82 @@ class _HelpSheetContentState extends State<_HelpSheetContent> {
     ),
   ];
 
-  int _expandedIndex = -1;
+  int? _expandedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildHeader(),
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-              child: Column(
-                children: [
-                  for (var i = 0; i < _items.length; i++) ...[
-                    _AccordionItem(
-                      item: _items[i],
-                      expanded: _expandedIndex == i,
-                      onToggle: () {
-                        setState(() {
-                          _expandedIndex = _expandedIndex == i ? -1 : i;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                ],
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          AppSpacing.md,
+          AppSpacing.xl,
+          AppSpacing.xl,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                height: 4,
+                width: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: AppRadius.pill,
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 20, 8, 22),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF32CD32), Color(0xFF1E9B1E)],
-        ),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: AppSpacing.xl),
+            Row(
               children: [
-                Row(
-                  children: [
-                    Stack(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Icon(Icons.phone_iphone,
-                              color: Colors.white, size: 26),
-                        ),
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            width: 18,
-                            height: 18,
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.currency_rupee,
-                                size: 12, color: Color(0xFF1E9B1E)),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Selling help',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Selling help', style: AppTextStyles.h2),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Everything you need to know about selling your phone',
+                        style: AppTextStyles.bodySmall,
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Everything you need to know about selling your phone',
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.3,
-                    color: Colors.white,
+                    ],
                   ),
+                ),
+                IconButton(
+                  tooltip: 'Close',
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: AppColors.textSecondary,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
-          ),
-          IconButton(
-            tooltip: 'Close',
-            icon: const Icon(Icons.close, color: Colors.white),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
+            const SizedBox(height: AppSpacing.lg),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < _items.length; i++) ...[
+                      if (i > 0) const SizedBox(height: AppSpacing.sm),
+                      _AccordionItem(
+                        item: _items[i],
+                        expanded: _expandedIndex == i,
+                        onToggle: () => setState(
+                          () => _expandedIndex = _expandedIndex == i ? null : i,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -691,114 +686,69 @@ class _AccordionItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
       decoration: BoxDecoration(
-        color: expanded ? const Color(0xFFF5FBF4) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: expanded ? AppColors.primarySoft : AppColors.surface,
+        borderRadius: AppRadius.card,
         border: Border.all(
-          color: const Color(0xFF32CD32)
-              .withValues(alpha: expanded ? 0.45 : 0.2),
-          width: expanded ? 1.5 : 1,
+          color: expanded ? AppColors.primary : AppColors.border,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: onToggle,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF32CD32).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
+      child: Material(
+        color: AppColors.transparent,
+        child: InkWell(
+          onTap: onToggle,
+          borderRadius: AppRadius.card,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      item.icon,
+                      size: 18,
+                      color: expanded
+                          ? AppColors.onPrimarySoft
+                          : AppColors.textSecondary,
                     ),
-                    child: Icon(item.icon,
-                        size: 18, color: const Color(0xFF1E9B1E)),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      item.question,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
-                  ),
-                  AnimatedRotation(
-                    turns: expanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 220),
-                    child:
-                        const Icon(Icons.expand_more, color: Color(0xFF1E9B1E)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          ClipRect(
-            child: AnimatedSize(
-              duration: const Duration(milliseconds: 240),
-              curve: Curves.easeInOut,
-              alignment: Alignment.topCenter,
-              child: expanded
-                  ? Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
                       child: Text(
-                        item.answer,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          height: 1.45,
-                          color: Color(0xFF64748B),
-                        ),
+                        item.question,
+                        style: AppTextStyles.bodyMedium,
                       ),
-                    )
-                  : const SizedBox(width: double.infinity),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    AnimatedRotation(
+                      turns: expanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 20,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                AnimatedCrossFade(
+                  firstChild: const SizedBox(width: double.infinity),
+                  secondChild: Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.md),
+                    child: Text(item.answer, style: AppTextStyles.bodySmall),
+                  ),
+                  crossFadeState: expanded
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  duration: const Duration(milliseconds: 200),
+                  sizeCurve: Curves.easeInOut,
+                ),
+              ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ViewAllBrandsTile extends StatelessWidget {
-  final VoidCallback? onTap;
-
-  const _ViewAllBrandsTile({this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFFF5FBF4),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFF32CD32).withValues(alpha: 0.35)),
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.apps, size: 24, color: Color(0xFF1E9B1E)),
-            SizedBox(height: 8),
-            Text(
-              'View all brands',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1E9B1E),
-              ),
-            ),
-          ],
         ),
       ),
     );

@@ -13,6 +13,7 @@ class AppSearchField extends StatelessWidget {
   const AppSearchField({
     super.key,
     this.controller,
+    this.focusNode,
     this.hintText = 'Search',
     this.onChanged,
     this.onSubmitted,
@@ -22,6 +23,10 @@ class AppSearchField extends StatelessWidget {
   });
 
   final TextEditingController? controller;
+
+  /// Lets a caller move focus here from elsewhere on the screen.
+  final FocusNode? focusNode;
+
   final String hintText;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
@@ -47,6 +52,7 @@ class AppSearchField extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
+              focusNode: focusNode,
               readOnly: readOnly,
               onTap: onTap,
               onChanged: onChanged,
