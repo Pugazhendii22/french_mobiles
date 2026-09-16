@@ -233,6 +233,7 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
           border: Border.all(
             color: hasAddress ? AppColors.border : AppColors.warning,
           ),
+          boxShadow: hasAddress ? AppShadows.card : null,
         ),
         child: Row(
           children: [
@@ -286,14 +287,11 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
     );
   }
 
+  /// Page level: this is a readout of what you already chose, not something
+  /// to pick, so it needs no enclosure.
   Widget _buildDeviceCard() {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: AppRadius.card,
-        border: Border.all(color: AppColors.border),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         children: [
           Container(
@@ -336,28 +334,20 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
     );
   }
 
+  /// Rules, not a box. The figures are already grouped under their own
+  /// heading, so an enclosure only adds a line for the eye to cross.
   Widget _buildSummaryCard() {
     final deduction = widget.basePrice - widget.finalPayout;
 
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: AppRadius.card,
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        children: [
-          _summaryRow('Base price', '₹ ${widget.basePrice}'),
-          if (deduction > 0) ...[
-            const SizedBox(height: AppSpacing.sm),
-            _summaryRow('Condition adjustment', '− ₹ $deduction'),
-          ],
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-            child: Divider(height: 1, thickness: 1, color: AppColors.border),
-          ),
-          Row(
+    return AppGroup(
+      bare: true,
+      children: [
+        _summaryRow('Base price', '₹ ${widget.basePrice}'),
+        if (deduction > 0)
+          _summaryRow('Condition adjustment', '− ₹ $deduction'),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          child: Row(
             children: [
               Expanded(
                 child: Text('Final payout', style: AppTextStyles.bodyMedium),
@@ -370,17 +360,20 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
               ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _summaryRow(String label, String value) {
-    return Row(
-      children: [
-        Expanded(child: Text(label, style: AppTextStyles.bodySmall)),
-        Text(value, style: AppTextStyles.priceSmall),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: AppTextStyles.bodySmall)),
+          Text(value, style: AppTextStyles.priceSmall),
+        ],
+      ),
     );
   }
 

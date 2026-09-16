@@ -44,9 +44,9 @@ class HomeProductCard extends StatelessWidget {
         child: Container(
           width: 164,
           decoration: BoxDecoration(
+            // Raised, not outlined: the lift is what marks it tappable.
             color: AppColors.surface,
             borderRadius: AppRadius.card,
-            border: Border.all(color: AppColors.border),
             boxShadow: AppShadows.card,
           ),
           child: Column(

@@ -81,13 +81,11 @@ class _CategoryTile extends StatelessWidget {
             horizontal: AppSpacing.sm,
           ),
           decoration: BoxDecoration(
-            color: selected ? AppColors.primarySoft : AppColors.surface,
+            // Selected reads through fill alone; unselected sits on a muted
+            // surface with no border, so the row is three shapes rather than
+            // three outlined boxes.
+            color: selected ? AppColors.primarySoft : AppColors.surfaceMuted,
             borderRadius: AppRadius.card,
-            border: Border.all(
-              color: selected ? AppColors.primary : AppColors.border,
-              width: selected ? 1.5 : 1,
-            ),
-            boxShadow: selected ? null : AppShadows.card,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

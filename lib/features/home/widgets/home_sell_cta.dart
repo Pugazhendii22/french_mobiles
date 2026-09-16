@@ -7,9 +7,10 @@ import 'package:french_mobiles/shared/widgets/app_primary_button.dart';
 
 /// The home screen's primary conversion surface: sell a device.
 ///
-/// A white card rather than a lime panel — the brand colour stays on the
-/// button, where it reads as the action to take, instead of becoming a
-/// full-bleed background that competes with the listings below.
+/// The one accent surface on the screen (surface level `accent`). Everything
+/// else on home sits on the page or is a raised product card, so this tinted
+/// panel is what the eye lands on first — which is correct, because selling a
+/// phone is what the app is for.
 class HomeSellCta extends StatelessWidget {
   const HomeSellCta({
     super.key,
@@ -25,10 +26,8 @@ class HomeSellCta extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.primarySoft,
         borderRadius: AppRadius.card,
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,7 +38,7 @@ class HomeSellCta extends StatelessWidget {
                 height: 40,
                 width: 40,
                 decoration: const BoxDecoration(
-                  color: AppColors.primarySoft,
+                  color: AppColors.surface,
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
@@ -59,7 +58,9 @@ class HomeSellCta extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       'Instant quote, free doorstep pickup',
-                      style: AppTextStyles.bodySmall,
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.onPrimarySoft,
+                      ),
                     ),
                   ],
                 ),

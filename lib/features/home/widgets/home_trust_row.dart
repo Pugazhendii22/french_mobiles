@@ -6,6 +6,10 @@ import 'package:french_mobiles/shared/theme/app_theme.dart';
 
 /// Three static reassurance points.
 ///
+/// Sits directly on the page (surface level `page`): these are supporting
+/// copy, not three separate objects, so boxing them gave them a weight they
+/// had not earned.
+///
 /// Deliberately not animated: the previous home screen rotated these on a
 /// timer, which moved text under the user's thumb while they were reading.
 class HomeTrustRow extends StatelessWidget {
@@ -24,15 +28,10 @@ class HomeTrustRow extends StatelessWidget {
         for (var i = 0; i < _items.length; i++) ...[
           if (i > 0) const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: Container(
+            child: Padding(
               padding: const EdgeInsets.symmetric(
-                vertical: AppSpacing.md,
+                vertical: AppSpacing.sm,
                 horizontal: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: AppRadius.field,
-                border: Border.all(color: AppColors.border),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
