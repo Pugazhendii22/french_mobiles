@@ -11,10 +11,17 @@ import 'bluetooth_test_page.dart';
 import 'buttons_test_page.dart';
 import 'camera_test_page.dart';
 import 'display_test_page.dart';
+import 'earpiece_test_page.dart';
+import 'flashlight_test_page.dart';
 import 'gyroscope_test_page.dart';
 import 'location_test_page.dart';
+import 'microphone_test_page.dart';
+import 'multitouch_test_page.dart';
 import 'network_test_page.dart';
+import 'proximity_test_page.dart';
+import 'speaker_test_page.dart';
 import 'summary_page.dart';
+import 'vibration_test_page.dart';
 import 'wifi_test_page.dart';
 
 /// One entry in the checkup run, in the order tests execute.
@@ -39,11 +46,10 @@ class CheckupTestSpec {
 class CheckupEntryPage extends StatefulWidget {
   const CheckupEntryPage({super.key});
 
-  @override
-  State<CheckupEntryPage> createState() => _CheckupEntryPageState();
-}
-
-class _CheckupEntryPageState extends State<CheckupEntryPage> {
+  /// Every test in the run, in execution order.
+  ///
+  /// Public so the order and registration can be asserted without reaching
+  /// into private state — this list is the flow's contract.
   static final List<CheckupTestSpec> specs = [
     const CheckupTestSpec(
       key: 'camera',
@@ -53,6 +59,13 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
       pageBuilder: _camera,
     ),
     const CheckupTestSpec(
+      key: 'flashlight',
+      title: 'Flashlight',
+      description: 'Torch switches on and off',
+      icon: Icons.flashlight_on_outlined,
+      pageBuilder: _flashlight,
+    ),
+    const CheckupTestSpec(
       key: 'display',
       title: 'Display',
       description: 'Colour sweep & full-screen touch grid',
@@ -60,11 +73,53 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
       pageBuilder: _display,
     ),
     const CheckupTestSpec(
+      key: 'multitouch',
+      title: 'Multi-touch',
+      description: 'Panel tracks five fingers at once',
+      icon: Icons.touch_app_outlined,
+      pageBuilder: _multitouch,
+    ),
+    const CheckupTestSpec(
       key: 'buttons',
       title: 'Side buttons',
       description: 'Volume keys & power button self-report',
       icon: Icons.volume_up_outlined,
       pageBuilder: _buttons,
+    ),
+    const CheckupTestSpec(
+      key: 'speaker',
+      title: 'Loudspeaker',
+      description: 'Plays a test tone through the speaker',
+      icon: Icons.volume_up_outlined,
+      pageBuilder: _speaker,
+    ),
+    const CheckupTestSpec(
+      key: 'earpiece',
+      title: 'Earpiece',
+      description: 'Reads a number through the receiver',
+      icon: Icons.hearing_outlined,
+      pageBuilder: _earpiece,
+    ),
+    const CheckupTestSpec(
+      key: 'microphone',
+      title: 'Microphone',
+      description: 'Records and measures captured audio',
+      icon: Icons.mic_none_outlined,
+      pageBuilder: _microphone,
+    ),
+    const CheckupTestSpec(
+      key: 'proximity',
+      title: 'Proximity sensor',
+      description: 'Detects the phone approaching your ear',
+      icon: Icons.phonelink_ring_outlined,
+      pageBuilder: _proximity,
+    ),
+    const CheckupTestSpec(
+      key: 'vibration',
+      title: 'Vibration motor',
+      description: 'Buzzes a pattern you confirm',
+      icon: Icons.vibration_rounded,
+      pageBuilder: _vibration,
     ),
     const CheckupTestSpec(
       key: 'wifi',
@@ -119,6 +174,23 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
   static Widget _network(BuildContext context) => const NetworkTestPage();
   static Widget _location(BuildContext context) => const LocationTestPage();
   static Widget _gyroscope(BuildContext context) => const GyroscopeTestPage();
+  static Widget _flashlight(BuildContext context) =>
+      const FlashlightTestPage();
+  static Widget _multitouch(BuildContext context) =>
+      const MultitouchTestPage();
+  static Widget _speaker(BuildContext context) => const SpeakerTestPage();
+  static Widget _earpiece(BuildContext context) => const EarpieceTestPage();
+  static Widget _microphone(BuildContext context) =>
+      const MicrophoneTestPage();
+  static Widget _proximity(BuildContext context) => const ProximityTestPage();
+  static Widget _vibration(BuildContext context) => const VibrationTestPage();
+
+  @override
+  State<CheckupEntryPage> createState() => _CheckupEntryPageState();
+}
+
+class _CheckupEntryPageState extends State<CheckupEntryPage> {
+  List<CheckupTestSpec> get specs => CheckupEntryPage.specs;
 
   bool _running = false;
 
