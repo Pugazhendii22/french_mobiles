@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../../models/checkup_result.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/widgets.dart';
+import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_text_styles.dart';
+import '../../shared/theme/app_theme.dart';
+import '../../shared/widgets/widgets.dart';
 
 enum _BiometricPhase { checking, prompt, selfReport, verdict }
 
@@ -126,7 +128,11 @@ class _BiometricTestPageState extends State<BiometricTestPage> {
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          const AppGradientHeader(title: 'Checkup · Biometric'),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(AppSpacing.screenGutter,
+                AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
+            child: AppScreenHeader(title: 'Checkup · Biometric'),
+          ),
           Expanded(child: switch (_phase) {
             _BiometricPhase.checking ||
             _BiometricPhase.prompt =>
@@ -141,7 +147,7 @@ class _BiometricTestPageState extends State<BiometricTestPage> {
 
   Widget _loadingView() {
     return const Center(
-      child: CircularProgressIndicator(color: Color(0xFF32CD32)),
+      child: CircularProgressIndicator(color: AppColors.primary),
     );
   }
 
@@ -152,21 +158,21 @@ class _BiometricTestPageState extends State<BiometricTestPage> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppRadius.card),
+            color: AppColors.surface,
+            borderRadius: AppRadius.card,
             boxShadow: AppShadows.card,
           ),
-          child: const Text(
+          child: Text(
             'We couldn\'t verify automatically — this can happen on some phones even when the sensor works fine. Try unlocking with your fingerprint or face ID now, then tell us what happened.',
-            style: TextStyle(
-                fontSize: 13.5, height: 1.45, color: Color(0xFF475569)),
+            style: AppTextStyles.body.copyWith(
+                fontSize: 13.5, height: 1.45, color: AppColors.textSecondary),
           ),
         ),
         const SizedBox(height: 16),
         _reportButton(
           'Works',
           Icons.check_circle_outline,
-          const Color(0xFF32CD32),
+          AppColors.primary,
           () => _completeWith(const CheckupResult(
             key: 'biometric',
             title: 'Biometric',
@@ -178,7 +184,7 @@ class _BiometricTestPageState extends State<BiometricTestPage> {
         _reportButton(
           "Doesn't work",
           Icons.cancel_outlined,
-          const Color(0xFFDC2626),
+          AppColors.error,
           () => _completeWith(const CheckupResult(
             key: 'biometric',
             title: 'Biometric',
@@ -190,7 +196,7 @@ class _BiometricTestPageState extends State<BiometricTestPage> {
         _reportButton(
           'Not set up',
           Icons.lock_open_outlined,
-          const Color(0xFF64748B),
+          AppColors.textSecondary,
           () => _completeWith(const CheckupResult(
             key: 'biometric',
             title: 'Biometric',
@@ -216,7 +222,7 @@ class _BiometricTestPageState extends State<BiometricTestPage> {
         children: [
           Icon(icon, size: 20),
           const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+          Text(label, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
         ],
       ),
     );
@@ -234,7 +240,7 @@ class _BiometricTestPageState extends State<BiometricTestPage> {
             const SizedBox(height: 14),
             Text(
               r.status.label,
-              style: TextStyle(
+              style: AppTextStyles.body.copyWith(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.5,
@@ -245,7 +251,7 @@ class _BiometricTestPageState extends State<BiometricTestPage> {
             Text(
               r.detail ?? '',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF475569)),
+              style: AppTextStyles.body.copyWith(fontSize: 14, color: AppColors.textSecondary),
             ),
           ],
         ),

@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:french_mobiles/models/models.dart';
-import 'package:french_mobiles/widgets/widgets.dart';
+import 'package:french_mobiles/shared/widgets/widgets.dart';
 
 /// In-memory asset bundle so SvgPicture.asset can find the declared asset.
 class _FakeAssetBundle extends CachingAssetBundle {
@@ -45,7 +45,7 @@ final _realmeBrand = BrandModel(
 );
 
 void main() {
-  testWidgets('BrandLogo with asset renders SvgPicture, not wordmark text',
+  testWidgets('AppBrandLogo with asset renders SvgPicture, not wordmark text',
       (tester) async {
     final assets = <String, ByteData>{
       'assets/logos/samsung.svg': _svgBytes,
@@ -58,7 +58,7 @@ void main() {
           home: Scaffold(
             body: Column(
               children: [
-                BrandLogo(brand: _samsung),
+                AppBrandLogo(brand: _samsung),
               ],
             ),
           ),
@@ -72,7 +72,7 @@ void main() {
     // The wordmark fallback text for Samsung should NOT be present.
     expect(
       find.descendant(
-        of: find.byType(BrandLogo),
+        of: find.byType(AppBrandLogo),
         matching: find.text('Samsung'),
       ),
       findsNothing,
@@ -80,11 +80,11 @@ void main() {
     );
   });
 
-  testWidgets('BrandLogo without asset renders wordmark text', (tester) async {
+  testWidgets('AppBrandLogo without asset renders wordmark text', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: BrandLogo(brand: _realmeBrand),
+          body: AppBrandLogo(brand: _realmeBrand),
         ),
       ),
     );

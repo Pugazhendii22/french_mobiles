@@ -5,8 +5,10 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:wifi_scan/wifi_scan.dart';
 
 import '../../models/checkup_result.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/widgets.dart';
+import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_text_styles.dart';
+import '../../shared/theme/app_theme.dart';
+import '../../shared/widgets/widgets.dart';
 
 /// Test 4 — Wi-Fi.
 ///
@@ -298,7 +300,11 @@ class _WifiTestPageState extends State<WifiTestPage>
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          const AppGradientHeader(title: 'Checkup · Wi-Fi'),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(AppSpacing.screenGutter,
+                AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
+            child: AppScreenHeader(title: 'Checkup · Wi-Fi'),
+          ),
           Expanded(child: _result != null ? _verdictView() : _testView()),
         ],
       ),
@@ -312,8 +318,8 @@ class _WifiTestPageState extends State<WifiTestPage>
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppRadius.card),
+            color: AppColors.surface,
+            borderRadius: AppRadius.card,
             boxShadow: AppShadows.card,
           ),
           child: Row(
@@ -323,16 +329,16 @@ class _WifiTestPageState extends State<WifiTestPage>
                   width: 22,
                   height: 22,
                   child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Color(0xFF32CD32)),
+                      strokeWidth: 2, color: AppColors.primary),
                 )
               else
-                const Icon(Icons.wifi, color: Color(0xFF32CD32)),
+                const Icon(Icons.wifi, color: AppColors.primary),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   _statusText,
-                  style: const TextStyle(
-                      fontSize: 13.5, height: 1.4, color: Color(0xFF475569)),
+                  style: AppTextStyles.body.copyWith(
+                      fontSize: 13.5, height: 1.4, color: AppColors.textSecondary),
                 ),
               ),
             ],
@@ -344,17 +350,17 @@ class _WifiTestPageState extends State<WifiTestPage>
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 4),
               dense: true,
-              leading: const Icon(Icons.wifi, color: Color(0xFF64748B)),
+              leading: const Icon(Icons.wifi, color: AppColors.textSecondary),
               title: Text(
                 network.ssid.isEmpty ? '(hidden network)' : network.ssid,
-                style: const TextStyle(
+                style: AppTextStyles.body.copyWith(
                     fontSize: 14, fontWeight: FontWeight.w600,
-                    color: Color(0xFF0F172A)),
+                    color: AppColors.textPrimary),
               ),
               trailing: Text(
                 '${network.level} dBm',
-                style: const TextStyle(
-                    color: Color(0xFF94A3B8), fontSize: 12),
+                style: AppTextStyles.body.copyWith(
+                    color: AppColors.textTertiary, fontSize: 12),
               ),
             ),
         ],
@@ -362,8 +368,8 @@ class _WifiTestPageState extends State<WifiTestPage>
         Center(
           child: TextButton(
             onPressed: _skipTest,
-            child: const Text('Skip this test',
-                style: TextStyle(color: Color(0xFF94A3B8))),
+            child: Text('Skip this test',
+                style: AppTextStyles.body.copyWith(color: AppColors.textTertiary)),
           ),
         ),
       ],
@@ -382,7 +388,7 @@ class _WifiTestPageState extends State<WifiTestPage>
             const SizedBox(height: 14),
             Text(
               r.status.label,
-              style: TextStyle(
+              style: AppTextStyles.body.copyWith(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.5,
@@ -393,19 +399,19 @@ class _WifiTestPageState extends State<WifiTestPage>
             Text(
               r.detail ?? '',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF475569)),
+              style: AppTextStyles.body.copyWith(fontSize: 14, color: AppColors.textSecondary),
             ),
             if (_isPermanentlyDenied) ...[
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF32CD32),
-                  foregroundColor: Colors.black,
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
                 ),
                 onPressed: () => openAppSettings(),
                 icon: const Icon(Icons.settings),
-                label: const Text('Open Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: Text('Open Settings', style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
               ),
             ],
           ],

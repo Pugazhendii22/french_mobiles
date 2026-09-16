@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../models/checkup_result.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/widgets.dart';
+import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_text_styles.dart';
+import '../../shared/theme/app_theme.dart';
+import '../../shared/widgets/widgets.dart';
 import 'biometric_test_page.dart';
 import 'bluetooth_test_page.dart';
 import 'buttons_test_page.dart';
@@ -160,7 +162,11 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          const AppGradientHeader(title: 'Device Auto Checkup'),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(AppSpacing.screenGutter,
+                AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
+            child: AppScreenHeader(title: 'Device Auto Checkup'),
+          ),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
@@ -184,8 +190,8 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.card),
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
         boxShadow: AppShadows.card,
       ),
       child: Row(
@@ -194,32 +200,32 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
             width: 46,
             height: 46,
             decoration: const BoxDecoration(
-              color: Color(0xFF32CD32),
+              color: AppColors.primary,
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.build_circle_outlined,
-                color: Colors.white, size: 26),
+                color: AppColors.surface, size: 26),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '9 hardware tests',
-                  style: TextStyle(
+                  style: AppTextStyles.body.copyWith(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF0F172A),
+                    color: AppColors.textPrimary,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   'Runs automatically in sequence, then displays your test summary.',
-                  style: TextStyle(
+                  style: AppTextStyles.body.copyWith(
                     fontSize: 13,
                     height: 1.4,
-                    color: AppColors.onSurfaceVariant,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
@@ -233,13 +239,13 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
   Widget _testTile(int index, CheckupTestSpec spec) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.card),
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
         boxShadow: AppShadows.card,
       ),
       child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(AppRadius.card),
+        color: AppColors.transparent,
+        borderRadius: AppRadius.card,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
           child: Row(
@@ -248,10 +254,10 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF32CD32).withValues(alpha: 0.12),
+                  color: AppColors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(spec.icon, size: 19, color: const Color(0xFF1E9B1E)),
+                child: Icon(spec.icon, size: 19, color: AppColors.primaryDark),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -260,18 +266,18 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
                   children: [
                     Text(
                       '$index. ${spec.title}',
-                      style: const TextStyle(
+                      style: AppTextStyles.body.copyWith(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F172A),
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       spec.description,
-                      style: const TextStyle(
+                      style: AppTextStyles.body.copyWith(
                         fontSize: 12.5,
-                        color: AppColors.onSurfaceVariant,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],
@@ -286,7 +292,7 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
 
   Widget _startBar() {
     return Container(
-      color: Colors.white,
+      color: AppColors.surface,
       padding: EdgeInsets.fromLTRB(
         16,
         12,
@@ -297,13 +303,13 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
         height: 52,
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF32CD32),
-            foregroundColor: Colors.black,
+            backgroundColor: AppColors.primary,
+            foregroundColor: AppColors.onPrimary,
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.full),
             ),
-            textStyle: const TextStyle(
+            textStyle: AppTextStyles.body.copyWith(
               fontSize: 15,
               fontWeight: FontWeight.w800,
             ),

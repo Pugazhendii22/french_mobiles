@@ -2,8 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../models/checkup_result.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/widgets.dart';
+import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_text_styles.dart';
+import '../../shared/theme/app_theme.dart';
+import '../../shared/widgets/widgets.dart';
+
+/// Display check: a full-screen colour sweep for dead pixels, then a swipe
+/// canvas for unresponsive touch areas.
+///
+/// This is the one screen that deliberately keeps raw colour literals rather
+/// than palette tokens. [_DisplayTestPageState._sweepColors], the white swipe
+/// canvas, and every foreground derived from `dark ? ... : ...` are part of
+/// the test itself — the user is looking AT these colours to judge the panel.
+/// Theming them would break what the screen measures. All surrounding chrome
+/// uses AppColors/AppTextStyles as normal.
 
 enum _DisplayPhase { sweep, swipe }
 
@@ -225,7 +237,7 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
       children: [
         const SizedBox(height: 6),
         Text('Colour sweep',
-            style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 12)),
+            style: AppTextStyles.body.copyWith(color: fg, fontWeight: FontWeight.w700, fontSize: 12)),
         const SizedBox(height: 10),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -252,7 +264,7 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
       children: [
         Text(
           'Look for dead or stuck pixels on this screen.',
-          style: TextStyle(color: fg, fontSize: 13),
+          style: AppTextStyles.body.copyWith(color: fg, fontSize: 13),
         ),
         const SizedBox(height: 12),
         Row(
@@ -268,8 +280,8 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
                   ),
                 ),
                 onPressed: () => _markFailed('A display issue was reported'),
-                child: const Text('Issue found',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
+                child: Text('Issue found',
+                    style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
               ),
             ),
             const SizedBox(width: 12),
@@ -277,7 +289,7 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
               flex: 2,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: dark ? Colors.white : const Color(0xFF32CD32),
+                  backgroundColor: dark ? Colors.white : AppColors.primary,
                   foregroundColor: Colors.black,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -290,7 +302,7 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
                   _sweepIndex < _sweepColors.length - 1
                       ? 'Looks good — next colour'
                       : 'Looks good — swipe test',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
             ),
@@ -301,7 +313,7 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
           onTap: _skipTest,
           child: Text(
             'Skip display test',
-            style: TextStyle(color: fg.withValues(alpha: 0.7), fontSize: 12),
+            style: AppTextStyles.body.copyWith(color: fg.withValues(alpha: 0.7), fontSize: 12),
           ),
         ),
       ],
@@ -373,10 +385,10 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
             ),
             child: Text(
               'Swipe to reveal — $pct%',
-              style: const TextStyle(
+              style: AppTextStyles.body.copyWith(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
+                color: AppColors.textPrimary,
               ),
             ),
           ),
@@ -393,7 +405,7 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
               widthFactor: coverage.clamp(0.0, 1.0),
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF32CD32),
+                  color: AppColors.primary,
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -413,16 +425,16 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
           Expanded(
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFDC2626),
-                side: const BorderSide(color: Color(0xFFFCA5A5)),
+                foregroundColor: AppColors.error,
+                side: const BorderSide(color: AppColors.error),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
               onPressed: () => _markFailed('A display issue was reported'),
-              child: const Text('Issue found',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
+              child: Text('Issue found',
+                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
             ),
           ),
           const SizedBox(width: 12),
@@ -437,8 +449,8 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
               child: Text(
                 'Swipe over the whole screen — $pct% left. Reaches ~90% to pass.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 11.5, height: 1.3, color: Color(0xFF0F172A)),
+                style: AppTextStyles.body.copyWith(
+                    fontSize: 11.5, height: 1.3, color: AppColors.textPrimary),
               ),
             ),
           ),
@@ -454,7 +466,11 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
       body: SafeArea(
         child: Column(
           children: [
-            const AppGradientHeader(title: 'Checkup · Display'),
+            const Padding(
+            padding: EdgeInsets.fromLTRB(AppSpacing.screenGutter,
+                AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
+            child: AppScreenHeader(title: 'Checkup · Display'),
+          ),
             Expanded(
               child: Center(
                 child: Padding(
@@ -466,7 +482,7 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
                       const SizedBox(height: 14),
                       Text(
                         r.status.label,
-                        style: TextStyle(
+                        style: AppTextStyles.body.copyWith(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 1.5,
@@ -477,8 +493,8 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
                       Text(
                         r.detail ?? '',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            fontSize: 14, color: Color(0xFF475569)),
+                        style: AppTextStyles.body.copyWith(
+                            fontSize: 14, color: AppColors.textSecondary),
                       ),
                     ],
                   ),
@@ -510,11 +526,11 @@ class _CoveragePainter extends CustomPainter {
     final cellW = size.width / cols;
     final cellH = size.height / rows;
 
-    final background = Paint()..color = const Color(0xFFF1F5F9);
+    final background = Paint()..color = AppColors.surfaceMuted;
     canvas.drawRect(Offset.zero & size, background);
 
     final grid = Paint()
-      ..color = const Color(0xFFCBD5E1)
+      ..color = AppColors.borderStrong
       ..strokeWidth = 1;
     for (var r = 0; r <= rows; r++) {
       canvas.drawLine(
@@ -531,7 +547,7 @@ class _CoveragePainter extends CustomPainter {
       );
     }
 
-    final ink = Paint()..color = const Color(0xFF32CD32);
+    final ink = Paint()..color = AppColors.primary;
     for (final index in covered) {
       final row = index ~/ cols;
       final col = index % cols;

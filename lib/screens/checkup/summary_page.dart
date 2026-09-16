@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../models/checkup_result.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/widgets.dart';
+import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_text_styles.dart';
+import '../../shared/theme/app_theme.dart';
+import '../../shared/widgets/widgets.dart';
 
 /// Final screen — lists every test with pass / fail / skip / N/A and an overall
 /// count.
@@ -22,7 +24,11 @@ class CheckupSummaryPage extends StatelessWidget {
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          const AppGradientHeader(title: 'Checkup Results'),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(AppSpacing.screenGutter,
+                AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
+            child: AppScreenHeader(title: 'Checkup Results'),
+          ),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
@@ -47,8 +53,8 @@ class CheckupSummaryPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.card),
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
         boxShadow: AppShadows.card,
       ),
       child: Column(
@@ -56,13 +62,13 @@ class CheckupSummaryPage extends StatelessWidget {
           Icon(
             allPassed ? Icons.verified : Icons.rule,
             size: 46,
-            color: allPassed ? const Color(0xFF16A34A) : AppColors.onSurfaceVariant,
+            color: allPassed ? AppColors.success : AppColors.textSecondary,
           ),
           const SizedBox(height: 8),
           Text(
             allPassed ? 'All tests passed' : '${results.length} tests reviewed',
-            style: const TextStyle(
-                fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+            style: AppTextStyles.body.copyWith(
+                fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
           ),
           const SizedBox(height: 10),
           Wrap(
@@ -95,7 +101,7 @@ class CheckupSummaryPage extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             '$count ${status.label.toLowerCase()}',
-            style: TextStyle(
+            style: AppTextStyles.body.copyWith(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: status.color),
@@ -109,8 +115,8 @@ class CheckupSummaryPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.card),
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
         boxShadow: AppShadows.card,
       ),
       child: Row(
@@ -123,17 +129,17 @@ class CheckupSummaryPage extends StatelessWidget {
               children: [
                 Text(
                   result.title,
-                  style: const TextStyle(
+                  style: AppTextStyles.body.copyWith(
                       fontSize: 14.5, fontWeight: FontWeight.w700,
-                      color: Color(0xFF0F172A)),
+                      color: AppColors.textPrimary),
                 ),
                 if ((result.detail ?? '').isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
                     result.detail!,
-                    style: const TextStyle(
+                    style: AppTextStyles.body.copyWith(
                         fontSize: 12.5, height: 1.35,
-                        color: Color(0xFF64748B)),
+                        color: AppColors.textSecondary),
                   ),
                 ],
               ],
@@ -141,7 +147,7 @@ class CheckupSummaryPage extends StatelessWidget {
           ),
           Text(
             result.status.label,
-            style: TextStyle(
+            style: AppTextStyles.body.copyWith(
               fontSize: 11.5,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.8,
@@ -155,7 +161,7 @@ class CheckupSummaryPage extends StatelessWidget {
 
   Widget _doneBar(BuildContext context) {
     return Container(
-      color: Colors.white,
+      color: AppColors.surface,
       padding: EdgeInsets.fromLTRB(
         16,
         12,
@@ -166,13 +172,13 @@ class CheckupSummaryPage extends StatelessWidget {
         height: 52,
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF32CD32),
-            foregroundColor: Colors.black,
+            backgroundColor: AppColors.primary,
+            foregroundColor: AppColors.onPrimary,
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.full),
             ),
-            textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+            textStyle: AppTextStyles.body.copyWith(fontSize: 15, fontWeight: FontWeight.w800),
           ),
           onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
           child: const Text('Done'),

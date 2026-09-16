@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 import '../../models/checkup_result.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/widgets.dart';
+import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_text_styles.dart';
+import '../../shared/theme/app_theme.dart';
+import '../../shared/widgets/widgets.dart';
 
 /// Test 9 — Gyroscope.
 ///
@@ -144,7 +146,11 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          const AppGradientHeader(title: 'Checkup · Gyroscope'),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(AppSpacing.screenGutter,
+                AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
+            child: AppScreenHeader(title: 'Checkup · Gyroscope'),
+          ),
           Expanded(
             child: _result != null ? _verdictView() : _testView(),
           ),
@@ -160,19 +166,19 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppRadius.card),
+            color: AppColors.surface,
+            borderRadius: AppRadius.card,
             boxShadow: AppShadows.card,
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.threed_rotation, color: Color(0xFF32CD32)),
-              SizedBox(width: 12),
+              const Icon(Icons.threed_rotation, color: AppColors.primary),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Rotate the phone — flip or turn it while watching the axis indicators. The test records rotation in three dimensions.',
-                  style: TextStyle(
-                      fontSize: 13.5, height: 1.45, color: Color(0xFF475569)),
+                  style: AppTextStyles.body.copyWith(
+                      fontSize: 13.5, height: 1.45, color: AppColors.textSecondary),
                 ),
               ),
             ],
@@ -188,8 +194,8 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: _noData ? const Color(0xFFFEF3C7) : Colors.white,
-            borderRadius: BorderRadius.circular(AppRadius.card),
+            color: _noData ? AppColors.warningSoft : Colors.white,
+            borderRadius: AppRadius.card,
             boxShadow: AppShadows.card,
           ),
           child: Row(
@@ -199,8 +205,8 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
                     ? Icons.error_outline
                     : Icons.sensors_off_outlined,
                 color: _noData
-                    ? const Color(0xFFF59E0B)
-                    : const Color(0xFF94A3B8),
+                    ? AppColors.warning
+                    : AppColors.textTertiary,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -208,8 +214,8 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
                   _noData
                       ? 'No rotation detected yet — keep rotating the phone.'
                       : 'Hold still to see readings settle near zero.',
-                  style: const TextStyle(
-                      fontSize: 13, height: 1.4, color: Color(0xFF475569)),
+                  style: AppTextStyles.body.copyWith(
+                      fontSize: 13, height: 1.4, color: AppColors.textSecondary),
                 ),
               ),
             ],
@@ -221,16 +227,16 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
             Expanded(
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFDC2626),
-                  side: const BorderSide(color: Color(0xFFFCA5A5)),
+                  foregroundColor: AppColors.error,
+                  side: const BorderSide(color: AppColors.error),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
                 onPressed: _markIssue,
-                child: const Text('Issue found',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
+                child: Text('Issue found',
+                    style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
               ),
             ),
             const SizedBox(width: 12),
@@ -238,8 +244,8 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
               flex: 2,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF32CD32),
-                  foregroundColor: Colors.black,
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -247,8 +253,8 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
                   ),
                 ),
                 onPressed: null,
-                child: const Text('Waiting for rotation…',
-                    style: TextStyle(fontWeight: FontWeight.w800)),
+                child: Text('Waiting for rotation…',
+                    style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800)),
               ),
             ),
           ],
@@ -257,8 +263,8 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
         Center(
           child: TextButton(
             onPressed: _skipTest,
-            child: const Text('Skip this test',
-                style: TextStyle(color: Color(0xFF94A3B8))),
+            child: Text('Skip this test',
+                style: AppTextStyles.body.copyWith(color: AppColors.textTertiary)),
           ),
         ),
       ],
@@ -270,8 +276,8 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.card),
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
         boxShadow: AppShadows.card,
       ),
       child: Row(
@@ -282,40 +288,40 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: AppTextStyles.body.copyWith(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF0F172A)),
+                      color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   plane,
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF64748B)),
+                  style: AppTextStyles.body.copyWith(
+                      fontSize: 12, color: AppColors.textSecondary),
                 ),
               ],
             ),
           ),
           Text(
             '${(value / (3.141592653589793 / 180)).toStringAsFixed(0)}°/s',
-            style: const TextStyle(
-                fontSize: 13, color: Color(0xFF475569)),
+            style: AppTextStyles.body.copyWith(
+                fontSize: 13, color: AppColors.textSecondary),
           ),
           const SizedBox(width: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: active
-                  ? const Color(0xFF32CD32).withValues(alpha: 0.15)
-                  : const Color(0xFFE2E8F0),
+                  ? AppColors.primary.withValues(alpha: 0.15)
+                  : AppColors.border,
               borderRadius: BorderRadius.circular(AppRadius.full),
             ),
             child: Text(
               active ? 'Rotating' : 'Still',
-              style: TextStyle(
+              style: AppTextStyles.body.copyWith(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: active ? const Color(0xFF15803D) : const Color(0xFF94A3B8),
+                color: active ? AppColors.onPrimarySoft : AppColors.textTertiary,
               ),
             ),
           ),
@@ -336,7 +342,7 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
             const SizedBox(height: 14),
             Text(
               r.status.label,
-              style: TextStyle(
+              style: AppTextStyles.body.copyWith(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.5,
@@ -347,7 +353,7 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
             Text(
               r.detail ?? '',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF475569)),
+              style: AppTextStyles.body.copyWith(fontSize: 14, color: AppColors.textSecondary),
             ),
           ],
         ),

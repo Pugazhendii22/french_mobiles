@@ -71,6 +71,13 @@ class AppColors {
 
   static const Color scrim = Color(0x66000000);
 
+  /// Scrim over a live camera preview, and the two foregrounds that sit on it.
+  /// These stay fixed across any palette change: the content behind them is
+  /// camera output, not a themed surface.
+  static const Color overlay = Color(0xA6000000);
+  static const Color onOverlay = Color(0xFFFFFFFF);
+  static const Color onOverlayMuted = Color(0xB3FFFFFF);
+
   /// Named so that call sites never reach for `Colors.transparent` directly.
   static const Color transparent = Color(0x00000000);
 }

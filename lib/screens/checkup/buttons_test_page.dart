@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../models/checkup_result.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/widgets.dart';
+import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_text_styles.dart';
+import '../../shared/theme/app_theme.dart';
+import '../../shared/widgets/widgets.dart';
 
 enum _ButtonStep { volumeDown, volumeUp, power }
 
@@ -166,7 +168,11 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          const AppGradientHeader(title: 'Checkup · Side buttons'),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(AppSpacing.screenGutter,
+                AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
+            child: AppScreenHeader(title: 'Checkup · Side buttons'),
+          ),
           Expanded(child: _testView()),
         ],
       ),
@@ -182,16 +188,16 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppRadius.card),
+            color: AppColors.surface,
+            borderRadius: AppRadius.card,
             boxShadow: AppShadows.card,
           ),
           child: Text(
             _step == _ButtonStep.power
                 ? 'Press the power button once — does the screen turn off / show the lock screen normally?'
                 : 'Press the physical Volume Down and Volume Up keys on the side of the phone.',
-            style: const TextStyle(
-                fontSize: 13.5, height: 1.45, color: Color(0xFF475569)),
+            style: AppTextStyles.body.copyWith(
+                fontSize: 13.5, height: 1.45, color: AppColors.textSecondary),
           ),
         ),
         const SizedBox(height: 16),
@@ -207,16 +213,16 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
               Expanded(
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFDC2626),
-                    side: const BorderSide(color: Color(0xFFFCA5A5)),
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                   onPressed: () => _recordStep(CheckupStatus.fail),
-                  child: const Text('Issue found',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  child: Text('Issue found',
+                      style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -224,8 +230,8 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
                 flex: 2,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF32CD32),
-                    foregroundColor: Colors.black,
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.onPrimary,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -237,7 +243,7 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
                     _step == _ButtonStep.volumeDown
                         ? 'Press Volume Down…'
                         : 'Press Volume Up…',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+                    style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800),
                   ),
                 ),
               ),
@@ -248,8 +254,8 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
         Center(
           child: TextButton(
             onPressed: _skipStep,
-            child: const Text('Skip this step',
-                style: TextStyle(color: Color(0xFF94A3B8))),
+            child: Text('Skip this step',
+                style: AppTextStyles.body.copyWith(color: AppColors.textTertiary)),
           ),
         ),
       ],
@@ -267,10 +273,10 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
         const SizedBox(width: 12),
         Text(
           _stepLabel,
-          style: const TextStyle(
+          style: AppTextStyles.body.copyWith(
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF475569)),
+              color: AppColors.textSecondary),
         ),
       ],
     );
@@ -283,10 +289,10 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
       height: 10,
       decoration: BoxDecoration(
         color: active
-            ? const Color(0xFF32CD32)
+            ? AppColors.primary
             : visited
-                ? const Color(0xFF32CD32).withValues(alpha: 0.35)
-                : const Color(0xFFCBD5E1),
+                ? AppColors.primary.withValues(alpha: 0.35)
+                : AppColors.borderStrong,
         shape: BoxShape.circle,
       ),
     );
@@ -296,31 +302,31 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.card),
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
         boxShadow: AppShadows.card,
       ),
       child: Row(
         children: [
           Icon(icon,
               color: detected
-                  ? const Color(0xFF32CD32)
-                  : const Color(0xFF94A3B8)),
+                  ? AppColors.primary
+                  : AppColors.textTertiary),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
+              style: AppTextStyles.body.copyWith(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F172A)),
+                  color: AppColors.textPrimary),
             ),
           ),
           Icon(
             detected ? Icons.check_circle : Icons.radio_button_unchecked,
             color: detected
-                ? const Color(0xFF16A34A)
-                : const Color(0xFFCBD5E1),
+                ? AppColors.success
+                : AppColors.borderStrong,
             size: 22,
           ),
         ],
@@ -335,14 +341,14 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
         _powerButton(
           'Yes',
           Icons.check_circle_outline,
-          const Color(0xFF32CD32),
+          AppColors.primary,
           () => _recordStep(CheckupStatus.pass),
         ),
         const SizedBox(height: 12),
         _powerButton(
           'No',
           Icons.cancel_outlined,
-          const Color(0xFFDC2626),
+          AppColors.error,
           () => _recordStep(CheckupStatus.fail),
         ),
       ],
@@ -363,7 +369,7 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
         children: [
           Icon(icon, size: 20),
           const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+          Text(label, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
         ],
       ),
     );

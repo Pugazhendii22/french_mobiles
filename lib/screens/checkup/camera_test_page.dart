@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../models/checkup_result.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/widgets.dart';
+import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_text_styles.dart';
+import '../../shared/theme/app_theme.dart';
+import '../../shared/widgets/widgets.dart';
 
 enum _CameraPhase { front, back }
 
@@ -202,7 +204,11 @@ class _CameraTestPageState extends State<CameraTestPage> {
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          const AppGradientHeader(title: 'Checkup · Camera'),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(AppSpacing.screenGutter,
+                AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
+            child: AppScreenHeader(title: 'Checkup · Camera'),
+          ),
           Expanded(
             child: _result != null ? _verdictView() : _cameraView(),
           ),
@@ -217,7 +223,7 @@ class _CameraTestPageState extends State<CameraTestPage> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Container(color: const Color(0xFF111418)),
+        Container(color: AppColors.textPrimary),
         if (previewOk)
           CameraPreview(_controller!)
         else
@@ -225,10 +231,10 @@ class _CameraTestPageState extends State<CameraTestPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const CircularProgressIndicator(color: Color(0xFF32CD32)),
+                const CircularProgressIndicator(color: AppColors.primary),
                 const SizedBox(height: 12),
                 Text('Testing $_phaseLabel…',
-                    style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                    style: AppTextStyles.body.copyWith(color: AppColors.onOverlayMuted, fontSize: 14)),
               ],
             ),
           ),
@@ -244,27 +250,27 @@ class _CameraTestPageState extends State<CameraTestPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.no_photography_outlined, size: 64, color: Colors.white54),
+            const Icon(Icons.no_photography_outlined, size: 64, color: AppColors.onOverlayMuted),
             const SizedBox(height: 14),
-            const Text(
+            Text(
               'Camera unavailable',
-              style: TextStyle(
+              style: AppTextStyles.body.copyWith(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.5,
-                color: Colors.white,
+                color: AppColors.surface,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               _cameraError ?? 'The camera could not be opened.',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Colors.white70),
+              style: AppTextStyles.body.copyWith(fontSize: 14, color: AppColors.onOverlayMuted),
             ),
             const SizedBox(height: 28),
             TextButton(
               onPressed: _skipTest,
-              child: const Text('Skip this test', style: TextStyle(color: Color(0xFF94A3B8))),
+              child: Text('Skip this test', style: AppTextStyles.body.copyWith(color: AppColors.textTertiary)),
             ),
           ],
         ),
@@ -276,7 +282,7 @@ class _CameraTestPageState extends State<CameraTestPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.65),
+        color: AppColors.overlay,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -284,13 +290,13 @@ class _CameraTestPageState extends State<CameraTestPage> {
           const SizedBox(
             width: 14,
             height: 14,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF32CD32)),
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Testing $_phaseLabel… Auto-verifying camera hardware.',
-              style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.3),
+              style: AppTextStyles.body.copyWith(color: AppColors.surface, fontSize: 13, height: 1.3),
             ),
           ),
         ],
@@ -310,7 +316,7 @@ class _CameraTestPageState extends State<CameraTestPage> {
             const SizedBox(height: 14),
             Text(
               r.status.label,
-              style: TextStyle(
+              style: AppTextStyles.body.copyWith(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.5,
@@ -321,19 +327,19 @@ class _CameraTestPageState extends State<CameraTestPage> {
             Text(
               r.detail ?? '',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF475569)),
+              style: AppTextStyles.body.copyWith(fontSize: 14, color: AppColors.textSecondary),
             ),
             if (_isPermanentlyDenied) ...[
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF32CD32),
-                  foregroundColor: Colors.black,
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
                 ),
                 onPressed: () => openAppSettings(),
                 icon: const Icon(Icons.settings),
-                label: const Text('Open Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: Text('Open Settings', style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
               ),
             ],
           ],

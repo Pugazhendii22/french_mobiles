@@ -6,8 +6,10 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:sim_data/sim_data.dart';
 
 import '../../models/checkup_result.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/widgets.dart';
+import '../../shared/theme/app_colors.dart';
+import '../../shared/theme/app_text_styles.dart';
+import '../../shared/theme/app_theme.dart';
+import '../../shared/widgets/widgets.dart';
 
 /// Test 7 — Mobile network.
 ///
@@ -177,7 +179,11 @@ class _NetworkTestPageState extends State<NetworkTestPage> {
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          const AppGradientHeader(title: 'Checkup · Mobile network'),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(AppSpacing.screenGutter,
+                AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
+            child: AppScreenHeader(title: 'Checkup · Mobile network'),
+          ),
           Expanded(child: _result != null ? _verdictView() : _testView()),
         ],
       ),
@@ -192,22 +198,22 @@ class _NetworkTestPageState extends State<NetworkTestPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (_busy)
-              const CircularProgressIndicator(color: Color(0xFF32CD32))
+              const CircularProgressIndicator(color: AppColors.primary)
             else
               const Icon(Icons.signal_cellular_alt,
-                  size: 56, color: Color(0xFF32CD32)),
+                  size: 56, color: AppColors.primary),
             const SizedBox(height: 20),
             Text(
               _statusText,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontSize: 14, height: 1.45, color: Color(0xFF475569)),
+              style: AppTextStyles.body.copyWith(
+                  fontSize: 14, height: 1.45, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
             TextButton(
               onPressed: _skipTest,
-              child: const Text('Skip this test',
-                  style: TextStyle(color: Color(0xFF94A3B8))),
+              child: Text('Skip this test',
+                  style: AppTextStyles.body.copyWith(color: AppColors.textTertiary)),
             ),
           ],
         ),
@@ -227,7 +233,7 @@ class _NetworkTestPageState extends State<NetworkTestPage> {
             const SizedBox(height: 14),
             Text(
               r.status.label,
-              style: TextStyle(
+              style: AppTextStyles.body.copyWith(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.5,
@@ -238,19 +244,19 @@ class _NetworkTestPageState extends State<NetworkTestPage> {
             Text(
               r.detail ?? '',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF475569)),
+              style: AppTextStyles.body.copyWith(fontSize: 14, color: AppColors.textSecondary),
             ),
             if (_isPermanentlyDenied) ...[
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF32CD32),
-                  foregroundColor: Colors.black,
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
                 ),
                 onPressed: () => openAppSettings(),
                 icon: const Icon(Icons.settings),
-                label: const Text('Open Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: Text('Open Settings', style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
               ),
             ],
           ],
