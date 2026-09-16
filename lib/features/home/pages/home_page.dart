@@ -1,0 +1,350 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import 'package:french_mobiles/features/home/data/home_models.dart';
+import 'package:french_mobiles/features/home/data/home_repository.dart';
+import 'package:french_mobiles/features/home/widgets/home_bottom_nav.dart';
+import 'package:french_mobiles/features/home/widgets/home_category_grid.dart';
+import 'package:french_mobiles/features/home/widgets/home_header.dart';
+import 'package:french_mobiles/features/home/widgets/home_location_strip.dart';
+import 'package:french_mobiles/features/home/widgets/home_product_rail.dart';
+import 'package:french_mobiles/features/home/widgets/home_sell_cta.dart';
+import 'package:french_mobiles/features/home/widgets/home_trust_row.dart';
+import 'package:french_mobiles/firebase/wishlist_service.dart';
+import 'package:french_mobiles/profile/account_pages.dart';
+import 'package:french_mobiles/profile/orders_page.dart';
+import 'package:french_mobiles/profile/profile_screen.dart';
+import 'package:french_mobiles/profile/wishlist_page.dart';
+import 'package:french_mobiles/screens/checkup/checkup_entry_page.dart';
+import 'package:french_mobiles/screens/inventory_detail_page.dart';
+import 'package:french_mobiles/screens/login_page.dart';
+import 'package:french_mobiles/screens/sell_mobile_page.dart';
+import 'package:french_mobiles/shared/theme/app_colors.dart';
+import 'package:french_mobiles/shared/theme/app_text_styles.dart';
+import 'package:french_mobiles/shared/theme/app_theme.dart';
+import 'package:french_mobiles/shared/widgets/app_search_field.dart';
+import 'package:french_mobiles/shared/widgets/app_section_header.dart';
+
+/// The home screen.
+///
+/// Wraps itself in [AppTheme.light] rather than relying on `MaterialApp`, so
+/// the new design system applies here while screens outside `features/home/`
+/// keep the app's original inline theme. Once the other features adopt the
+/// shared theme this wrapper can be deleted and the theme set on
+/// `MaterialApp` instead.
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final HomeRepository _repository = const HomeRepository();
+  final TextEditingController _searchController = TextEditingController();
+
+  String _selectedCategoryId = 'mobile';
+  String _searchQuery = '';
+  late Future<List<HomeProduct>> _productsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _productsFuture = _repository.loadProducts(_selectedCategoryId);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _reloadProducts() {
+    setState(() {
+      _productsFuture = _repository.loadProducts(_selectedCategoryId);
+    });
+  }
+
+  void _onCategorySelected(String id) {
+    if (id == _selectedCategoryId) return;
+    setState(() {
+      _selectedCategoryId = id;
+      _productsFuture = _repository.loadProducts(id);
+    });
+  }
+
+  Future<void> _onRefresh() async {
+    final future = _repository.loadProducts(_selectedCategoryId);
+    setState(() => _productsFuture = future);
+    await future.catchError((_) => <HomeProduct>[]);
+  }
+
+  // --- Navigation --------------------------------------------------------
+
+  Future<void> _openLogin() {
+    return Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+    );
+  }
+
+  Future<void> _openAddressPicker() async {
+    final user = _repository.currentUser;
+    if (user == null) {
+      await _openLogin();
+      return;
+    }
+
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const SavedAddressesPage(selectMode: true),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+    final docId = result['id'] as String?;
+    if (docId == null) return;
+
+    try {
+      await _repository.setDefaultAddress(uid: user.uid, docId: docId);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to set address: $e')),
+      );
+    }
+  }
+
+  void _openProduct(HomeProduct product) {
+    if (product.documentId == null && product.firestoreData == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => InventoryDetailPlaceholder(
+          documentId: product.documentId,
+          data: product.firestoreData ??
+              {
+                'id': product.documentId,
+                'brand': product.brand,
+                'model': product.title,
+                'salePrice': product.price,
+              },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleWishlist(HomeProduct product) async {
+    if (_repository.currentUser == null) {
+      await _openLogin();
+      return;
+    }
+
+    try {
+      await WishlistService.toggle(
+        WishlistItem(
+          productId: product.documentId ?? product.id,
+          brand: product.brand,
+          title: product.title,
+          imageUrl: product.imageUrl,
+          price: product.price,
+          categoryId: product.categoryId,
+          snapshot: product.firestoreData,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update wishlist')),
+      );
+    }
+  }
+
+  Future<void> _onNavTap(HomeNavTab tab) async {
+    switch (tab) {
+      case HomeNavTab.home:
+        return;
+      case HomeNavTab.sell:
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SellMobilePage()),
+        );
+      case HomeNavTab.orders:
+        if (_repository.currentUser == null) {
+          await _openLogin();
+          return;
+        }
+        if (!mounted) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const OrdersPage()),
+        );
+      case HomeNavTab.wishlist:
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const WishlistPage()),
+        );
+      case HomeNavTab.profile:
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ProfilePage()),
+        );
+    }
+  }
+
+  // --- Build -------------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: AppTheme.light,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: AppColors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+          systemNavigationBarColor: AppColors.surface,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+        child: Scaffold(
+          backgroundColor: AppColors.background,
+          body: SafeArea(
+            bottom: false,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => FocusScope.of(context).unfocus(),
+              child: RefreshIndicator(
+                onRefresh: _onRefresh,
+                color: AppColors.primary,
+                backgroundColor: AppColors.surface,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.screenGutter,
+                        AppSpacing.lg,
+                        AppSpacing.screenGutter,
+                        0,
+                      ),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          HomeHeader(
+                            repository: _repository,
+                            onProfileTap: () =>
+                                _onNavTap(HomeNavTab.profile),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: HomeLocationStrip(
+                              repository: _repository,
+                              uid: _repository.currentUser?.uid,
+                              onTap: _openAddressPicker,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          AppSearchField(
+                            controller: _searchController,
+                            hintText: 'Search phones, brands…',
+                            onChanged: (value) =>
+                                setState(() => _searchQuery = value),
+                            trailing: _searchQuery.isEmpty
+                                ? null
+                                : IconButton(
+                                    icon: const Icon(
+                                      Icons.close_rounded,
+                                      size: 18,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() => _searchQuery = '');
+                                    },
+                                  ),
+                          ),
+                          const SizedBox(height: AppSpacing.xl),
+                          Text('Browse by category', style: AppTextStyles.h3),
+                          const SizedBox(height: AppSpacing.md),
+                          HomeCategoryGrid(
+                            categories: homeCategories,
+                            selectedId: _selectedCategoryId,
+                            onSelected: _onCategorySelected,
+                          ),
+                          const SizedBox(height: AppSpacing.xl),
+                          HomeSellCta(
+                            onSellTap: () => _onNavTap(HomeNavTab.sell),
+                            onCheckupTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const CheckupEntryPage(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          const HomeTrustRow(),
+                          const SizedBox(height: AppSpacing.xxl),
+                        ]),
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.screenGutter,
+                      ),
+                      sliver: SliverToBoxAdapter(
+                        child: AppSectionHeader(
+                          title: 'Available now',
+                          subtitle: 'Certified pre-owned devices',
+                          actionLabel: 'See all',
+                          onActionTap: () => _onNavTap(HomeNavTab.sell),
+                        ),
+                      ),
+                    ),
+                    const SliverToBoxAdapter(
+                      child: SizedBox(height: AppSpacing.md),
+                    ),
+                    SliverToBoxAdapter(
+                      child: HomeProductRail(
+                        future: _productsFuture,
+                        repository: _repository,
+                        searchQuery: _searchQuery,
+                        onProductTap: _openProduct,
+                        onWishlistTap: _toggleWishlist,
+                        wishlistStream: (id) =>
+                            WishlistService.watchIsSaved(id),
+                        onRetry: _reloadProducts,
+                        emptyTitle: _emptyTitleForCategory,
+                        emptyMessage: _emptyMessageForCategory,
+                      ),
+                    ),
+                    const SliverToBoxAdapter(
+                      child: SizedBox(height: AppSpacing.xxl),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          bottomNavigationBar: HomeBottomNav(
+            current: HomeNavTab.home,
+            onTap: _onNavTap,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String get _emptyTitleForCategory {
+    return _selectedCategoryId == 'mobile'
+        ? 'No devices available'
+        : 'Coming soon';
+  }
+
+  String? get _emptyMessageForCategory {
+    return _selectedCategoryId == 'mobile'
+        ? 'Check back shortly — new listings go up every day.'
+        : 'We are not buying or selling this category yet.';
+  }
+}
