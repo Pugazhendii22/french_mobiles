@@ -122,18 +122,35 @@ void main() {
       expect(find.text('₹ 50000'), findsOneWidget);
     });
 
-    testWidgets('draws no card chrome — it sits on the page', (t) async {
+    testWidgets('draws no surface at all — photo and text sit on the page',
+        (t) async {
       await _pumpCard(t, _rich);
-      // The photo block is the cell's only decorated surface; a second one
-      // would mean the card chrome had crept back in.
-      final decorated = find
-          .byType(DecoratedBox)
+      // Nothing paints AppColors.surface: no card behind the whole cell and
+      // no panel behind the photo. The heart and grade label sit straight on
+      // the page too, so any white box here means chrome has crept back in.
+      //
+      // AppColors.surfaceMuted is deliberately allowed — that is
+      // AppNetworkImage's own placeholder for a missing photo, which is the
+      // image slot rather than decoration around it.
+      final surfaces = find
+          .descendant(
+            of: find.byType(HomeProductCard),
+            matching: find.byType(DecoratedBox),
+          )
           .evaluate()
           .map((e) => (e.widget as DecoratedBox).decoration)
           .whereType<BoxDecoration>()
           .where((d) => d.color == AppColors.surface)
           .length;
-      expect(decorated, 1);
+      expect(surfaces, 0);
+    });
+
+    testWidgets('the grade is a plain label, not a filled pill', (t) async {
+      await _pumpCard(t, _rich);
+      expect(find.text('SUPERB'), findsOneWidget);
+      final label = t.widget<Text>(find.text('SUPERB'));
+      // Colour still carries the grade; the shape is gone.
+      expect(label.style?.color, AppColors.success);
     });
 
     test('grade vocabularies map to tones', () {

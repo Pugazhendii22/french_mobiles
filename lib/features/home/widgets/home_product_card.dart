@@ -41,16 +41,16 @@ class HomeProductCard extends StatelessWidget {
   /// marketplaces share: the top grade reads as reassurance, the middle as
   /// neutral-positive, the lowest as a caution rather than a warning — a Fair
   /// phone is still fully functional, it just looks used.
-  (Color, Color) _gradeColors() {
+  Color _gradeColor() {
     switch (product.conditionTone) {
       case ConditionTone.top:
-        return (AppColors.successSoft, AppColors.success);
+        return AppColors.success;
       case ConditionTone.mid:
-        return (AppColors.primarySoft, AppColors.onPrimarySoft);
+        return AppColors.onPrimarySoft;
       case ConditionTone.low:
-        return (AppColors.warningSoft, AppColors.warning);
+        return AppColors.warning;
       case ConditionTone.unknown:
-        return (AppColors.surfaceMuted, AppColors.textSecondary);
+        return AppColors.textSecondary;
     }
   }
 
@@ -112,11 +112,17 @@ class HomeProductCard extends StatelessWidget {
     );
   }
 
-  /// The photo, in the cell's one surface. Fixed height rather than a square:
-  /// the grid pins cell height in logical pixels, so an aspect-ratio image
-  /// would change the text budget every time the screen width changed.
+  /// The photo, sitting directly on the page like the details beneath it.
+  ///
+  /// No panel behind it: a white block on the #F7F8F8 page was one more box
+  /// around something that did not need one, and it framed the product
+  /// instead of showing it.
+  ///
+  /// Fixed height rather than a square: the grid pins cell height in logical
+  /// pixels, so an aspect-ratio image would change the text budget every time
+  /// the screen width changed.
   Widget _imageBlock(String productId) {
-    final (gradeBg, gradeFg) = _gradeColors();
+    final gradeFg = _gradeColor();
 
     return SizedBox(
       height: 150,
@@ -124,46 +130,34 @@ class HomeProductCard extends StatelessWidget {
       child: Stack(
         children: [
           Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: AppRadius.card,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Hero(
-                  tag: 'product-image-$productId',
-                  child: AppNetworkImage(
-                    url: product.imageUrl,
-                    fit: BoxFit.contain,
-                    borderRadius: BorderRadius.zero,
-                  ),
+            // Less inset than before: with no panel edge to keep clear of,
+            // the photo can use the space.
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              child: Hero(
+                tag: 'product-image-$productId',
+                child: AppNetworkImage(
+                  url: product.imageUrl,
+                  fit: BoxFit.contain,
+                  borderRadius: BorderRadius.zero,
                 ),
               ),
             ),
           ),
           if (product.condition.isNotEmpty)
             Positioned(
-              top: AppSpacing.sm,
-              left: AppSpacing.sm,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: 3,
-                ),
-                decoration: BoxDecoration(
-                  color: gradeBg,
-                  borderRadius: AppRadius.pill,
-                ),
-                child: Text(
-                  product.condition.toUpperCase(),
-                  style: AppTextStyles.overline.copyWith(color: gradeFg),
-                ),
+              top: 0,
+              left: 0,
+              // A plain label rather than a filled pill: the colour still
+              // carries the grade, without another shape on the page.
+              child: Text(
+                product.condition.toUpperCase(),
+                style: AppTextStyles.overline.copyWith(color: gradeFg),
               ),
             ),
           Positioned(
-            top: AppSpacing.xs,
-            right: AppSpacing.xs,
+            top: 0,
+            right: 0,
             child: _WishlistButton(
               productId: productId,
               repository: repository,
@@ -249,15 +243,17 @@ class _WishlistButton extends StatelessWidget {
           builder: (context, wishSnapshot) {
             final saved = wishSnapshot.data == true;
 
+            // No circular backing: on the page ground a white disc reads as
+            // yet another container, and the icon is legible without it.
             return Material(
-              color: AppColors.surface,
+              color: AppColors.transparent,
               shape: const CircleBorder(),
               elevation: 0,
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: onTap,
                 child: Padding(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(4),
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 180),
                     transitionBuilder: (child, animation) =>
