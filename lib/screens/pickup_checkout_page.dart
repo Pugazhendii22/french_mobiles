@@ -139,7 +139,24 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
       final orderId = ref.id;
 
       if (!mounted) return;
-      context.pushScreen(OrderTrackingPage(orderId: orderId),
+
+      // Replace the whole checkout flow with the confirmation. Everything
+      // between home and here — address selection, the grading wizard,
+      // variant and brand selection — is removed, so back from the
+      // confirmation reaches home and a second order cannot be placed by
+      // navigating backwards into a checkout whose order already exists.
+      //
+      // `route.isFirst` keeps HomePage, which main.dart installs as the
+      // MaterialApp home and is therefore the bottom of the stack.
+      Navigator.of(context).pushAndRemoveUntil(
+        AppPageRoute<void>(
+          builder: (_) => OrderTrackingPage(
+            orderId: orderId,
+            isConfirmation: true,
+          ),
+          transition: AppTransition.fadeThrough,
+        ),
+        (route) => route.isFirst,
       );
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to place order: $e')));

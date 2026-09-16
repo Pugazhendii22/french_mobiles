@@ -11,7 +11,20 @@ import '../shared/widgets/widgets.dart';
 class OrderTrackingPage extends StatefulWidget {
   final String orderId;
 
-  const OrderTrackingPage({super.key, required this.orderId});
+  /// True when this screen is the confirmation shown immediately after an
+  /// order is placed, rather than an order opened from the orders list.
+  ///
+  /// In that case the checkout stack has already been cleared by the caller,
+  /// the header hides its back affordance, a Go to home action is shown, and
+  /// a system back gesture is routed to home. Browsing an existing order from
+  /// the list keeps ordinary back behaviour.
+  final bool isConfirmation;
+
+  const OrderTrackingPage({
+    super.key,
+    required this.orderId,
+    this.isConfirmation = false,
+  });
 
   @override
   State<OrderTrackingPage> createState() => _OrderTrackingPageState();
@@ -43,8 +56,28 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
     ),
   ];
 
+  /// Returns to the first route in the stack, which is HomePage.
+  void _goHome() {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Belt and braces. The caller already cleared the checkout stack, so the
+    // only route beneath this one is home — but intercepting the pop makes
+    // the destination explicit rather than incidental, and covers the
+    // predictive-back gesture as well as the hardware button.
+    return PopScope(
+      canPop: !widget.isConfirmation,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _goHome();
+      },
+      child: _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return Theme(
       data: AppTheme.light,
       child: Scaffold(
@@ -64,7 +97,14 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
                   AppSpacing.xxl,
                 ),
                 children: [
-                  const AppScreenHeader(title: 'Track sell order'),
+                  AppScreenHeader(
+                    title: widget.isConfirmation
+                        ? 'Order confirmed'
+                        : 'Track sell order',
+                    // Nothing to go back to from a confirmation: the flow
+                    // that led here no longer exists on the stack.
+                    showBack: !widget.isConfirmation,
+                  ),
                   const SizedBox(height: AppSpacing.xl),
                   ..._buildContent(snapshot),
                 ],
@@ -72,6 +112,15 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
             },
           ),
         ),
+        bottomNavigationBar: widget.isConfirmation
+            ? AppBottomBar(
+                child: AppPrimaryButton(
+                  label: 'Go to home',
+                  icon: Icons.home_rounded,
+                  onPressed: _goHome,
+                ),
+              )
+            : null,
       ),
     );
   }
