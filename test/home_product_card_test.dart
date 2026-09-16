@@ -5,7 +5,7 @@
 // during layout and fails the test on its own, so pumping a card with hostile
 // content IS the assertion — there is no separate expect for it.
 //
-// The harness reproduces a real cell: 178 x 302, which is what
+// The harness reproduces a real cell: 178 x 280, which is what
 // HomeProductGrid's delegate produces on a 400px screen.
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:french_mobiles/features/home/data/home_models.dart';
 import 'package:french_mobiles/features/home/data/home_repository.dart';
 import 'package:french_mobiles/features/home/widgets/home_product_card.dart';
+import 'package:french_mobiles/shared/theme/app_colors.dart';
 
 /// Stands in for the real repository so the card can render without Firebase.
 /// Signed out is the interesting case: the wishlist heart still has to draw.
@@ -41,7 +42,7 @@ Future<void> _pumpCard(
         alignment: Alignment.topLeft,
         child: SizedBox(
           width: 178,
-          height: 302,
+          height: 280,
           child: HomeProductCard(
             product: product,
             repository: const _FakeRepository(),
@@ -68,7 +69,6 @@ const _rich = HomeProduct(
   condition: 'Superb',
   salePriceValue: 32000,
   originalPriceValue: 50000,
-  warrantyMonths: 6,
 );
 
 void main() {
@@ -115,25 +115,25 @@ void main() {
       expect(find.text('SUPERB'), findsOneWidget);
     });
 
-    testWidgets('shows storage, discount and warranty', (t) async {
+    testWidgets('shows storage and the discount', (t) async {
       await _pumpCard(t, _rich);
       expect(find.text('128GB'), findsOneWidget);
       expect(find.text('36% off'), findsOneWidget);
       expect(find.text('₹ 50000'), findsOneWidget);
-      expect(find.text('6-month warranty'), findsOneWidget);
     });
 
-    testWidgets('makes no warranty claim when the document has none',
-        (t) async {
-      await _pumpCard(
-        t,
-        const HomeProduct(
-          id: 'a', categoryId: 'mobile', brand: 'Apple',
-          title: 'Apple iPhone 13', model: 'iPhone 13',
-          imageUrl: '', price: '₹ 32000', condition: 'Good',
-        ),
-      );
-      expect(find.textContaining('warranty'), findsNothing);
+    testWidgets('draws no card chrome — it sits on the page', (t) async {
+      await _pumpCard(t, _rich);
+      // The photo block is the cell's only decorated surface; a second one
+      // would mean the card chrome had crept back in.
+      final decorated = find
+          .byType(DecoratedBox)
+          .evaluate()
+          .map((e) => (e.widget as DecoratedBox).decoration)
+          .whereType<BoxDecoration>()
+          .where((d) => d.color == AppColors.surface)
+          .length;
+      expect(decorated, 1);
     });
 
     test('grade vocabularies map to tones', () {
@@ -178,7 +178,7 @@ void main() {
           title: 'Samsung Galaxy S24 Ultra Titanium Violet',
           model: 'Galaxy S24 Ultra Titanium Violet Special Edition',
           imageUrl: '', price: '₹ 128000', storage: '1TB',
-          condition: 'Excellent', warrantyMonths: 12,
+          condition: 'Excellent',
           salePriceValue: 128000, originalPriceValue: 165000,
         ),
       );

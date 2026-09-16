@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:french_mobiles/features/home/data/home_models.dart';
 import 'package:french_mobiles/features/home/data/home_repository.dart';
+import 'package:french_mobiles/features/home/widgets/home_product_card.dart';
 import 'package:french_mobiles/features/home/widgets/home_product_grid.dart';
 import 'package:french_mobiles/shared/widgets/app_shimmer.dart';
 
@@ -36,7 +37,6 @@ HomeProduct _maximal(int i) => HomeProduct(
       price: '₹ 128000',
       storage: '1TB',
       condition: 'Excellent',
-      warrantyMonths: 12,
       salePriceValue: 128000,
       originalPriceValue: 165000,
     );
@@ -104,19 +104,19 @@ void main() {
   testWidgets('an odd count leaves the last card its own row, unstretched',
       (t) async {
     await _pumpGrid(t, count: 5);
-    final finder = find.text(
-        'Galaxy S24 Ultra Titanium Violet Special Edition');
+    final cards = find.byType(HomeProductCard);
+    expect(cards, findsNWidgets(5));
 
-    // The lone fifth card must be the same width as a paired one.
-    final pairedWidth = t.getSize(find.ancestor(
-      of: finder.at(0),
-      matching: find.byType(Container),
-    ).first).width;
-    final loneWidth = t.getSize(find.ancestor(
-      of: finder.at(4),
-      matching: find.byType(Container),
-    ).first).width;
-    expect(loneWidth, pairedWidth);
+    // The lone fifth cell must be the same size as a paired one, not
+    // stretched across the row.
+    final paired = t.getSize(cards.at(0));
+    final lone = t.getSize(cards.at(4));
+    expect(lone, paired);
+
+    // And it starts a new row, aligned to the left column.
+    expect(t.getTopLeft(cards.at(4)).dx, t.getTopLeft(cards.at(0)).dx);
+    expect(t.getTopLeft(cards.at(4)).dy,
+        greaterThan(t.getTopLeft(cards.at(2)).dy));
   });
 
   testWidgets('shows skeletons while loading, then the cards', (t) async {

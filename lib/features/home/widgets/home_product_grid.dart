@@ -55,17 +55,16 @@ class HomeProductGrid extends StatelessWidget {
   /// content is a fixed stack of text lines, so its height must be pinned
   /// directly.
   ///
-  /// Measured against the tallest possible card, not guessed:
-  ///   image                       148
+  /// Measured against the tallest possible cell, not guessed:
+  ///   photo block                 150  + 10 gap
   ///   brand overline               14  + 2 gap
   ///   model name, 2 lines          40  + 2 gap
-  ///   storage                      16  + 8 gap
-  ///   price + struck original      36  + 4 gap
-  ///   warranty line                16
-  ///   bottom padding               12
+  ///   storage                      16  + 6 gap
+  ///   price                        20
+  ///   struck original + % off      16
   ///                               ----
-  ///                               298
-  static const double _cellHeight = 302;
+  ///                               276
+  static const double _cellHeight = 280;
 
   static const double _gutter = AppSpacing.md;
 
@@ -97,10 +96,7 @@ class HomeProductGrid extends StatelessWidget {
             SliverGrid(
               gridDelegate: _delegate,
               delegate: SliverChildBuilderDelegate(
-                (_, __) => const AppShimmer(
-                  width: double.infinity,
-                  height: double.infinity,
-                ),
+                (_, __) => const _CellSkeleton(),
                 childCount: 4,
               ),
             ),
@@ -172,4 +168,39 @@ class HomeProductGrid extends StatelessWidget {
       );
 
   Widget _box(Widget child) => _padded(SliverToBoxAdapter(child: child));
+}
+
+/// Mirrors the cell's shape — photo block, then three text lines — so nothing
+/// shifts when the data lands.
+class _CellSkeleton extends StatelessWidget {
+  const _CellSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const AppShimmer(width: double.infinity, height: 150),
+        const SizedBox(height: 10),
+        AppShimmer(
+          width: 60,
+          height: 12,
+          borderRadius: AppRadius.pill,
+        ),
+        const SizedBox(height: 6),
+        AppShimmer(
+          width: double.infinity,
+          height: 14,
+          borderRadius: AppRadius.pill,
+        ),
+        const SizedBox(height: 10),
+        AppShimmer(
+          width: 80,
+          height: 16,
+          borderRadius: AppRadius.pill,
+        ),
+      ],
+    );
+  }
 }

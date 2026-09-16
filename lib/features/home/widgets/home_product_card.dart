@@ -38,9 +38,9 @@ class HomeProductCard extends StatelessWidget {
   final double? width;
 
   /// Grade chip colours, following the convention the refurbished
-  /// marketplaces share: the top grade reads as reassurance (green), the
-  /// middle as neutral-positive, the lowest as a caution rather than a
-  /// warning — a Fair phone is still fully functional, it just looks used.
+  /// marketplaces share: the top grade reads as reassurance, the middle as
+  /// neutral-positive, the lowest as a caution rather than a warning — a Fair
+  /// phone is still fully functional, it just looks used.
   (Color, Color) _gradeColors() {
     switch (product.conditionTone) {
       case ConditionTone.top:
@@ -62,145 +62,49 @@ class HomeProductCard extends StatelessWidget {
     // The model alone: HomeProduct.title is "brand model", and the brand is
     // already the line above it.
     final name = product.model.isNotEmpty ? product.model : product.title;
-    final (gradeBg, gradeFg) = _gradeColors();
 
     return Semantics(
       button: true,
       label: product.title,
       child: AppPressable(
         onTap: onTap,
-        child: Container(
+        // No card, no border, no shadow. The cell sits directly on the page:
+        // in a product grid the photo block is the only surface that needs to
+        // exist, and every listing being a floating white box is what made
+        // the grid read as boxes rather than products.
+        child: SizedBox(
           width: width,
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: AppRadius.card,
-            boxShadow: AppShadows.card,
-          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
-                height: 148,
-                width: double.infinity,
-                child: Stack(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.md,
-                        AppSpacing.xl,
-                        AppSpacing.md,
-                        AppSpacing.sm,
-                      ),
-                      child: Hero(
-                        tag: 'product-image-$productId',
-                        child: AppNetworkImage(
-                          url: product.imageUrl,
-                          fit: BoxFit.contain,
-                          borderRadius: BorderRadius.zero,
-                        ),
-                      ),
-                    ),
-                    // The grade leads. On a refurbished listing this is the
-                    // thing being chosen between, so it sits on the photo
-                    // rather than in a caption under it.
-                    if (product.condition.isNotEmpty)
-                      Positioned(
-                        top: AppSpacing.sm,
-                        left: AppSpacing.sm,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.sm,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: gradeBg,
-                            borderRadius: AppRadius.pill,
-                          ),
-                          child: Text(
-                            product.condition.toUpperCase(),
-                            style: AppTextStyles.overline
-                                .copyWith(color: gradeFg),
-                          ),
-                        ),
-                      ),
-                    Positioned(
-                      top: AppSpacing.xs,
-                      right: AppSpacing.xs,
-                      child: _WishlistButton(
-                        productId: productId,
-                        repository: repository,
-                        wishlistStream: wishlistStream,
-                        onTap: onWishlistTap,
-                      ),
-                    ),
-                  ],
+              _imageBlock(productId),
+              const SizedBox(height: 10),
+              if (product.brand.isNotEmpty)
+                Text(
+                  product.brand.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.overline.copyWith(
+                    color: AppColors.textTertiary,
+                  ),
                 ),
+              const SizedBox(height: 2),
+              Text(
+                name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.bodyMedium,
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  0,
-                  AppSpacing.md,
-                  AppSpacing.md,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (product.brand.isNotEmpty)
-                      Text(
-                        product.brand.toUpperCase(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.overline.copyWith(
-                          color: AppColors.textTertiary,
-                        ),
-                      ),
-                    const SizedBox(height: 2),
-                    Text(
-                      name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.bodyMedium,
-                    ),
-                    if (product.storage.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        product.storage,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.caption,
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.sm),
-                    _priceRow(discount),
-                    if (product.warrantyMonths > 0) ...[
-                      const SizedBox(height: AppSpacing.xs),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.verified_user_outlined,
-                            size: 12,
-                            color: AppColors.success,
-                          ),
-                          const SizedBox(width: 3),
-                          Flexible(
-                            child: Text(
-                              '${product.warrantyMonths}-month warranty',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.success,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
+              const SizedBox(height: 2),
+              Text(
+                product.storage.isNotEmpty ? product.storage : ' ',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.caption,
               ),
+              const SizedBox(height: 6),
+              _priceBlock(discount),
             ],
           ),
         ),
@@ -208,10 +112,73 @@ class HomeProductCard extends StatelessWidget {
     );
   }
 
-  /// Price, struck original and percentage off on one baseline — the layout
-  /// every Indian marketplace uses, because it lets the eye read "what it
-  /// costs / what it cost / how much less" in a single pass.
-  Widget _priceRow(int discount) {
+  /// The photo, in the cell's one surface. Fixed height rather than a square:
+  /// the grid pins cell height in logical pixels, so an aspect-ratio image
+  /// would change the text budget every time the screen width changed.
+  Widget _imageBlock(String productId) {
+    final (gradeBg, gradeFg) = _gradeColors();
+
+    return SizedBox(
+      height: 150,
+      width: double.infinity,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: AppRadius.card,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Hero(
+                  tag: 'product-image-$productId',
+                  child: AppNetworkImage(
+                    url: product.imageUrl,
+                    fit: BoxFit.contain,
+                    borderRadius: BorderRadius.zero,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (product.condition.isNotEmpty)
+            Positioned(
+              top: AppSpacing.sm,
+              left: AppSpacing.sm,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: gradeBg,
+                  borderRadius: AppRadius.pill,
+                ),
+                child: Text(
+                  product.condition.toUpperCase(),
+                  style: AppTextStyles.overline.copyWith(color: gradeFg),
+                ),
+              ),
+            ),
+          Positioned(
+            top: AppSpacing.xs,
+            right: AppSpacing.xs,
+            child: _WishlistButton(
+              productId: productId,
+              repository: repository,
+              wishlistStream: wishlistStream,
+              onTap: onWishlistTap,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Price, then the struck original and percentage off on a second line —
+  /// the figure being paid gets the full width and never competes for it.
+  Widget _priceBlock(int discount) {
     if (product.price.isEmpty) {
       return Text('Price on request', style: AppTextStyles.bodySmall);
     }
