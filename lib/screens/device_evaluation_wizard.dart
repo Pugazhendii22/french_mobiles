@@ -2,7 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
-import '../widgets/app_back_button.dart';
+import '../shared/theme/app_colors.dart';
+import '../shared/theme/app_text_styles.dart';
+import '../shared/theme/app_theme.dart';
+import '../shared/widgets/widgets.dart';
 import 'pickup_checkout_page.dart';
 
 class DeviceEvaluationWizard extends StatefulWidget {
@@ -28,6 +31,15 @@ class DeviceEvaluationWizard extends StatefulWidget {
 }
 
 class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
+  static const List<String> _stepTitles = [
+    'Screen condition',
+    'Body & frame',
+    'Battery health',
+    'Functionality faults',
+    'Accessories',
+    'Lock status & payout',
+  ];
+
   int _currentStep = 0;
 
   int _selectedScreenIndex = 0;
@@ -47,6 +59,12 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
 
   FirebaseFirestore get _catalogFirestore =>
       FirebaseFirestore.instanceFor(app: Firebase.app('catalogApp'));
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDeductionRules();
+  }
 
   int _calculateFinalValuation() {
     double totalDeduction = 0.0;
@@ -91,189 +109,232 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadDeductionRules();
+  Future<void> _loadDeductionRules() async {
+    setState(() {
+      _isLoadingOptions = true;
+    });
+
+    try {
+      final ids = [
+        'screen_condition',
+        'body_condition',
+        'battery_health',
+        'functionality_faults',
+        'accessories',
+        'lock_status',
+      ];
+
+      final col = _catalogFirestore.collection('deduction_rules');
+      final results = <List<Map<String, dynamic>>>[];
+
+      for (final id in ids) {
+        try {
+          final doc = await col.doc(id).get();
+          final data = doc.data();
+          final rawOptions =
+              (data != null && data['options'] is List) ? List.from(data['options']) : [];
+
+          final mapped = rawOptions.map<Map<String, dynamic>>((o) {
+            final label = (o['label'] ?? '').toString();
+            final iconUrl = (o['icon_url'] ?? '').toString().trim();
+            double deduction = 0.0;
+            // Firestore stores whole-number percent (e.g. 30 meaning 30%).
+            if (o['percent'] is num) {
+              deduction = (o['percent'] as num).toDouble() / 100.0;
+            } else if (o['percent'] is String) {
+              deduction = (double.tryParse(o['percent']) ?? 0.0) / 100.0;
+            }
+
+            final percent = (deduction * 100).round();
+
+            return {
+              'title': label,
+              'subtitle': '$percent% Deduction',
+              'percent': percent,
+              'deduction': deduction,
+              'icon_url': iconUrl,
+            };
+          }).toList();
+
+          results.add(mapped);
+        } catch (_) {
+          results.add([]);
+        }
+      }
+
+      setState(() {
+        _screenOptions = results.isNotEmpty ? results[0] : [];
+        _bodyOptions = results.length > 1 ? results[1] : [];
+        _batteryOptions = results.length > 2 ? results[2] : [];
+        _faultOptions = results.length > 3 ? results[3] : [];
+        _accessoryOptions = results.length > 4 ? results[4] : [];
+        _lockOptions = results.length > 5 ? results[5] : [];
+
+        // clamp selected indices to available lengths
+        _selectedScreenIndex = _selectedScreenIndex.clamp(
+            0, _screenOptions.isEmpty ? 0 : _screenOptions.length - 1);
+        _selectedBodyIndex = _selectedBodyIndex.clamp(
+            0, _bodyOptions.isEmpty ? 0 : _bodyOptions.length - 1);
+        _selectedBatteryIndex = _selectedBatteryIndex.clamp(
+            0, _batteryOptions.isEmpty ? 0 : _batteryOptions.length - 1);
+        _selectedAccessoryIndex = _selectedAccessoryIndex.clamp(
+            0, _accessoryOptions.isEmpty ? 0 : _accessoryOptions.length - 1);
+        _selectedLockIndex = _selectedLockIndex.clamp(
+            0, _lockOptions.isEmpty ? 0 : _lockOptions.length - 1);
+
+        // remove selected faults outside range
+        _selectedFaults.retainWhere((i) => i >= 0 && i < _faultOptions.length);
+      });
+    } catch (e) {
+      setState(() {
+        _screenOptions = [];
+        _bodyOptions = [];
+        _batteryOptions = [];
+        _faultOptions = [];
+        _accessoryOptions = [];
+        _lockOptions = [];
+      });
+    } finally {
+      setState(() {
+        _isLoadingOptions = false;
+      });
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final String stepTitle = [
-      '1. Screen Condition',
-      '2. Body / Frame Condition',
-      '3. Battery Health',
-      '4. Functionality Faults',
-      '5. Accessories / Completeness',
-      '6. Lock Status & Payout',
-    ][_currentStep];
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: AppBackButton.light(onPressed: _prevStep),
-        title: Text(
-          stepTitle,
-          style: const TextStyle(
-            color: Colors.black87,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+  void _openCheckout() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PickupCheckoutPage(
+          brandName: widget.brandName,
+          modelDocId: widget.modelDocId,
+          modelName: widget.modelName,
+          imageUrl: widget.imageUrl,
+          variant: widget.storage,
+          basePrice: widget.basePrice,
+          finalPayout: _calculateFinalValuation(),
         ),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-            child: Column(
-              children: [
-                Text(
-                  _currentStep < 5
-                      ? 'Select options that apply to your device'
-                      : 'Review your final estimated cash payout',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.modelName,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF94A3B8),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: _buildStepGrid(),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
-            ),
-            child: SafeArea(
-              child: _currentStep < 5
-                  ? SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _nextStep,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00B69B),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Continue',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Icon(Icons.arrow_forward, color: Colors.white, size: 20),
-                          ],
-                        ),
-                      ),
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'CALCULATED VALUE',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF64748B),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              '₹${_calculateFinalValuation()}',
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF16A34A),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => PickupCheckoutPage(
-                                        brandName: widget.brandName,
-                                        modelDocId: widget.modelDocId,
-                                        modelName: widget.modelName,
-                                        imageUrl: widget.imageUrl,
-                                        variant: widget.storage,
-                                        basePrice: widget.basePrice,
-                                        finalPayout: _calculateFinalValuation(),
-                                      ),
-                                ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF00B69B),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                            ),
-                            child: const Text(
-                              'Get Paid',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ),
-        ],
       ),
     );
   }
 
-  Widget _buildStepGrid() {
-    if (_isLoadingOptions) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00B69B)),
+  @override
+  Widget build(BuildContext context) {
+    final isLastStep = _currentStep == 5;
+
+    return Theme(
+      data: AppTheme.light,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenGutter,
+                  AppSpacing.lg,
+                  AppSpacing.screenGutter,
+                  AppSpacing.lg,
+                ),
+                child: AppScreenHeader(
+                  title: _stepTitles[_currentStep],
+                  onBack: _prevStep,
+                  trailing: AppBadge(
+                    label: 'STEP ${_currentStep + 1}/6',
+                    tone: AppBadgeTone.primary,
+                  ),
+                  content: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppStepProgress(total: 6, current: _currentStep),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        isLastStep
+                            ? 'Review your final estimated cash payout'
+                            : 'Select the options that apply to your device',
+                        style: AppTextStyles.bodySmall,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        [widget.modelName, widget.storage]
+                            .where((s) => s.isNotEmpty)
+                            .join(' · '),
+                        style: AppTextStyles.label,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(child: _buildStepBody()),
+            ],
+          ),
         ),
+        bottomNavigationBar: AppBottomBar(
+          child: isLastStep ? _buildPayoutBar() : _buildContinueBar(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContinueBar() {
+    return AppPrimaryButton(
+      label: 'Continue',
+      icon: Icons.arrow_forward_rounded,
+      onPressed: _nextStep,
+    );
+  }
+
+  Widget _buildPayoutBar() {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Calculated value', style: AppTextStyles.caption),
+              Text(
+                '₹ ${_calculateFinalValuation()}',
+                style: AppTextStyles.h1.copyWith(
+                  color: AppColors.onPrimarySoft,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: AppSpacing.lg),
+        AppPrimaryButton(
+          label: 'Get paid',
+          expand: false,
+          onPressed: _openCheckout,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepBody() {
+    if (_isLoadingOptions) {
+      return GridView.builder(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.screenGutter,
+          0,
+          AppSpacing.screenGutter,
+          AppSpacing.xxl,
+        ),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.95,
+          crossAxisSpacing: AppSpacing.md,
+          mainAxisSpacing: AppSpacing.md,
+        ),
+        itemCount: 4,
+        itemBuilder: (_, __) =>
+            const AppShimmer(width: double.infinity, height: double.infinity),
       );
     }
+
     switch (_currentStep) {
       case 0:
         return _buildSingleSelectGrid(
@@ -312,28 +373,57 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
     }
   }
 
-  Widget _buildSingleSelectGrid(
-    List<Map<String, dynamic>> items,
-    int selectedIndex,
-    Function(int) onSelect,
-  ) {
+  Widget _emptyOptions() {
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.screenGutter),
+      child: AppEmptyState(
+        title: 'Options unavailable',
+        message: 'We could not load the grading options for this step.',
+        icon: Icons.rule_outlined,
+        onRetry: _loadDeductionRules,
+      ),
+    );
+  }
+
+  Widget _grid({required int itemCount, required IndexedWidgetBuilder builder}) {
     return GridView.builder(
-      itemCount: items.length,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenGutter,
+        0,
+        AppSpacing.screenGutter,
+        AppSpacing.xxl,
+      ),
+      itemCount: itemCount,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         childAspectRatio: 0.95,
-        crossAxisSpacing: 14,
-        mainAxisSpacing: 14,
+        crossAxisSpacing: AppSpacing.md,
+        mainAxisSpacing: AppSpacing.md,
       ),
-      itemBuilder: (context, index) {
-        final item = items[index];
-        final isSelected = selectedIndex == index;
+      itemBuilder: builder,
+    );
+  }
 
-        return _buildGridTile(
-          title: item['title'] ?? '',
-          subtitle: item['subtitle'] ?? (item['percent'] != null ? '${item['percent'].toString()}% Deduction' : ''),
-          icon: item['icon_url'] ?? '',
-          isSelected: isSelected,
+  Widget _buildSingleSelectGrid(
+    List<Map<String, dynamic>> items,
+    int selectedIndex,
+    void Function(int) onSelect,
+  ) {
+    if (items.isEmpty) return _emptyOptions();
+
+    return _grid(
+      itemCount: items.length,
+      builder: (context, index) {
+        final item = items[index];
+        return AppOptionCard(
+          title: (item['title'] ?? '').toString(),
+          subtitle: (item['subtitle'] ??
+                  (item['percent'] != null
+                      ? '${item['percent']}% Deduction'
+                      : ''))
+              .toString(),
+          iconUrl: (item['icon_url'] ?? '').toString(),
+          selected: selectedIndex == index,
           onTap: () => onSelect(index),
         );
       },
@@ -341,23 +431,25 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
   }
 
   Widget _buildMultiSelectGrid() {
-    return GridView.builder(
+    if (_faultOptions.isEmpty) return _emptyOptions();
+
+    return _grid(
       itemCount: _faultOptions.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.95,
-        crossAxisSpacing: 14,
-        mainAxisSpacing: 14,
-      ),
-      itemBuilder: (context, index) {
+      builder: (context, index) {
         final item = _faultOptions[index];
         final isSelected = _selectedFaults.contains(index);
 
-        return _buildGridTile(
-          title: item['title'] ?? '',
-          subtitle: item['subtitle'] ?? (item['percent'] != null ? '${item['percent'].toString()}% Deduction' : ''),
-          icon: item['icon_url'] ?? '',
-          isSelected: isSelected,
+        return AppOptionCard(
+          title: (item['title'] ?? '').toString(),
+          subtitle: (item['subtitle'] ??
+                  (item['percent'] != null
+                      ? '${item['percent']}% Deduction'
+                      : ''))
+              .toString(),
+          iconUrl: (item['icon_url'] ?? '').toString(),
+          fallbackIcon: Icons.build_outlined,
+          selected: isSelected,
+          multiSelect: true,
           onTap: () {
             setState(() {
               if (isSelected) {
@@ -370,188 +462,5 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
         );
       },
     );
-  }
-
-  Widget _buildGridTile({
-    required String title,
-    required String subtitle,
-    required dynamic icon,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFE6F8F5) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? const Color(0xFF00B69B) : const Color(0xFFE2E8F0),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Expanded(
-              child: Center(
-                child: (() {
-                  if (icon is String && icon.isNotEmpty) {
-                    return Image.network(
-                      icon,
-                      width: 42,
-                      height: 42,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00B69B)),
-                          ),
-                        );
-                      },
-                    );
-                  }
-
-                  if (icon is IconData) {
-                    return Icon(
-                      icon,
-                      size: 42,
-                      color: isSelected ? const Color(0xFF00B69B) : Colors.grey.shade400,
-                    );
-                  }
-
-                  return const SizedBox.shrink();
-                })(),
-              ),
-            ),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFFD0F2EC) : const Color(0xFFF8FAFC),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(11),
-                  bottomRight: Radius.circular(11),
-                ),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? const Color(0xFF007A68) : const Color(0xFF334155),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _loadDeductionRules() async {
-    setState(() {
-      _isLoadingOptions = true;
-    });
-
-    try {
-      final ids = [
-        'screen_condition',
-        'body_condition',
-        'battery_health',
-        'functionality_faults',
-        'accessories',
-        'lock_status',
-      ];
-
-      final col = _catalogFirestore.collection('deduction_rules');
-      final results = <List<Map<String, dynamic>>>[];
-
-      for (final id in ids) {
-        try {
-          final doc = await col.doc(id).get();
-          final data = doc.data();
-          final rawOptions = (data != null && data['options'] is List) ? List.from(data['options']) : [];
-
-          final mapped = rawOptions.map<Map<String, dynamic>>((o) {
-            final label = (o['label'] ?? '').toString();
-            final iconUrl = (o['icon_url'] ?? '').toString().trim();
-            double deduction = 0.0;
-            // Firestore stores whole-number percent (e.g. 30 meaning 30%).
-            if (o['percent'] is num) {
-              deduction = (o['percent'] as num).toDouble() / 100.0;
-            } else if (o['percent'] is String) {
-              deduction = (double.tryParse(o['percent']) ?? 0.0) / 100.0;
-            }
-
-            final percentDisplay = ((deduction * 100).round()).toString();
-
-            return {
-              'title': label,
-              'subtitle': '%s' /* placeholder */,
-              'percent': (deduction * 100).round(),
-              'deduction': deduction,
-              'icon_url': iconUrl,
-            }..update('subtitle', (v) => '$percentDisplay% Deduction');
-          }).toList();
-
-          results.add(mapped);
-        } catch (_) {
-          results.add([]);
-        }
-      }
-
-      setState(() {
-        _screenOptions = results.length > 0 ? results[0] : [];
-        _bodyOptions = results.length > 1 ? results[1] : [];
-        _batteryOptions = results.length > 2 ? results[2] : [];
-        _faultOptions = results.length > 3 ? results[3] : [];
-        _accessoryOptions = results.length > 4 ? results[4] : [];
-        _lockOptions = results.length > 5 ? results[5] : [];
-
-        // clamp selected indices to available lengths
-        _selectedScreenIndex = _selectedScreenIndex.clamp(0, _screenOptions.isEmpty ? 0 : _screenOptions.length - 1);
-        _selectedBodyIndex = _selectedBodyIndex.clamp(0, _bodyOptions.isEmpty ? 0 : _bodyOptions.length - 1);
-        _selectedBatteryIndex = _selectedBatteryIndex.clamp(0, _batteryOptions.isEmpty ? 0 : _batteryOptions.length - 1);
-        _selectedAccessoryIndex = _selectedAccessoryIndex.clamp(0, _accessoryOptions.isEmpty ? 0 : _accessoryOptions.length - 1);
-        _selectedLockIndex = _selectedLockIndex.clamp(0, _lockOptions.isEmpty ? 0 : _lockOptions.length - 1);
-
-        // remove selected faults outside range
-        _selectedFaults.retainWhere((i) => i >= 0 && i < _faultOptions.length);
-      });
-    } catch (e) {
-      setState(() {
-        _screenOptions = [];
-        _bodyOptions = [];
-        _batteryOptions = [];
-        _faultOptions = [];
-        _accessoryOptions = [];
-        _lockOptions = [];
-      });
-    } finally {
-      setState(() {
-        _isLoadingOptions = false;
-      });
-    }
   }
 }

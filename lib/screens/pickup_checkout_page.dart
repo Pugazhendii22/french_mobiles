@@ -1,11 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+
 import '../firebase/catalog_firebase.dart';
 import '../profile/account_pages.dart';
-import '../widgets/app_back_button.dart';
-
-import 'order_tracking_page.dart';
+import '../shared/theme/app_colors.dart';
+import '../shared/theme/app_text_styles.dart';
+import '../shared/theme/app_theme.dart';
+import '../shared/widgets/widgets.dart';
 import 'login_page.dart';
+import 'order_tracking_page.dart';
 
 class PickupCheckoutPage extends StatefulWidget {
   final String brandName;
@@ -65,6 +68,27 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
       // ignore
     } finally {
       if (mounted) setState(() => _loadingAddress = false);
+    }
+  }
+
+  Future<void> _pickAddress() async {
+    final result = await Navigator.push<Map<String, dynamic>?>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SavedAddressesPage(selectMode: true),
+      ),
+    );
+    if (result != null) {
+      setState(() {
+        _selectedAddressLabel =
+            (result['label'] as String?) ?? _selectedAddressLabel;
+        _selectedAddressFullText =
+            (result['fullAddress'] as String?) ?? _selectedAddressFullText;
+        _selectedAddressLat =
+            (result['latitude'] as num?)?.toDouble() ?? _selectedAddressLat;
+        _selectedAddressLng =
+            (result['longitude'] as num?)?.toDouble() ?? _selectedAddressLng;
+      });
     }
   }
 
@@ -131,305 +155,260 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F8),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: const AppBackButton.light(),
-        titleSpacing: 0,
-        title: GestureDetector(
-          onTap: () async {
-            final result = await Navigator.push<Map<String, dynamic>?>(
-              context,
-              MaterialPageRoute(builder: (context) => const SavedAddressesPage(selectMode: true)),
-            );
-            if (result != null) {
-              setState(() {
-                _selectedAddressLabel = (result['label'] as String?) ?? _selectedAddressLabel;
-                _selectedAddressFullText = (result['fullAddress'] as String?) ?? _selectedAddressFullText;
-                _selectedAddressLat = (result['latitude'] as num?)?.toDouble() ?? _selectedAddressLat;
-                _selectedAddressLng = (result['longitude'] as num?)?.toDouble() ?? _selectedAddressLng;
-              });
-            }
-          },
+    return Theme(
+      data: AppTheme.light,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          bottom: false,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenGutter,
+              AppSpacing.lg,
+              AppSpacing.screenGutter,
+              AppSpacing.xxl,
+            ),
+            children: [
+              const AppScreenHeader(title: 'Pickup & payout'),
+              const SizedBox(height: AppSpacing.xl),
+              Text('Pickup address', style: AppTextStyles.h3),
+              const SizedBox(height: AppSpacing.md),
+              _buildAddressCard(),
+              const SizedBox(height: AppSpacing.xl),
+              Text('Your device', style: AppTextStyles.h3),
+              const SizedBox(height: AppSpacing.md),
+              _buildDeviceCard(),
+              const SizedBox(height: AppSpacing.xl),
+              Text('Payout summary', style: AppTextStyles.h3),
+              const SizedBox(height: AppSpacing.md),
+              _buildSummaryCard(),
+              const SizedBox(height: AppSpacing.lg),
+              _buildReassurance(),
+            ],
+          ),
+        ),
+        bottomNavigationBar: AppBottomBar(
           child: Row(
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          _selectedAddressLabel ?? 'Add a pickup address',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const Icon(Icons.keyboard_arrow_down, color: Colors.black),
-                      ],
-                    ),
+                    Text('You receive', style: AppTextStyles.caption),
                     Text(
-                      _selectedAddressFullText ?? '',
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
+                      '₹ ${widget.finalPayout}',
+                      style: AppTextStyles.h2.copyWith(
+                        color: AppColors.onPrimarySoft,
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: AppSpacing.lg),
+              AppPrimaryButton(
+                label: 'Place order',
+                expand: false,
+                loading: _placingOrder,
+                onPressed: _placeOrder,
+              ),
             ],
           ),
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(12),
+    );
+  }
+
+  Widget _buildAddressCard() {
+    if (_loadingAddress) {
+      return const AppShimmer(width: double.infinity, height: 84);
+    }
+
+    final hasAddress = _selectedAddressFullText != null;
+
+    return InkWell(
+      onTap: _pickAddress,
+      borderRadius: AppRadius.card,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: AppRadius.card,
+          border: Border.all(
+            color: hasAddress ? AppColors.border : AppColors.warning,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              height: 36,
+              width: 36,
+              decoration: BoxDecoration(
+                color: hasAddress
+                    ? AppColors.primarySoft
+                    : AppColors.warningSoft,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.location_on_outlined,
+                size: 18,
+                color:
+                    hasAddress ? AppColors.onPrimarySoft : AppColors.warning,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.schedule, size: 20, color: Colors.black87),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Doorstep Pickup',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: const Color(0xFFE0E0E0)),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.calendar_month_outlined,
-                                      size: 16, color: Color(0xFFE91E63)),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Schedule',
-                                    style: TextStyle(
-                                      color: Colors.black87,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        const Divider(height: 1, color: Color(0xFFF0F0F0)),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Container(
-                              width: 64,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
-                              ),
-                              child: const Icon(
-                                Icons.phone_android,
-                                size: 36,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    widget.modelName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    widget.variant,
-                                    style: const TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    '₹${widget.finalPayout}',
-                                    style: const TextStyle(
-                                      color: Color(0xFF16A34A),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                  Text(
+                    _selectedAddressLabel ?? 'Add a pickup address',
+                    style: AppTextStyles.bodyMedium,
                   ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
+                  if (hasAddress) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      _selectedAddressFullText!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.caption,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Sell Order Confirmed Details',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE6F4EA),
-                                borderRadius: BorderRadius.circular(50),
-                              ),
-                              child: const Icon(
-                                Icons.verified_user_outlined,
-                                color: Color(0xFF16A34A),
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Instant Doorstep Valuation',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Field executive will inspect and transfer cash on the spot.',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
-          ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: AppColors.textTertiary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeviceCard() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 10,
-                  offset: Offset(0, -2),
+            height: 56,
+            width: 56,
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceMuted,
+              borderRadius: AppRadius.field,
+            ),
+            child: AppNetworkImage(
+              url: widget.imageUrl ?? '',
+              fit: BoxFit.contain,
+              borderRadius: BorderRadius.zero,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.brandName,
+                  style: AppTextStyles.overline.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
+                const SizedBox(height: 2),
+                Text(widget.modelName, style: AppTextStyles.bodyMedium),
+                if (widget.variant.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  AppBadge(label: widget.variant),
+                ],
               ],
             ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'To Receive',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      Text(
-                        '₹${widget.finalPayout}',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: SizedBox(
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed: (_placingOrder || _selectedAddressFullText == null) ? null : _placeOrder,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE91E63),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: _placingOrder
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : const Text(
-                                'Place Order',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ),
-                ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard() {
+    final deduction = widget.basePrice - widget.finalPayout;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          _summaryRow('Base price', '₹ ${widget.basePrice}'),
+          if (deduction > 0) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _summaryRow('Condition adjustment', '− ₹ $deduction'),
+          ],
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+            child: Divider(height: 1, thickness: 1, color: AppColors.border),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: Text('Final payout', style: AppTextStyles.bodyMedium),
+              ),
+              Text(
+                '₹ ${widget.finalPayout}',
+                style: AppTextStyles.h3.copyWith(
+                  color: AppColors.onPrimarySoft,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryRow(String label, String value) {
+    return Row(
+      children: [
+        Expanded(child: Text(label, style: AppTextStyles.bodySmall)),
+        Text(value, style: AppTextStyles.priceSmall),
+      ],
+    );
+  }
+
+  Widget _buildReassurance() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.primarySoft,
+        borderRadius: AppRadius.card,
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.shield_outlined,
+            size: 18,
+            color: AppColors.onPrimarySoft,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              'Final price is confirmed at pickup after a quick check. '
+              'Payment is instant.',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.onPrimarySoft,
               ),
             ),
           ),

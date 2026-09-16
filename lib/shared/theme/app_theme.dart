@@ -128,7 +128,10 @@ class AppTheme {
           disabledBackgroundColor: AppColors.border,
           disabledForegroundColor: AppColors.textTertiary,
           elevation: 0,
-          minimumSize: const Size.fromHeight(52),
+          // A minimum, not a target: Size.fromHeight sets width to infinity,
+          // which forces an unbounded-width crash on any button that is not
+          // already width-constrained (e.g. sitting in a Row).
+          minimumSize: const Size(64, 52),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
           shape: RoundedRectangleBorder(borderRadius: AppRadius.field),
           textStyle: AppTextStyles.button,
@@ -146,7 +149,7 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
           side: const BorderSide(color: AppColors.border),
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size(64, 52),
           shape: RoundedRectangleBorder(borderRadius: AppRadius.field),
           textStyle: AppTextStyles.button.copyWith(
             color: AppColors.textPrimary,
