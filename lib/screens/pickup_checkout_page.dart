@@ -72,23 +72,61 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
     }
   }
 
-  Future<void> _pickAddress() async {
-    final result = await context.pushScreen<Map<String, dynamic>?>(
-      const SavedAddressesPage(selectMode: true),
-      transition: AppTransition.rise,
-    );
-    if (result != null) {
-      setState(() {
+  /// Applies an address returned by either the picker or the add sheet. Both
+  /// hand back the same key shape.
+  void _applyAddress(Map<String, dynamic> result) {
+    setState(() {
         _selectedAddressLabel =
             (result['label'] as String?) ?? _selectedAddressLabel;
         _selectedAddressFullText =
             (result['fullAddress'] as String?) ?? _selectedAddressFullText;
         _selectedAddressLat =
             (result['latitude'] as num?)?.toDouble() ?? _selectedAddressLat;
-        _selectedAddressLng =
-            (result['longitude'] as num?)?.toDouble() ?? _selectedAddressLng;
-      });
+      _selectedAddressLng =
+          (result['longitude'] as num?)?.toDouble() ?? _selectedAddressLng;
+    });
+  }
+
+  Future<void> _pickAddress() async {
+    final result = await context.pushScreen<Map<String, dynamic>?>(
+      const SavedAddressesPage(selectMode: true),
+      transition: AppTransition.rise,
+    );
+    if (result != null) _applyAddress(result);
+  }
+
+  /// Opens the existing add-address sheet directly, skipping the list.
+  ///
+  /// Reuses AddEditAddressSheet rather than duplicating the form, so the
+  /// label chips, geolocation and Firestore write are all the same code the
+  /// profile screen uses. The sheet returns what it saved, so the new address
+  /// is selected here immediately.
+  Future<void> _addAddress() async {
+    final user = catalogAuth.currentUser;
+    if (user == null) {
+      await context.pushScreen(const LoginPage(),
+          transition: AppTransition.rise);
+      return;
     }
+    if (!mounted) return;
+
+    final saved = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (_) => AddEditAddressSheet(
+        addressRef: catalogFirestore
+            .collection('users')
+            .doc(user.uid)
+            .collection('addresses'),
+      ),
+    );
+
+    if (!mounted || saved == null) return;
+    _applyAddress(saved);
   }
 
   Future<void> _placeOrder() async {
@@ -183,8 +221,30 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
             children: [
               const AppScreenHeader(title: 'Pickup & payout'),
               const SizedBox(height: AppSpacing.xl),
-              Text('Pickup address', style: AppTextStyles.h3),
-              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text('Pickup address', style: AppTextStyles.h3),
+                  ),
+                  TextButton.icon(
+                    onPressed: _addAddress,
+                    icon: const Icon(Icons.add_rounded,
+                        size: 16, color: AppColors.primary),
+                    label: Text(
+                      'Add new',
+                      style: AppTextStyles.label
+                          .copyWith(color: AppColors.primary),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
               _buildAddressCard(),
               const SizedBox(height: AppSpacing.xl),
               Text('Your device', style: AppTextStyles.h3),

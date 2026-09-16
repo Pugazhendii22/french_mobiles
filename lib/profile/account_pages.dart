@@ -96,8 +96,10 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
     }
   }
 
-  void _openAddEdit({DocumentSnapshot<Map<String, dynamic>>? doc}) {
-    showModalBottomSheet<void>(
+  Future<void> _openAddEdit({
+    DocumentSnapshot<Map<String, dynamic>>? doc,
+  }) async {
+    final saved = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
@@ -107,6 +109,12 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
       builder: (context) =>
           AddEditAddressSheet(addressRef: _addressesRef!, existing: doc),
     );
+
+    // Opened to pick an address: a newly saved one is almost certainly the
+    // one wanted, so return it to the caller instead of leaving the user on
+    // a list to hunt for it.
+    if (!mounted || !widget.selectMode || saved == null) return;
+    Navigator.pop(context, saved);
   }
 
   Future<void> _useCurrentLocationDirect() async {
@@ -149,7 +157,7 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
       if (!mounted) return;
       setState(() => _fetchingLocation = false);
 
-      showModalBottomSheet<void>(
+      final saved = await showModalBottomSheet<Map<String, dynamic>>(
         context: context,
         isScrollControlled: true,
         backgroundColor: AppColors.surface,
@@ -164,6 +172,9 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
           prefillLongitude: pos.longitude,
         ),
       );
+
+      if (!mounted || !widget.selectMode || saved == null) return;
+      Navigator.pop(context, saved);
     } catch (e) {
       if (mounted) {
         setState(() => _fetchingLocation = false);
@@ -666,10 +677,12 @@ class _AddEditAddressSheetState extends State<AddEditAddressSheet> {
     setState(() => _saving = true);
 
     try {
+      String savedId;
+
       if (widget.existing == null) {
         final snapshot = await widget.addressRef.get();
         final first = snapshot.docs.isEmpty;
-        await widget.addressRef.add({
+        final ref = await widget.addressRef.add({
           'label': _label,
           'fullAddress': text,
           'latitude': _latitude,
@@ -677,8 +690,10 @@ class _AddEditAddressSheetState extends State<AddEditAddressSheet> {
           'isDefault': first,
           'createdAt': FieldValue.serverTimestamp(),
         });
+        savedId = ref.id;
       } else {
-        await widget.addressRef.doc(widget.existing!.id).update({
+        savedId = widget.existing!.id;
+        await widget.addressRef.doc(savedId).update({
           'label': _label,
           'fullAddress': text,
           'latitude': _latitude,
@@ -687,7 +702,19 @@ class _AddEditAddressSheetState extends State<AddEditAddressSheet> {
         });
       }
 
-      if (mounted) Navigator.pop(context);
+      // Hand the saved address back rather than popping empty, so a caller
+      // picking an address can use it immediately instead of sending the user
+      // back to a list to find what they just typed. Same key shape the list
+      // returns in selectMode. Nothing about the write itself changed.
+      if (mounted) {
+        Navigator.pop(context, <String, dynamic>{
+          'id': savedId,
+          'label': _label,
+          'fullAddress': text,
+          'latitude': _latitude,
+          'longitude': _longitude,
+        });
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
