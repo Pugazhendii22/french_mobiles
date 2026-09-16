@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../firebase/catalog_firebase.dart';
 import '../profile/account_pages.dart';
+import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
@@ -72,11 +73,9 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
   }
 
   Future<void> _pickAddress() async {
-    final result = await Navigator.push<Map<String, dynamic>?>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const SavedAddressesPage(selectMode: true),
-      ),
+    final result = await context.pushScreen<Map<String, dynamic>?>(
+      const SavedAddressesPage(selectMode: true),
+      transition: AppTransition.rise,
     );
     if (result != null) {
       setState(() {
@@ -103,9 +102,7 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
     try {
       var user = catalogAuth.currentUser;
       if (user == null) {
-        final loggedIn = await Navigator.push<bool>(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginPage()),
+        final loggedIn = await context.pushScreen<bool>(const LoginPage(),
         );
         if (loggedIn != true) {
           setState(() => _placingOrder = false);
@@ -142,9 +139,7 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
       final orderId = ref.id;
 
       if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => OrderTrackingPage(orderId: orderId)),
+      context.pushScreen(OrderTrackingPage(orderId: orderId),
       );
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to place order: $e')));
@@ -196,8 +191,9 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text('You receive', style: AppTextStyles.caption),
-                    Text(
-                      '₹ ${widget.finalPayout}',
+                    AppAnimatedCount(
+                      value: widget.finalPayout,
+                      prefix: '₹ ',
                       style: AppTextStyles.h2.copyWith(
                         color: AppColors.onPrimarySoft,
                       ),

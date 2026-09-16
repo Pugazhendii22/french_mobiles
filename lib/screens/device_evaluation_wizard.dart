@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
@@ -202,10 +203,7 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
   }
 
   void _openCheckout() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PickupCheckoutPage(
+    context.pushScreen(PickupCheckoutPage(
           brandName: widget.brandName,
           modelDocId: widget.modelDocId,
           modelName: widget.modelName,
@@ -213,7 +211,6 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
           variant: widget.storage,
           basePrice: widget.basePrice,
           finalPayout: _calculateFinalValuation(),
-        ),
       ),
     );
   }
@@ -295,8 +292,11 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Calculated value', style: AppTextStyles.caption),
-              Text(
-                '₹ ${_calculateFinalValuation()}',
+              // Counts to the new figure so a changed selection is visibly
+              // reflected in the payout rather than silently swapped.
+              AppAnimatedCount(
+                value: _calculateFinalValuation(),
+                prefix: '₹ ',
                 style: AppTextStyles.h1.copyWith(
                   color: AppColors.onPrimarySoft,
                 ),
@@ -400,7 +400,8 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
         crossAxisSpacing: AppSpacing.md,
         mainAxisSpacing: AppSpacing.md,
       ),
-      itemBuilder: builder,
+      itemBuilder: (context, index) =>
+          AppReveal(index: index, slots: 6, child: builder(context, index)),
     );
   }
 

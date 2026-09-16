@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../motion/motion.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../theme/app_theme.dart';
@@ -35,12 +36,11 @@ class AppOptionCard extends StatelessWidget {
       button: true,
       selected: selected,
       label: title,
-      child: InkWell(
+      child: AppPressable(
         onTap: onTap,
-        borderRadius: AppRadius.card,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          curve: Curves.easeOut,
+          duration: AppMotion.duration(context, AppMotion.fast),
+          curve: AppMotion.enter,
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
             color: selected ? AppColors.primarySoft : AppColors.surface,
@@ -100,7 +100,7 @@ class AppOptionCard extends StatelessWidget {
                   top: 0,
                   right: 0,
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
+                    duration: AppMotion.duration(context, AppMotion.fast),
                     height: 20,
                     width: 20,
                     decoration: BoxDecoration(

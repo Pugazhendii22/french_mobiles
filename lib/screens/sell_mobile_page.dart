@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
+import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
@@ -89,37 +90,25 @@ class _SellMobilePageState extends State<SellMobilePage> {
   // --- Navigation --------------------------------------------------------
 
   void _navigateToBrandDetail(BrandModel brand) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BrandDetailPage(
+    context.pushScreen(BrandDetailPage(
           brandName: brand.name,
-          themeColor: brand.themeColor,
-        ),
-      ),
+          themeColor: brand.themeColor),
     );
   }
 
   void _openBrandList() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const BrandListPage()),
+    context.pushScreen(const BrandListPage(),
     );
   }
 
   void _openModel(String modelName) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => DeviceEvaluationWizard(
+    context.pushScreen(DeviceEvaluationWizard(
           brandName: '',
           modelDocId: '',
           modelName: modelName,
           imageUrl: null,
           basePrice: 50000,
-          storage: 'Standard Variant',
-        ),
-      ),
+          storage: 'Standard Variant'),
     );
   }
 

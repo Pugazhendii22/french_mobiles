@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
+import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_theme.dart';
 import '../shared/widgets/widgets.dart';
@@ -41,14 +42,9 @@ class _BrandListPageState extends State<BrandListPage> {
   }
 
   void _navigateToBrandDetail(BrandModel brand) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BrandDetailPage(
+    context.pushScreen(BrandDetailPage(
           brandName: brand.name,
-          themeColor: brand.themeColor,
-        ),
-      ),
+          themeColor: brand.themeColor),
     );
   }
 
@@ -113,9 +109,13 @@ class _BrandListPageState extends State<BrandListPage> {
                           ),
                           itemBuilder: (context, index) {
                             final brand = _filteredBrands[index];
-                            return AppBrandCard(
-                              brand: brand,
-                              onTap: () => _navigateToBrandDetail(brand),
+                            return AppReveal(
+                              index: index,
+                              slots: 9,
+                              child: AppBrandCard(
+                                brand: brand,
+                                onTap: () => _navigateToBrandDetail(brand),
+                              ),
                             );
                           },
                         ),

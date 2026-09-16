@@ -45,8 +45,10 @@ void main() {
       expect(find.text('Lock status & payout'), findsOneWidget);
       expect(find.text('STEP 6/6'), findsOneWidget);
       expect(find.text('Get paid'), findsOneWidget);
-      // With no options loaded, no deduction applies and the payout is the
-      // full base price.
+      // The payout counts up to its value, so wait for the animation to land
+      // before asserting. With no options loaded no deduction applies and the
+      // figure is the full base price.
+      await t.pumpAndSettle();
       expect(find.text('₹ 50000'), findsOneWidget);
     });
   });

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/checkup_result.dart';
+import '../../shared/motion/motion.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
@@ -35,8 +36,8 @@ class CheckupSummaryPage extends StatelessWidget {
               children: [
                 _headlineCard(),
                 const SizedBox(height: 16),
-                for (final result in results) ...[
-                  _resultTile(result),
+                for (var i = 0; i < results.length; i++) ...[
+                  AppReveal(index: i, child: _resultTile(results[i])),
                   const SizedBox(height: 10),
                 ],
               ],

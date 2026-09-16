@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/checkup_result.dart';
+import '../../shared/motion/motion.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
@@ -129,10 +130,12 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
     for (final spec in specs) {
       if (!mounted) return;
 
+      // Each hardware test rises into view; the sequence reads as a stack of
+      // steps rather than a series of cuts.
       final result = await Navigator.of(context).push<CheckupResult>(
-        MaterialPageRoute<CheckupResult>(
+        AppPageRoute<CheckupResult>(
           builder: spec.pageBuilder,
-          fullscreenDialog: false,
+          transition: AppTransition.rise,
         ),
       );
       if (!mounted) return;
@@ -150,8 +153,9 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
     if (!mounted) return;
     setState(() => _running = false);
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
+      AppPageRoute<void>(
         builder: (context) => CheckupSummaryPage(results: results),
+        transition: AppTransition.fadeThrough,
       ),
     );
   }

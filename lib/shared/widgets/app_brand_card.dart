@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:french_mobiles/models/brand_model.dart';
 
+import '../motion/motion.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../theme/app_theme.dart';
@@ -35,9 +36,8 @@ class AppBrandCard extends StatelessWidget {
     return Semantics(
       button: true,
       label: brand.name,
-      child: InkWell(
+      child: AppPressable(
         onTap: onTap,
-        borderRadius: AppRadius.card,
         child: Container(
           width: width,
           padding: const EdgeInsets.all(AppSpacing.md),

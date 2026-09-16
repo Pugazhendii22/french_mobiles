@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../firebase/catalog_firebase.dart';
+import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
@@ -125,11 +126,14 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
     final addressFull = (d['addressFullText'] as String?) ?? '';
 
     return [
-      _buildConfirmation(),
+      AppReveal(index: 0, child: _buildConfirmation()),
       const SizedBox(height: AppSpacing.lg),
-      _buildTimeline(currentStep),
+      AppReveal(index: 1, child: _buildTimeline(currentStep)),
       const SizedBox(height: AppSpacing.lg),
-      _buildDetails(modelName, storage, finalPayout, addressFull),
+      AppReveal(
+        index: 2,
+        child: _buildDetails(modelName, storage, finalPayout, addressFull),
+      ),
     ];
   }
 
@@ -142,10 +146,17 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.check_circle_rounded,
-            color: AppColors.success,
-            size: 32,
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: AppMotion.slow,
+            curve: AppMotion.emphasis,
+            builder: (context, v, child) =>
+                Transform.scale(scale: v, child: child),
+            child: const Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.success,
+              size: 32,
+            ),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(

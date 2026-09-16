@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../motion/motion.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../theme/app_theme.dart';
@@ -36,8 +37,11 @@ class AppPrimaryButton extends StatelessWidget {
       ),
       child: ElevatedButton(
         onPressed: enabled ? onPressed : null,
-        child: loading
+        child: AnimatedSwitcher(
+          duration: AppMotion.duration(context, AppMotion.fast),
+          child: loading
             ? const SizedBox(
+                key: ValueKey('loading'),
                 height: 20,
                 width: 20,
                 child: CircularProgressIndicator(
@@ -47,6 +51,7 @@ class AppPrimaryButton extends StatelessWidget {
                 ),
               )
             : Row(
+                key: const ValueKey('label'),
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -54,9 +59,10 @@ class AppPrimaryButton extends StatelessWidget {
                     Icon(icon, size: 20, color: AppColors.onPrimary),
                     const SizedBox(width: AppSpacing.sm),
                   ],
-                  Text(label, style: AppTextStyles.button),
-                ],
-              ),
+                      Text(label, style: AppTextStyles.button),
+                    ],
+                  ),
+        ),
       ),
     );
 

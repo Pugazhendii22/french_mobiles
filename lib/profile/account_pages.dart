@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 
 import '../firebase/catalog_firebase.dart';
+import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
@@ -327,7 +328,7 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
               children: [
                 for (var i = 0; i < docs.length; i++) ...[
                   if (i > 0) const SizedBox(height: AppSpacing.md),
-                  _buildAddressCard(docs[i]),
+                  AppReveal(index: i, child: _buildAddressCard(docs[i])),
                 ],
               ],
             );

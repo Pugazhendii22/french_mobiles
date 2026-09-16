@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../firebase/catalog_firebase.dart';
 import '../screens/edit_profile_page.dart';
+import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
@@ -21,7 +22,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   void _open(Widget page) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+    context.pushScreen(page);
   }
 
   void _confirmLogout() {
@@ -87,9 +88,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   icon: Icons.person_outline_rounded,
                 )
               else ...[
-                _buildHeaderCard(user.uid),
+                AppReveal(index: 0, child: _buildHeaderCard(user.uid)),
                 const SizedBox(height: AppSpacing.xl),
-                _buildQuickActions(),
+                AppReveal(index: 1, child: _buildQuickActions()),
                 const SizedBox(height: AppSpacing.xl),
                 Text('Account', style: AppTextStyles.h3),
                 const SizedBox(height: AppSpacing.md),

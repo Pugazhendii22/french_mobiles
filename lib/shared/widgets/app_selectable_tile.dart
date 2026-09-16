@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../motion/motion.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../theme/app_theme.dart';
@@ -28,12 +29,11 @@ class AppSelectableTile extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      child: InkWell(
+      child: AppPressable(
         onTap: onTap,
-        borderRadius: AppRadius.card,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOut,
+          duration: AppMotion.duration(context, AppMotion.fast),
+          curve: AppMotion.enter,
           padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
             color: selected ? AppColors.primarySoft : AppColors.surface,
@@ -88,7 +88,7 @@ class _Radio extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
+      duration: AppMotion.duration(context, AppMotion.fast),
       height: 20,
       width: 20,
       decoration: BoxDecoration(

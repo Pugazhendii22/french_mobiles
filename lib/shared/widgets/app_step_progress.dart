@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../motion/motion.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
@@ -29,8 +30,8 @@ class AppStepProgress extends StatelessWidget {
             if (i > 0) const SizedBox(width: AppSpacing.xs),
             Expanded(
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
+                duration: AppMotion.duration(context, AppMotion.normal),
+                curve: AppMotion.enter,
                 height: 4,
                 decoration: BoxDecoration(
                   color: i <= current ? AppColors.primary : AppColors.border,

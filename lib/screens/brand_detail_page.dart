@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import '../models/model_detail.dart';
+import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
@@ -143,16 +144,11 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
   }
 
   void _openModel(ModelDetail item) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => VariantSelectionPage(
+    context.pushScreen(VariantSelectionPage(
           brandName: widget.brandName,
           modelDocId: item.docId!,
           modelName: item.name,
-          imageUrl: item.imageUrl,
-        ),
-      ),
+          imageUrl: item.imageUrl),
     );
   }
 
@@ -284,7 +280,11 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
       itemCount: _filteredModels.length,
       itemBuilder: (context, index) {
         final model = _filteredModels[index];
-        return _ModelCard(model: model, onTap: () => _openModel(model));
+        return AppReveal(
+          index: index,
+          slots: 6,
+          child: _ModelCard(model: model, onTap: () => _openModel(model)),
+        );
       },
     );
   }
@@ -302,9 +302,8 @@ class _ModelCard extends StatelessWidget {
     return Semantics(
       button: true,
       label: model.name,
-      child: InkWell(
+      child: AppPressable(
         onTap: onTap,
-        borderRadius: AppRadius.card,
         child: Container(
           decoration: BoxDecoration(
             color: AppColors.surface,

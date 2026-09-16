@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../firebase/catalog_firebase.dart';
 import '../screens/order_tracking_page.dart';
+import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
@@ -154,19 +155,18 @@ class _OrdersPageState extends State<OrdersPage> {
                 : int.tryParse('${d['finalPayout']}') ?? 0;
             final createdAt = d['createdAt'] as Timestamp?;
 
-            return _OrderCard(
-              modelName: modelName,
-              storage: storage,
-              imageUrl: imageUrl,
-              payout: payout,
-              date: _formatDate(createdAt),
-              statusLabel: _statusLabel(status),
-              statusTone: _statusTone(status),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => OrderTrackingPage(orderId: doc.id),
-                ),
+            return AppReveal(
+              index: index,
+              child: _OrderCard(
+                modelName: modelName,
+                storage: storage,
+                imageUrl: imageUrl,
+                payout: payout,
+                date: _formatDate(createdAt),
+                statusLabel: _statusLabel(status),
+                statusTone: _statusTone(status),
+                onTap: () =>
+                    context.pushScreen(OrderTrackingPage(orderId: doc.id)),
               ),
             );
           },

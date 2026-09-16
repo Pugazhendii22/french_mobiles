@@ -6,6 +6,7 @@ import '../firebase/catalog_firebase.dart';
 import '../firebase/wishlist_service.dart';
 import '../screens/inventory_detail_page.dart';
 import '../screens/login_page.dart';
+import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
@@ -35,14 +36,9 @@ class WishlistPage extends StatelessWidget {
     } catch (_) {}
 
     if (!context.mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => InventoryDetailPlaceholder(
+    context.pushScreen(InventoryDetailPlaceholder(
           documentId: item.productId,
-          data: data,
-        ),
-      ),
+          data: data),
     );
   }
 
@@ -77,11 +73,7 @@ class WishlistPage extends StatelessWidget {
                           message: 'Saved devices appear here once you sign in.',
                           icon: Icons.favorite_border_rounded,
                           retryLabel: 'Sign in',
-                          onRetry: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const LoginPage(),
-                            ),
+                          onRetry: () => context.pushScreen(const LoginPage(),
                           ),
                         ),
                       );
@@ -147,10 +139,13 @@ class WishlistPage extends StatelessWidget {
           separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
           itemBuilder: (context, index) {
             final item = items[index];
-            return _WishlistCard(
-              item: item,
-              onTap: () => _openItem(context, item),
-              onRemove: () => WishlistService.remove(item.productId),
+            return AppReveal(
+              index: index,
+              child: _WishlistCard(
+                item: item,
+                onTap: () => _openItem(context, item),
+                onRemove: () => WishlistService.remove(item.productId),
+              ),
             );
           },
         );
@@ -172,9 +167,8 @@ class _WishlistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return AppPressable(
       onTap: onTap,
-      borderRadius: AppRadius.card,
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
