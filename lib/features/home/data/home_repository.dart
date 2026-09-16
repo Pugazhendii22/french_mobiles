@@ -114,6 +114,16 @@ class HomeRepository {
     return loadAvailableMobiles();
   }
 
+  /// Firestore stores prices as either a number or a formatted string.
+  static int _asInt(dynamic v) {
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    if (v is String) {
+      return int.tryParse(v.replaceAll(RegExp('[^0-9]'), '')) ?? 0;
+    }
+    return 0;
+  }
+
   static HomeProduct _mapProduct(
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
   ) {
@@ -122,6 +132,15 @@ class HomeRepository {
     final model = (data['model'] ?? '').toString();
     final photo1Url = (data['photo1Url'] ?? '').toString();
     final rawPrice = data['salePrice'];
+
+    // Same original-price fallback chain the detail page uses, so a card and
+    // the page it opens never disagree about the discount.
+    final originalPrice = _asInt(
+        data['originalPrice'] ?? data['mrp'] ?? data['basePrice']);
+    final salePrice = _asInt(rawPrice);
+    final storage = (data['storage'] ?? '').toString().trim();
+    final condition =
+        (data['condition'] ?? data['grade'] ?? '').toString().trim();
 
     // Price formatting copied verbatim: Firestore holds either a number or an
     // already-formatted string that may or may not carry the rupee sign.
@@ -140,6 +159,11 @@ class HomeRepository {
       title: '$brand $model'.trim(),
       imageUrl: photo1Url,
       price: priceValue,
+      model: model,
+      storage: storage,
+      condition: condition,
+      salePriceValue: salePrice,
+      originalPriceValue: originalPrice,
       documentId: doc.id,
       firestoreData: data,
     );

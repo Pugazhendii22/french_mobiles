@@ -29,6 +29,11 @@ class HomeProduct {
     required this.title,
     required this.imageUrl,
     required this.price,
+    this.model = '',
+    this.storage = '',
+    this.condition = '',
+    this.salePriceValue = 0,
+    this.originalPriceValue = 0,
     this.documentId,
     this.firestoreData,
   });
@@ -39,6 +44,31 @@ class HomeProduct {
   final String title;
   final String imageUrl;
   final String price;
+
+  /// The model on its own. [title] is `'\$brand \$model'` and is what the
+  /// wishlist and the detail page receive, so it must not change; this is for
+  /// display, where showing the brand twice reads as a mistake.
+  final String model;
+
+  /// Empty when the document does not carry the field. Every consumer treats
+  /// empty as "omit the line" rather than rendering a blank.
+  final String storage;
+  final String condition;
+
+  /// Numeric prices, for computing a discount. Zero means absent.
+  final int salePriceValue;
+  final int originalPriceValue;
+
+  /// Percentage off, or 0 when there is no higher original price to compare
+  /// against.
+  int get discountPercent {
+    if (originalPriceValue <= 0 || originalPriceValue <= salePriceValue) {
+      return 0;
+    }
+    return ((originalPriceValue - salePriceValue) * 100 / originalPriceValue)
+        .round();
+  }
+
   final String? documentId;
   final Map<String, dynamic>? firestoreData;
 }

@@ -40,7 +40,9 @@ class HomeProductRail extends StatelessWidget {
   /// than re-querying keeps typing free of extra Firestore reads.
   final String searchQuery;
 
-  static const double _railHeight = 286;
+  /// Sized to the card's tallest content: 152 image + 115 of text when the
+  /// name wraps to two lines and both spec fields are present, plus slack.
+  static const double _railHeight = 276;
 
   List<HomeProduct> _applySearch(List<HomeProduct> products) {
     final q = searchQuery.trim().toLowerCase();
@@ -140,7 +142,7 @@ class _RailSkeleton extends StatelessWidget {
             const EdgeInsets.symmetric(horizontal: AppSpacing.screenGutter),
         itemCount: 3,
         separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
-        itemBuilder: (context, __) => const AppShimmer(width: 164, height: 262),
+        itemBuilder: (context, __) => const AppShimmer(width: 168, height: 268),
       ),
     );
   }

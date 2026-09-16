@@ -7,6 +7,7 @@ import 'package:french_mobiles/shared/motion/motion.dart';
 import 'package:french_mobiles/shared/theme/app_colors.dart';
 import 'package:french_mobiles/shared/theme/app_text_styles.dart';
 import 'package:french_mobiles/shared/theme/app_theme.dart';
+import 'package:french_mobiles/shared/widgets/app_badge.dart';
 import 'package:french_mobiles/shared/widgets/app_network_image.dart';
 
 /// A single device listing.
@@ -35,6 +36,17 @@ class HomeProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final productId = product.documentId ?? product.id;
+    final discount = product.discountPercent;
+
+    // The model alone: HomeProduct.title is "brand model", and the brand is
+    // already the line above it.
+    final name = product.model.isNotEmpty ? product.model : product.title;
+
+    // Storage and condition are optional in the document; each is dropped
+    // rather than rendered blank.
+    final specs = [product.storage, product.condition]
+        .where((s) => s.isNotEmpty)
+        .join(' · ');
 
     return Semantics(
       button: true,
@@ -42,7 +54,7 @@ class HomeProductCard extends StatelessWidget {
       child: AppPressable(
         onTap: onTap,
         child: Container(
-          width: 164,
+          width: 168,
           decoration: BoxDecoration(
             // Raised, not outlined: the lift is what marks it tappable.
             color: AppColors.surface,
@@ -53,43 +65,59 @@ class HomeProductCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Stack(
-                children: [
-                  Container(
-                    height: 132,
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    decoration: const BoxDecoration(
-                      color: AppColors.surfaceMuted,
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(AppRadius.lg),
+              // The photo sits on the card's own white, not in a tinted well.
+              // A #F2F3F3 panel on a #FFFFFF card on a #F7F8F8 page is three
+              // near-identical greys — it read as a smudge, not a frame.
+              SizedBox(
+                height: 152,
+                width: double.infinity,
+                child: Stack(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.lg,
+                        AppSpacing.md,
+                        AppSpacing.sm,
+                      ),
+                      child: Hero(
+                        tag: 'product-image-$productId',
+                        child: AppNetworkImage(
+                          url: product.imageUrl,
+                          fit: BoxFit.contain,
+                          borderRadius: BorderRadius.zero,
+                        ),
                       ),
                     ),
-                    // Shares the image with the detail page, so the photo
-                    // flies into place instead of the screen cutting.
-                    child: Hero(
-                      tag: 'product-image-$productId',
-                      child: AppNetworkImage(
-                        url: product.imageUrl,
-                        fit: BoxFit.contain,
-                        borderRadius: BorderRadius.zero,
+                    if (discount > 0)
+                      Positioned(
+                        top: AppSpacing.sm,
+                        left: AppSpacing.sm,
+                        child: AppBadge(
+                          label: '$discount% OFF',
+                          tone: AppBadgeTone.success,
+                        ),
+                      ),
+                    Positioned(
+                      top: AppSpacing.xs,
+                      right: AppSpacing.xs,
+                      child: _WishlistButton(
+                        productId: productId,
+                        repository: repository,
+                        wishlistStream: wishlistStream,
+                        onTap: onWishlistTap,
                       ),
                     ),
-                  ),
-                  Positioned(
-                    top: AppSpacing.sm,
-                    right: AppSpacing.sm,
-                    child: _WishlistButton(
-                      productId: productId,
-                      repository: repository,
-                      wishlistStream: wishlistStream,
-                      onTap: onWishlistTap,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -100,27 +128,59 @@ class HomeProductCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.overline.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.textTertiary,
                         ),
                       ),
                     const SizedBox(height: 2),
-                    SizedBox(
-                      height: 40,
-                      child: Text(
-                        product.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.bodyMedium,
-                      ),
+                    // Sizes itself. The old fixed 40px box left a dead gap
+                    // under every one-line name.
+                    Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.bodyMedium,
                     ),
+                    if (specs.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        specs,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.caption,
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.sm),
                     if (product.price.isNotEmpty)
-                      Text(product.price, style: AppTextStyles.price)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              product.price,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.price,
+                            ),
+                          ),
+                          if (discount > 0) ...[
+                            const SizedBox(width: AppSpacing.xs),
+                            Flexible(
+                              child: Text(
+                                '₹ ${product.originalPriceValue}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.caption.copyWith(
+                                  decoration: TextDecoration.lineThrough,
+                                  color: AppColors.textTertiary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      )
                     else
-                      Text(
-                        'Price on request',
-                        style: AppTextStyles.bodySmall,
-                      ),
+                      Text('Price on request', style: AppTextStyles.bodySmall),
                   ],
                 ),
               ),
