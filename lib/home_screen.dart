@@ -10,7 +10,7 @@ import 'package:flutter/services.dart';
 import 'firebase/catalog_firebase.dart';
 import 'firebase/wishlist_service.dart';
 import 'profile/account_pages.dart';
-import 'profile_page.dart';
+import 'profile/profile_screen.dart';
 import 'screens/login_page.dart';
 import 'screens/inventory_detail_page.dart';
 import 'screens/sell_mobile_page.dart';
