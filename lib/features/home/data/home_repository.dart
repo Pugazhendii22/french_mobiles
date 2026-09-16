@@ -141,6 +141,8 @@ class HomeRepository {
     final storage = (data['storage'] ?? '').toString().trim();
     final condition =
         (data['condition'] ?? data['grade'] ?? '').toString().trim();
+    final warrantyMonths =
+        _asInt(data['warrantyMonths'] ?? data['warranty_months']);
 
     // Price formatting copied verbatim: Firestore holds either a number or an
     // already-formatted string that may or may not carry the rupee sign.
@@ -162,6 +164,7 @@ class HomeRepository {
       model: model,
       storage: storage,
       condition: condition,
+      warrantyMonths: warrantyMonths,
       salePriceValue: salePrice,
       originalPriceValue: originalPrice,
       documentId: doc.id,

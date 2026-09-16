@@ -17,6 +17,9 @@ class HomeCategory {
   final bool available;
 }
 
+/// How good a cosmetic grade is, for colouring its chip.
+enum ConditionTone { top, mid, low, unknown }
+
 /// A second-hand device listing.
 ///
 /// [documentId] and [firestoreData] carry the raw Firestore document through
@@ -32,6 +35,7 @@ class HomeProduct {
     this.model = '',
     this.storage = '',
     this.condition = '',
+    this.warrantyMonths = 0,
     this.salePriceValue = 0,
     this.originalPriceValue = 0,
     this.documentId,
@@ -53,7 +57,40 @@ class HomeProduct {
   /// Empty when the document does not carry the field. Every consumer treats
   /// empty as "omit the line" rather than rendering a blank.
   final String storage;
+
+  /// Cosmetic grade. The refurbished marketplaces all lead with this —
+  /// Cashify uses Superb / Good / Fair, Back Market Premium / Excellent /
+  /// Good / Fair — because it is the thing a buyer is actually choosing
+  /// between. Empty when the document does not carry it.
   final String condition;
+
+  /// Zero when the document carries no warranty term, in which case the card
+  /// shows no warranty claim at all.
+  final int warrantyMonths;
+
+  /// Maps a grade onto a badge tone. Accepts both the Cashify and Back Market
+  /// vocabularies plus the obvious synonyms, and falls back to neutral rather
+  /// than guessing.
+  ConditionTone get conditionTone {
+    switch (condition.trim().toLowerCase()) {
+      case 'superb':
+      case 'premium':
+      case 'excellent':
+      case 'like new':
+      case 'a+':
+      case 'a':
+        return ConditionTone.top;
+      case 'good':
+      case 'b':
+        return ConditionTone.mid;
+      case 'fair':
+      case 'average':
+      case 'c':
+        return ConditionTone.low;
+      default:
+        return ConditionTone.unknown;
+    }
+  }
 
   /// Numeric prices, for computing a discount. Zero means absent.
   final int salePriceValue;

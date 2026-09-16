@@ -7,7 +7,6 @@ import 'package:french_mobiles/shared/motion/motion.dart';
 import 'package:french_mobiles/shared/theme/app_colors.dart';
 import 'package:french_mobiles/shared/theme/app_text_styles.dart';
 import 'package:french_mobiles/shared/theme/app_theme.dart';
-import 'package:french_mobiles/shared/widgets/app_badge.dart';
 import 'package:french_mobiles/shared/widgets/app_network_image.dart';
 
 /// A single device listing.
@@ -33,6 +32,23 @@ class HomeProductCard extends StatelessWidget {
   /// Saved-state stream for this product, or null when signed out.
   final Stream<bool>? Function(String productId) wishlistStream;
 
+  /// Grade chip colours, following the convention the refurbished
+  /// marketplaces share: the top grade reads as reassurance (green), the
+  /// middle as neutral-positive, the lowest as a caution rather than a
+  /// warning — a Fair phone is still fully functional, it just looks used.
+  (Color, Color) _gradeColors() {
+    switch (product.conditionTone) {
+      case ConditionTone.top:
+        return (AppColors.successSoft, AppColors.success);
+      case ConditionTone.mid:
+        return (AppColors.primarySoft, AppColors.onPrimarySoft);
+      case ConditionTone.low:
+        return (AppColors.warningSoft, AppColors.warning);
+      case ConditionTone.unknown:
+        return (AppColors.surfaceMuted, AppColors.textSecondary);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final productId = product.documentId ?? product.id;
@@ -41,12 +57,7 @@ class HomeProductCard extends StatelessWidget {
     // The model alone: HomeProduct.title is "brand model", and the brand is
     // already the line above it.
     final name = product.model.isNotEmpty ? product.model : product.title;
-
-    // Storage and condition are optional in the document; each is dropped
-    // rather than rendered blank.
-    final specs = [product.storage, product.condition]
-        .where((s) => s.isNotEmpty)
-        .join(' · ');
+    final (gradeBg, gradeFg) = _gradeColors();
 
     return Semantics(
       button: true,
@@ -54,9 +65,8 @@ class HomeProductCard extends StatelessWidget {
       child: AppPressable(
         onTap: onTap,
         child: Container(
-          width: 168,
+          width: 172,
           decoration: BoxDecoration(
-            // Raised, not outlined: the lift is what marks it tappable.
             color: AppColors.surface,
             borderRadius: AppRadius.card,
             boxShadow: AppShadows.card,
@@ -65,18 +75,15 @@ class HomeProductCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // The photo sits on the card's own white, not in a tinted well.
-              // A #F2F3F3 panel on a #FFFFFF card on a #F7F8F8 page is three
-              // near-identical greys — it read as a smudge, not a frame.
               SizedBox(
-                height: 152,
+                height: 148,
                 width: double.infinity,
                 child: Stack(
                   children: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
-                        AppSpacing.lg,
+                        AppSpacing.xl,
                         AppSpacing.md,
                         AppSpacing.sm,
                       ),
@@ -89,13 +96,27 @@ class HomeProductCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (discount > 0)
+                    // The grade leads. On a refurbished listing this is the
+                    // thing being chosen between, so it sits on the photo
+                    // rather than in a caption under it.
+                    if (product.condition.isNotEmpty)
                       Positioned(
                         top: AppSpacing.sm,
                         left: AppSpacing.sm,
-                        child: AppBadge(
-                          label: '$discount% OFF',
-                          tone: AppBadgeTone.success,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: gradeBg,
+                            borderRadius: AppRadius.pill,
+                          ),
+                          child: Text(
+                            product.condition.toUpperCase(),
+                            style: AppTextStyles.overline
+                                .copyWith(color: gradeFg),
+                          ),
                         ),
                       ),
                     Positioned(
@@ -132,55 +153,46 @@ class HomeProductCard extends StatelessWidget {
                         ),
                       ),
                     const SizedBox(height: 2),
-                    // Sizes itself. The old fixed 40px box left a dead gap
-                    // under every one-line name.
                     Text(
                       name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.bodyMedium,
                     ),
-                    if (specs.isNotEmpty) ...[
-                      const SizedBox(height: 3),
+                    if (product.storage.isNotEmpty) ...[
+                      const SizedBox(height: 2),
                       Text(
-                        specs,
+                        product.storage,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.caption,
                       ),
                     ],
                     const SizedBox(height: AppSpacing.sm),
-                    if (product.price.isNotEmpty)
+                    _priceRow(discount),
+                    if (product.warrantyMonths > 0) ...[
+                      const SizedBox(height: AppSpacing.xs),
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
                         children: [
+                          const Icon(
+                            Icons.verified_user_outlined,
+                            size: 12,
+                            color: AppColors.success,
+                          ),
+                          const SizedBox(width: 3),
                           Flexible(
                             child: Text(
-                              product.price,
+                              '${product.warrantyMonths}-month warranty',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: AppTextStyles.price,
-                            ),
-                          ),
-                          if (discount > 0) ...[
-                            const SizedBox(width: AppSpacing.xs),
-                            Flexible(
-                              child: Text(
-                                '₹ ${product.originalPriceValue}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTextStyles.caption.copyWith(
-                                  decoration: TextDecoration.lineThrough,
-                                  color: AppColors.textTertiary,
-                                ),
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.success,
                               ),
                             ),
-                          ],
+                          ),
                         ],
-                      )
-                    else
-                      Text('Price on request', style: AppTextStyles.bodySmall),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -188,6 +200,52 @@ class HomeProductCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  /// Price, struck original and percentage off on one baseline — the layout
+  /// every Indian marketplace uses, because it lets the eye read "what it
+  /// costs / what it cost / how much less" in a single pass.
+  Widget _priceRow(int discount) {
+    if (product.price.isEmpty) {
+      return Text('Price on request', style: AppTextStyles.bodySmall);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          product.price,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTextStyles.price,
+        ),
+        if (discount > 0)
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  '₹ ${product.originalPriceValue}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.caption.copyWith(
+                    decoration: TextDecoration.lineThrough,
+                    color: AppColors.textTertiary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                '$discount% off',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+      ],
     );
   }
 }

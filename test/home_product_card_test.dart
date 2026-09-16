@@ -35,7 +35,7 @@ Future<void> _pumpCard(
   await t.pumpWidget(MaterialApp(
     home: Scaffold(
       body: SizedBox(
-        height: 276,
+        height: 300,
         child: ListView(
           scrollDirection: Axis.horizontal,
           children: [
@@ -63,9 +63,10 @@ const _rich = HomeProduct(
   imageUrl: '',
   price: '₹ 32000',
   storage: '128GB',
-  condition: 'Good',
+  condition: 'Superb',
   salePriceValue: 32000,
   originalPriceValue: 50000,
+  warrantyMonths: 6,
 );
 
 void main() {
@@ -107,11 +108,50 @@ void main() {
       expect(find.text('Apple iPhone 13'), findsNothing);
     });
 
-    testWidgets('shows storage, condition and the discount', (t) async {
+    testWidgets('leads with the condition grade', (t) async {
       await _pumpCard(t, _rich);
-      expect(find.text('128GB · Good'), findsOneWidget);
-      expect(find.text('36% OFF'), findsOneWidget);
+      expect(find.text('SUPERB'), findsOneWidget);
+    });
+
+    testWidgets('shows storage, discount and warranty', (t) async {
+      await _pumpCard(t, _rich);
+      expect(find.text('128GB'), findsOneWidget);
+      expect(find.text('36% off'), findsOneWidget);
       expect(find.text('₹ 50000'), findsOneWidget);
+      expect(find.text('6-month warranty'), findsOneWidget);
+    });
+
+    testWidgets('makes no warranty claim when the document has none',
+        (t) async {
+      await _pumpCard(
+        t,
+        const HomeProduct(
+          id: 'a', categoryId: 'mobile', brand: 'Apple',
+          title: 'Apple iPhone 13', model: 'iPhone 13',
+          imageUrl: '', price: '₹ 32000', condition: 'Good',
+        ),
+      );
+      expect(find.textContaining('warranty'), findsNothing);
+    });
+
+    test('grade vocabularies map to tones', () {
+      HomeProduct p(String c) => HomeProduct(
+            id: 'a', categoryId: 'mobile', brand: '', title: '',
+            imageUrl: '', price: '', condition: c,
+          );
+      // Cashify
+      expect(p('Superb').conditionTone, ConditionTone.top);
+      expect(p('Good').conditionTone, ConditionTone.mid);
+      expect(p('Fair').conditionTone, ConditionTone.low);
+      // Back Market
+      expect(p('Premium').conditionTone, ConditionTone.top);
+      expect(p('Excellent').conditionTone, ConditionTone.top);
+      // letter grades
+      expect(p('A').conditionTone, ConditionTone.top);
+      expect(p('C').conditionTone, ConditionTone.low);
+      // unrecognised falls back rather than guessing
+      expect(p('Mint').conditionTone, ConditionTone.unknown);
+      expect(p('').conditionTone, ConditionTone.unknown);
     });
 
     testWidgets('omits optional fields rather than rendering blanks',
@@ -124,8 +164,7 @@ void main() {
           imageUrl: '', price: '₹ 32000',
         ),
       );
-      expect(find.text('36% OFF'), findsNothing);
-      expect(find.textContaining('·'), findsNothing);
+      expect(find.textContaining('% off'), findsNothing);
       expect(find.text('iPhone 13'), findsOneWidget);
     });
 
@@ -137,7 +176,7 @@ void main() {
           title: 'Samsung Galaxy S24 Ultra Titanium Violet',
           model: 'Galaxy S24 Ultra Titanium Violet Special Edition',
           imageUrl: '', price: '₹ 128000', storage: '1TB',
-          condition: 'Excellent',
+          condition: 'Excellent', warrantyMonths: 12,
           salePriceValue: 128000, originalPriceValue: 165000,
         ),
       );
