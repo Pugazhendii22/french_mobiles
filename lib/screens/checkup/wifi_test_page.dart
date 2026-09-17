@@ -325,9 +325,7 @@ class _WifiTestPageState extends State<WifiTestPage>
               leading: const Icon(Icons.wifi, color: AppColors.textSecondary),
               title: Text(
                 network.ssid.isEmpty ? '(hidden network)' : network.ssid,
-                style: AppTextStyles.body.copyWith(
-                    fontSize: 14, fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary),
+                style: AppTextStyles.bodyMedium,
               ),
               trailing: Text(
                 '${network.level} dBm',

@@ -131,6 +131,8 @@ class _MultitouchTestPageState extends State<MultitouchTestPage>
                 child: Text(
                   '${_pointers.length}',
                   style: AppTextStyles.h1.copyWith(
+                    // Deliberately outsized: it is a readout filling the
+                    // panel behind the touch points, not a heading.
                     fontSize: 64,
                     color: AppColors.border,
                   ),

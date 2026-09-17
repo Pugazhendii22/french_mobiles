@@ -190,9 +190,7 @@ class _BluetoothTestPageState extends State<BluetoothTestPage> {
                     : result.device.platformName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.body.copyWith(
-                    fontSize: 14, fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary),
+                style: AppTextStyles.bodyMedium,
               ),
             ),
         ],

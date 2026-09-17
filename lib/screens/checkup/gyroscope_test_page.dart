@@ -188,8 +188,8 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
                   _noData
                       ? 'No rotation detected yet — keep rotating the phone.'
                       : 'Hold still to see readings settle near zero.',
-                  style: AppTextStyles.body.copyWith(
-                      fontSize: 13, height: 1.4, color: AppColors.textSecondary),
+                  style: AppTextStyles.body
+                      .copyWith(color: AppColors.textSecondary),
                 ),
               ),
             ],
@@ -216,26 +216,15 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: AppTextStyles.body.copyWith(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary),
-                ),
+                Text(label, style: AppTextStyles.bodyMedium),
                 const SizedBox(height: 2),
-                Text(
-                  plane,
-                  style: AppTextStyles.body.copyWith(
-                      fontSize: 12, color: AppColors.textSecondary),
-                ),
+                Text(plane, style: AppTextStyles.caption),
               ],
             ),
           ),
           Text(
             '${(value / (3.141592653589793 / 180)).toStringAsFixed(0)}°/s',
-            style: AppTextStyles.body.copyWith(
-                fontSize: 13, color: AppColors.textSecondary),
+            style: AppTextStyles.bodySmall,
           ),
           const SizedBox(width: 10),
           Container(
@@ -248,9 +237,7 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
             ),
             child: Text(
               active ? 'Rotating' : 'Still',
-              style: AppTextStyles.body.copyWith(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
+              style: AppTextStyles.overline.copyWith(
                 color: active ? AppColors.onPrimarySoft : AppColors.textTertiary,
               ),
             ),

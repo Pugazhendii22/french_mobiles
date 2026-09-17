@@ -225,10 +225,8 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
             _stepLabel,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.body.copyWith(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textSecondary),
+            style: AppTextStyles.label
+                .copyWith(color: AppColors.textSecondary),
           ),
         ),
       ],
@@ -269,10 +267,7 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
           Expanded(
             child: Text(
               label,
-              style: AppTextStyles.body.copyWith(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary),
+              style: AppTextStyles.bodyMedium,
             ),
           ),
           Icon(
@@ -314,7 +309,7 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
         foregroundColor: color,
         side: BorderSide(color: color.withValues(alpha: 0.5)),
         padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.field),
       ),
       onPressed: onPressed,
       child: Row(

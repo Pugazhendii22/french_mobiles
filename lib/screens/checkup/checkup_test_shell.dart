@@ -63,7 +63,7 @@ class CheckupInstruction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: AppRadius.card,
@@ -82,13 +82,11 @@ class CheckupInstruction extends StatelessWidget {
             )
           else
             Icon(icon, color: tone ?? AppColors.primary),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(
               text,
               style: AppTextStyles.body.copyWith(
-                fontSize: 13.5,
-                height: 1.45,
                 color: AppColors.textSecondary,
               ),
             ),
@@ -142,27 +140,10 @@ class CheckupActions extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        if (primary != null)
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.onPrimary,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              onPressed: primary,
-              child: Text(
-                primaryLabel ?? 'Continue',
-                style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800),
-              ),
-            ),
-          ),
-        if (primary != null) const SizedBox(height: 12),
+        if (primary != null) ...[
+          AppPrimaryButton(label: primaryLabel ?? 'Continue', onPressed: primary),
+          const SizedBox(height: AppSpacing.md),
+        ],
         Row(
           children: [
             Expanded(
@@ -170,44 +151,43 @@ class CheckupActions extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.error,
                   side: const BorderSide(color: AppColors.error),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: AppRadius.field,
                   ),
                 ),
                 onPressed: onIssue,
                 child: Text(
                   'Issue found',
-                  style:
-                      AppTextStyles.body.copyWith(fontWeight: FontWeight.w700),
+                  style: AppTextStyles.button.copyWith(color: AppColors.error),
                 ),
               ),
             ),
             if (onRetry != null) ...[
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textPrimary,
                     side: const BorderSide(color: AppColors.borderStrong),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: AppRadius.field,
                     ),
                   ),
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh_rounded, size: 18),
                   label: Text(
                     attempt > 1 ? '$retryLabel ($attempt)' : retryLabel,
-                    style: AppTextStyles.body
-                        .copyWith(fontWeight: FontWeight.w700),
+                    style: AppTextStyles.button
+                        .copyWith(color: AppColors.textPrimary),
                   ),
                 ),
               ),
             ],
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.sm),
         Center(
           child: TextButton(
             onPressed: onSkip,

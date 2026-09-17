@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../models/checkup_result.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
+import '../../shared/theme/app_theme.dart';
 import 'checkup_test_shell.dart';
 
 enum _CameraPhase { front, back }
@@ -228,7 +229,8 @@ class _CameraTestPageState extends State<CameraTestPage> {
                 const CircularProgressIndicator(color: AppColors.primary),
                 const SizedBox(height: 12),
                 Text('Testing $_phaseLabel…',
-                    style: AppTextStyles.body.copyWith(color: AppColors.onOverlayMuted, fontSize: 14)),
+                    style: AppTextStyles.body
+                        .copyWith(color: AppColors.onOverlayMuted)),
               ],
             ),
           ),
@@ -248,18 +250,14 @@ class _CameraTestPageState extends State<CameraTestPage> {
             const SizedBox(height: 14),
             Text(
               'Camera unavailable',
-              style: AppTextStyles.body.copyWith(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.5,
-                color: AppColors.surface,
-              ),
+              style: AppTextStyles.h3.copyWith(color: AppColors.onOverlay),
             ),
             const SizedBox(height: 8),
             Text(
               _cameraError ?? 'The camera could not be opened.',
               textAlign: TextAlign.center,
-              style: AppTextStyles.body.copyWith(fontSize: 14, color: AppColors.onOverlayMuted),
+              style: AppTextStyles.body
+                  .copyWith(color: AppColors.onOverlayMuted),
             ),
             const SizedBox(height: 28),
             CheckupSkipButton(onSkip: _skipTest),
@@ -274,7 +272,7 @@ class _CameraTestPageState extends State<CameraTestPage> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.overlay,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.field,
       ),
       child: Row(
         children: [
@@ -287,7 +285,7 @@ class _CameraTestPageState extends State<CameraTestPage> {
           Expanded(
             child: Text(
               'Testing $_phaseLabel… Auto-verifying camera hardware.',
-              style: AppTextStyles.body.copyWith(color: AppColors.surface, fontSize: 13, height: 1.3),
+              style: AppTextStyles.body.copyWith(color: AppColors.onOverlay),
             ),
           ),
         ],
