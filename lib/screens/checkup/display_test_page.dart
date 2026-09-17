@@ -5,7 +5,7 @@ import '../../models/checkup_result.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
-import '../../shared/widgets/widgets.dart';
+import 'checkup_test_shell.dart';
 
 /// Display check: a full-screen colour sweep for dead pixels, then a swipe
 /// canvas for unresponsive touch areas.
@@ -459,53 +459,12 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
     );
   }
 
-  Widget _verdictView() {
-    final r = _result!;
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            const Padding(
-            padding: EdgeInsets.fromLTRB(AppSpacing.screenGutter,
-                AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
-            child: AppScreenHeader(title: 'Checkup · Display'),
-          ),
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(r.status.icon, color: r.status.color, size: 64),
-                      const SizedBox(height: 14),
-                      Text(
-                        r.status.label,
-                        style: AppTextStyles.body.copyWith(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.5,
-                          color: r.status.color,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        r.detail ?? '',
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.body.copyWith(
-                            fontSize: 14, color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  /// Only the verdict adopts the shared chrome. The sweep and swipe views
+  /// deliberately do not: their colours are the test, not decoration.
+  Widget _verdictView() => CheckupTestShell(
+        title: 'Display',
+        child: CheckupVerdict(result: _result!),
+      );
 }
 
 class _CoveragePainter extends CustomPainter {

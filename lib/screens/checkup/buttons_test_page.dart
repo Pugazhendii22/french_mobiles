@@ -7,7 +7,7 @@ import '../../models/checkup_result.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
-import '../../shared/widgets/widgets.dart';
+import 'checkup_test_shell.dart';
 
 enum _ButtonStep { volumeDown, volumeUp, power }
 
@@ -164,18 +164,9 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(AppSpacing.screenGutter,
-                AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
-            child: AppScreenHeader(title: 'Checkup · Side buttons'),
-          ),
-          Expanded(child: _testView()),
-        ],
-      ),
+    return CheckupTestShell(
+      title: 'Side buttons',
+      child: _testView(),
     );
   }
 
@@ -185,79 +176,35 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
       children: [
         _stepProgress(),
         const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: AppRadius.card,
-            boxShadow: AppShadows.card,
-          ),
-          child: Text(
-            _step == _ButtonStep.power
-                ? 'Press the power button once — does the screen turn off / show the lock screen normally?'
-                : 'Press the physical Volume Down and Volume Up keys on the side of the phone.',
-            style: AppTextStyles.body.copyWith(
-                fontSize: 13.5, height: 1.45, color: AppColors.textSecondary),
-          ),
+        CheckupInstruction(
+          icon: _step == _ButtonStep.power
+              ? Icons.power_settings_new_rounded
+              : Icons.volume_up_outlined,
+          text: _step == _ButtonStep.power
+              ? 'Press the power button once — does the screen turn off / '
+                  'show the lock screen normally?'
+              : 'Press the physical Volume Down and Volume Up keys on the '
+                  'side of the phone.',
         ),
         const SizedBox(height: 16),
-        if (_step == _ButtonStep.power)
-          _powerControls()
-        else ...[
+        // The power step reports itself through its own Yes / No pair, so it
+        // gets only a skip; the volume steps watch for a real key event and
+        // need a way to say the key never arrived.
+        if (_step == _ButtonStep.power) ...[
+          _powerControls(),
+          const SizedBox(height: AppSpacing.lg),
+          CheckupSkipButton(onSkip: _skipStep, label: 'Skip this step'),
+        ] else ...[
           _keyTile('Volume Down', Icons.remove_circle_outline, _volumeDownPressed),
           const SizedBox(height: 12),
           _keyTile('Volume Up', Icons.add_circle_outline, _volumeUpPressed),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.error,
-                    side: const BorderSide(color: AppColors.error),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  onPressed: () => _recordStep(CheckupStatus.fail),
-                  child: Text('Issue found',
-                      style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.onPrimary,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  onPressed: null,
-                  child: Text(
-                    _step == _ButtonStep.volumeDown
-                        ? 'Press Volume Down…'
-                        : 'Press Volume Up…',
-                    style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ),
-            ],
+          const SizedBox(height: AppSpacing.lg),
+          CheckupActions(
+            onIssue: () => _recordStep(CheckupStatus.fail),
+            onSkip: _skipStep,
+            skipLabel: 'Skip this step',
           ),
         ],
-        const SizedBox(height: 8),
-        Center(
-          child: TextButton(
-            onPressed: _skipStep,
-            child: Text('Skip this step',
-                style: AppTextStyles.body.copyWith(color: AppColors.textTertiary)),
-          ),
-        ),
       ],
     );
   }
@@ -271,12 +218,18 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
         const SizedBox(width: 8),
         _stepDot(2, _step == _ButtonStep.power),
         const SizedBox(width: 12),
-        Text(
-          _stepLabel,
-          style: AppTextStyles.body.copyWith(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textSecondary),
+        // Expanded, because the longest step label overflows the row on a
+        // narrow screen and an overflow clips the label rather than wrapping.
+        Expanded(
+          child: Text(
+            _stepLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.body.copyWith(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textSecondary),
+          ),
         ),
       ],
     );

@@ -7,8 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../models/checkup_result.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
-import '../../shared/theme/app_theme.dart';
-import '../../shared/widgets/widgets.dart';
+import 'checkup_test_shell.dart';
 
 /// Test 8 — Location (GPS).
 ///
@@ -43,7 +42,7 @@ class _LocationTestPageState extends State<LocationTestPage> {
         title: 'Location (GPS)',
         status: CheckupStatus.skipped,
         detail: 'Location permission is permanently denied. Open Settings to grant.',
-      ));
+      ), hold: true);
       return;
     }
     if (!status.isGranted) {
@@ -124,12 +123,18 @@ class _LocationTestPageState extends State<LocationTestPage> {
     }
   }
 
-  void _setResult(CheckupResult result) {
+  /// Records the verdict and pops back to the orchestrator.
+  ///
+  /// [hold] keeps the page open instead: for a verdict the user can act on,
+  /// such as a permanently denied permission, popping after a second and a
+  /// half would take the only remaining control away with it.
+  void _setResult(CheckupResult result, {bool hold = false}) {
     if (!mounted) return;
     setState(() {
       _busy = false;
       _result = result;
     });
+    if (hold) return;
     Future.delayed(const Duration(milliseconds: 1500), () {
       if (mounted) {
         Navigator.of(context).pop(_result);
@@ -150,18 +155,9 @@ class _LocationTestPageState extends State<LocationTestPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(AppSpacing.screenGutter,
-                AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
-            child: AppScreenHeader(title: 'Checkup · Location'),
-          ),
-          Expanded(child: _result != null ? _verdictView() : _testView()),
-        ],
-      ),
+    return CheckupTestShell(
+      title: 'Location',
+      child: _result != null ? _verdictView() : _testView(),
     );
   }
 
@@ -184,11 +180,7 @@ class _LocationTestPageState extends State<LocationTestPage> {
                   fontSize: 14, height: 1.45, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
-            TextButton(
-              onPressed: _skipTest,
-              child: Text('Skip this test',
-                  style: AppTextStyles.body.copyWith(color: AppColors.textTertiary)),
-            ),
+            CheckupSkipButton(onSkip: _skipTest),
           ],
         ),
       ),
@@ -196,46 +188,16 @@ class _LocationTestPageState extends State<LocationTestPage> {
   }
 
   Widget _verdictView() {
-    final r = _result!;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(r.status.icon, color: r.status.color, size: 64),
-            const SizedBox(height: 14),
-            Text(
-              r.status.label,
-              style: AppTextStyles.body.copyWith(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.5,
-                color: r.status.color,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              r.detail ?? '',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.body.copyWith(fontSize: 14, color: AppColors.textSecondary),
-            ),
-            if (_isPermanentlyDenied) ...[
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: AppColors.onPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.full)),
-                ),
-                onPressed: () => openAppSettings(),
-                icon: const Icon(Icons.settings),
-                label: Text('Open Settings', style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ],
-        ),
-      ),
+    return CheckupVerdict(
+      result: _result!,
+      // Only a permanently denied permission leaves the user something to do
+      // here; every other verdict is read-only and pops on its own.
+      action: _isPermanentlyDenied
+          ? CheckupPermissionAction(
+              onOpenSettings: openAppSettings,
+              onContinue: () => Navigator.of(context).pop(_result),
+            )
+          : null,
     );
   }
 }

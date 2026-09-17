@@ -7,7 +7,7 @@ import '../../models/checkup_result.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
-import '../../shared/widgets/widgets.dart';
+import 'checkup_test_shell.dart';
 
 /// Test 9 — Gyroscope.
 ///
@@ -142,20 +142,9 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(AppSpacing.screenGutter,
-                AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
-            child: AppScreenHeader(title: 'Checkup · Gyroscope'),
-          ),
-          Expanded(
-            child: _result != null ? _verdictView() : _testView(),
-          ),
-        ],
-      ),
+    return CheckupTestShell(
+      title: 'Gyroscope',
+      child: _result != null ? _verdictView() : _testView(),
     );
   }
 
@@ -163,26 +152,11 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: AppRadius.card,
-            boxShadow: AppShadows.card,
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.threed_rotation, color: AppColors.primary),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Rotate the phone — flip or turn it while watching the axis indicators. The test records rotation in three dimensions.',
-                  style: AppTextStyles.body.copyWith(
-                      fontSize: 13.5, height: 1.45, color: AppColors.textSecondary),
-                ),
-              ),
-            ],
-          ),
+        const CheckupInstruction(
+          icon: Icons.threed_rotation,
+          text:
+            'Rotate the phone — flip or turn it while watching the axis '
+            'indicators. The test records rotation in three dimensions.',
         ),
         const SizedBox(height: 16),
         _axisTile('X axis', 'pitch', _x),
@@ -222,51 +196,7 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
           ),
         ),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.error,
-                  side: const BorderSide(color: AppColors.error),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onPressed: _markIssue,
-                child: Text('Issue found',
-                    style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: AppColors.onPrimary,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onPressed: null,
-                child: Text('Waiting for rotation…',
-                    style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800)),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Center(
-          child: TextButton(
-            onPressed: _skipTest,
-            child: Text('Skip this test',
-                style: AppTextStyles.body.copyWith(color: AppColors.textTertiary)),
-          ),
-        ),
+        CheckupActions(onIssue: _markIssue, onSkip: _skipTest),
       ],
     );
   }
@@ -330,34 +260,5 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
     );
   }
 
-  Widget _verdictView() {
-    final r = _result!;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(r.status.icon, color: r.status.color, size: 64),
-            const SizedBox(height: 14),
-            Text(
-              r.status.label,
-              style: AppTextStyles.body.copyWith(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.5,
-                color: r.status.color,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              r.detail ?? '',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.body.copyWith(fontSize: 14, color: AppColors.textSecondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _verdictView() => CheckupVerdict(result: _result!);
 }

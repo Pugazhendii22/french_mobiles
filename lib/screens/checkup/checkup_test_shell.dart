@@ -47,6 +47,7 @@ class CheckupInstruction extends StatelessWidget {
     required this.icon,
     required this.text,
     this.tone,
+    this.busy = false,
   });
 
   final IconData icon;
@@ -54,6 +55,10 @@ class CheckupInstruction extends StatelessWidget {
 
   /// Overrides the icon colour; defaults to the brand accent.
   final Color? tone;
+
+  /// Swaps the icon for a spinner while the test is working, for the tests
+  /// whose instruction card doubles as their progress readout.
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +71,17 @@ class CheckupInstruction extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, color: tone ?? AppColors.primary),
+          if (busy)
+            SizedBox(
+              height: 22,
+              width: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: tone ?? AppColors.primary,
+              ),
+            )
+          else
+            Icon(icon, color: tone ?? AppColors.primary),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -103,6 +118,7 @@ class CheckupActions extends StatelessWidget {
     this.primary,
     this.primaryLabel,
     this.attempt = 1,
+    this.skipLabel = 'Skip this test',
   });
 
   final VoidCallback onIssue;
@@ -117,6 +133,10 @@ class CheckupActions extends StatelessWidget {
   /// Shown beside retry once a test has been attempted more than once, so the
   /// user can see the app registered their earlier attempts.
   final int attempt;
+
+  /// Overridden by the tests that run in steps, where skipping means this
+  /// step rather than the whole test.
+  final String skipLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -192,7 +212,7 @@ class CheckupActions extends StatelessWidget {
           child: TextButton(
             onPressed: onSkip,
             child: Text(
-              'Skip this test',
+              skipLabel,
               style: AppTextStyles.body.copyWith(color: AppColors.textTertiary),
             ),
           ),
@@ -258,10 +278,16 @@ mixin CheckupTestFlow<T extends StatefulWidget> on State<T> {
 }
 
 /// The settled view shown for 1500ms before the page pops.
+///
+/// [action] adds something for the user to do instead, for a verdict they can
+/// act on — a denied permission they could go and grant. A page showing one
+/// must hold rather than auto-pop, or the control is on screen for a second
+/// and a half and then gone.
 class CheckupVerdict extends StatelessWidget {
-  const CheckupVerdict({super.key, required this.result});
+  const CheckupVerdict({super.key, required this.result, this.action});
 
   final CheckupResult result;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -285,7 +311,90 @@ class CheckupVerdict extends StatelessWidget {
                 style: AppTextStyles.bodySmall,
               ),
             ],
+            if (action != null) ...[
+              const SizedBox(height: AppSpacing.xl),
+              action!,
+            ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// What to offer when a permission has been permanently denied.
+///
+/// The app cannot ask again once the user has chosen "don't ask again", so
+/// the only route left is the system settings screen. [onContinue] carries on
+/// with the checkup, since the page holds instead of popping on its own.
+class CheckupPermissionAction extends StatelessWidget {
+  const CheckupPermissionAction({
+    super.key,
+    required this.onOpenSettings,
+    required this.onContinue,
+  });
+
+  final VoidCallback onOpenSettings;
+  final VoidCallback onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: AppColors.onPrimary,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xl,
+              vertical: AppSpacing.md,
+            ),
+            shape: RoundedRectangleBorder(borderRadius: AppRadius.pill),
+          ),
+          onPressed: onOpenSettings,
+          icon: const Icon(Icons.settings_outlined, size: 18),
+          label: Text('Open Settings', style: AppTextStyles.button),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        TextButton(
+          onPressed: onContinue,
+          child: Text(
+            'Continue without it',
+            style:
+                AppTextStyles.button.copyWith(color: AppColors.textSecondary),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The lone "skip" affordance, for a test that runs itself and offers the
+/// user nothing to confirm — there is no pass or fail for them to report, so
+/// [CheckupActions] would be three buttons where one belongs.
+class CheckupSkipButton extends StatelessWidget {
+  const CheckupSkipButton({
+    super.key,
+    required this.onSkip,
+    this.label = 'Skip this test',
+  });
+
+  final VoidCallback onSkip;
+
+  /// Overridden by the tests that run in steps, where skipping means this
+  /// step rather than the whole test.
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: TextButton(
+        onPressed: onSkip,
+        child: Text(
+          label,
+          style: AppTextStyles.body.copyWith(color: AppColors.textTertiary),
         ),
       ),
     );
