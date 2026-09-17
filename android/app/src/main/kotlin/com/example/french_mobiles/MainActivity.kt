@@ -2,13 +2,51 @@ package com.example.french_mobiles
 
 import android.content.Context
 import android.media.AudioManager
+import android.os.Bundle
 import android.os.PowerManager
 import android.view.KeyEvent
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        hideNavigationBar()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // Android puts the bars back after a dialog, a permission prompt or
+        // the keyboard, so the request has to be made again every time the
+        // window comes back to the foreground.
+        if (hasFocus) hideNavigationBar()
+    }
+
+    /// Hides the 3-button navigation bar, leaving the status bar alone.
+    ///
+    /// BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE is what makes it behave the way
+    /// other apps do: a swipe up from the bottom edge floats the buttons over
+    /// the content, and they hide again on their own.
+    ///
+    /// Done here rather than with Flutter's SystemUiMode.immersiveSticky
+    /// because that hides the status bar too, taking the clock, battery and
+    /// signal with it. Only the navigation bar is meant to go.
+    ///
+    /// This also takes over edge-to-edge from Dart: asking Flutter for
+    /// SystemUiMode.edgeToEdge explicitly shows every bar, which would undo
+    /// the hide on startup.
+    private fun hideNavigationBar() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.hide(WindowInsetsCompat.Type.navigationBars())
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    }
 
     private lateinit var channel: MethodChannel
     private lateinit var audioChannel: MethodChannel

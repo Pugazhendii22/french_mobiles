@@ -10,12 +10,14 @@ import 'shared/theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  // Edge-to-edge and the hiding of the navigation bar are both set natively
+  // in MainActivity. Asking for SystemUiMode.edgeToEdge here would explicitly
+  // show every system bar and undo that hide on startup.
+  //
+  // Only the status bar's appearance is set from Dart, because it stays.
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.dark,
-    systemNavigationBarColor: Colors.transparent,
-    systemNavigationBarIconBrightness: Brightness.dark,
   ));
 
   try {
