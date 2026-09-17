@@ -35,6 +35,8 @@ dependencies:
   audioplayers: ^6.8.1
   record: ^7.1.1
   vibration: ^3.2.1
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
 
 dev_dependencies:
   flutter_test:

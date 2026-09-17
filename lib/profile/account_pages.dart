@@ -1,9 +1,6 @@
-import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 
 import '../firebase/catalog_firebase.dart';
@@ -11,7 +8,9 @@ import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
+import '../shared/services/reverse_geocoder.dart';
 import '../shared/widgets/widgets.dart';
+import 'location_picker_page.dart';
 
 // ===========================================================================
 // Saved addresses
@@ -28,6 +27,7 @@ class SavedAddressesPage extends StatefulWidget {
 class _SavedAddressesPageState extends State<SavedAddressesPage> {
   CollectionReference<Map<String, dynamic>>? _addressesRef;
   final TextEditingController _searchController = TextEditingController();
+  final ReverseGeocoder _geocoder = ReverseGeocoder();
   String _searchQuery = '';
   bool _fetchingLocation = false;
 
@@ -51,6 +51,7 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _geocoder.dispose();
     super.dispose();
   }
 
@@ -135,24 +136,11 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
     setState(() => _fetchingLocation = true);
     try {
       final pos = await Geolocator.getCurrentPosition();
-      String addressStr =
-          '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
-
-      try {
-        final uri = Uri.parse(
-            'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${pos.latitude}&lon=${pos.longitude}');
-        final res = await http.get(uri,
-            headers: {'User-Agent': 'french-mobiles-app/1.0 (contact: none)'});
-        if (res.statusCode == 200) {
-          final Map<String, dynamic> j = jsonDecode(res.body);
-          if (j['display_name'] is String &&
-              (j['display_name'] as String).trim().isNotEmpty) {
-            addressStr = j['display_name'] as String;
-          }
-        }
-      } catch (_) {
-        // network/geocoding failed — keep coordinate string as fallback
-      }
+      // The one geocoder, shared with the map picker and the address sheet,
+      // so every route into an address produces the same format.
+      final found = await _geocoder.lookup(pos.latitude, pos.longitude);
+      final addressStr = found ??
+          ReverseGeocoder.describeCoordinates(pos.latitude, pos.longitude);
 
       if (!mounted) return;
       setState(() => _fetchingLocation = false);
@@ -593,6 +581,7 @@ class _AddEditAddressSheetState extends State<AddEditAddressSheet> {
 
   String _label = 'Home';
   final TextEditingController _addressController = TextEditingController();
+  final ReverseGeocoder _geocoder = ReverseGeocoder();
   double? _latitude;
   double? _longitude;
   bool _saving = false;
@@ -616,7 +605,28 @@ class _AddEditAddressSheetState extends State<AddEditAddressSheet> {
   @override
   void dispose() {
     _addressController.dispose();
+    _geocoder.dispose();
     super.dispose();
+  }
+
+  /// Opens the map on whatever point this address already has, so editing
+  /// one nudges an existing pin rather than starting from nothing.
+  Future<void> _pickOnMap() async {
+    final picked = await Navigator.of(context).push<PickedLocation>(
+      MaterialPageRoute(
+        builder: (_) => LocationPickerPage(
+          initialLatitude: _latitude,
+          initialLongitude: _longitude,
+        ),
+      ),
+    );
+    if (!mounted || picked == null) return;
+
+    setState(() {
+      _latitude = picked.latitude;
+      _longitude = picked.longitude;
+      _addressController.text = picked.address;
+    });
   }
 
   Future<void> _useCurrentLocation() async {
@@ -633,29 +643,16 @@ class _AddEditAddressSheetState extends State<AddEditAddressSheet> {
 
     try {
       final pos = await Geolocator.getCurrentPosition();
-      String addressStr =
-          '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
-
-      try {
-        final uri = Uri.parse(
-            'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${pos.latitude}&lon=${pos.longitude}');
-        final res = await http.get(uri,
-            headers: {'User-Agent': 'french-mobiles-app/1.0 (contact: none)'});
-        if (res.statusCode == 200) {
-          final Map<String, dynamic> j = jsonDecode(res.body);
-          if (j['display_name'] is String &&
-              (j['display_name'] as String).trim().isNotEmpty) {
-            addressStr = j['display_name'] as String;
-          }
-        }
-      } catch (_) {
-        // network/geocoding failed — keep coordinate string as fallback
-      }
+      // Same geocoder the map picker uses, so both routes produce addresses
+      // in the same format.
+      final found = await _geocoder.lookup(pos.latitude, pos.longitude);
+      if (!mounted) return;
 
       setState(() {
         _latitude = pos.latitude;
         _longitude = pos.longitude;
-        _addressController.text = addressStr;
+        _addressController.text = found ??
+            ReverseGeocoder.describeCoordinates(pos.latitude, pos.longitude);
       });
     } catch (e) {
       if (mounted) {
@@ -790,19 +787,46 @@ class _AddEditAddressSheetState extends State<AddEditAddressSheet> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                TextButton.icon(
-                  onPressed: _useCurrentLocation,
-                  icon: const Icon(
-                    Icons.my_location_rounded,
-                    size: 18,
-                    color: AppColors.primary,
-                  ),
-                  label: Text(
-                    'Use my current location',
-                    style:
-                        AppTextStyles.label.copyWith(color: AppColors.primary),
-                  ),
+                // Two ways in, because they answer different questions: the
+                // map is for "somewhere else", current location for "here".
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _pickOnMap,
+                        icon: const Icon(Icons.map_outlined, size: 18),
+                        label: const Text('Pick on map'),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _useCurrentLocation,
+                        icon: const Icon(Icons.my_location_rounded, size: 18),
+                        label: const Text('Use my location'),
+                      ),
+                    ),
+                  ],
                 ),
+                if (_latitude != null && _longitude != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      const Icon(Icons.place_outlined,
+                          size: 14, color: AppColors.success),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          'Pinned at '
+                          '${ReverseGeocoder.describeCoordinates(_latitude!, _longitude!)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.caption,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.xl),
                 AppPrimaryButton(
                   label: isEdit ? 'Save changes' : 'Save address',

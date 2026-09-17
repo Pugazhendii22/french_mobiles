@@ -59,9 +59,20 @@ class AppPrimaryButton extends StatelessWidget {
                     Icon(icon, size: 20, color: AppColors.onPrimary),
                     const SizedBox(width: AppSpacing.sm),
                   ],
-                      Text(label, style: AppTextStyles.button),
-                    ],
+                  // Flexible, because a label long enough to fill the button
+                  // overflows on a 320px screen otherwise — and an overflow
+                  // clips the label rather than shrinking it.
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.button,
+                    ),
                   ),
+                ],
+              ),
         ),
       ),
     );
