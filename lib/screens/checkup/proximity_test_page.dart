@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:proximity_sensor/proximity_sensor.dart';
 
 import '../../shared/theme/app_colors.dart';
@@ -14,6 +15,14 @@ import 'checkup_test_shell.dart';
 /// transition from the sensor callback, not a timer. Covering the sensor alone
 /// is not enough — a stuck-near sensor would pass that — so the test waits for
 /// the value to come back as well.
+///
+/// While the test runs it also takes a PROXIMITY_SCREEN_OFF_WAKE_LOCK, so the
+/// screen blanks on approach and lights again on withdrawal exactly as it does
+/// during a call. That is the sensor's actual job on a phone, and a seller who
+/// has just been told their proximity sensor works will judge it by whether
+/// the screen goes dark on a call — so the test should show that, not merely
+/// report a reading. The OS drives the screen straight from the sensor; Dart
+/// only asks for the lock and gives it back.
 class ProximityTestPage extends StatefulWidget {
   const ProximityTestPage({super.key});
 
@@ -24,6 +33,11 @@ class ProximityTestPage extends StatefulWidget {
 class _ProximityTestPageState extends State<ProximityTestPage>
     with CheckupTestFlow<ProximityTestPage> {
   static const Duration _timeout = Duration(seconds: 20);
+
+  /// Android only. Elsewhere the sensor readings still drive the test, but
+  /// the screen stays lit.
+  static const _screenChannel =
+      MethodChannel('french_mobiles/proximity_screen');
 
   @override
   String get testKey => 'proximity';
@@ -36,6 +50,7 @@ class _ProximityTestPageState extends State<ProximityTestPage>
   bool _sawNear = false;
   bool _isNear = false;
   bool _timedOut = false;
+  bool _screenBlanking = false;
   int _attempt = 1;
 
   @override
@@ -56,6 +71,32 @@ class _ProximityTestPageState extends State<ProximityTestPage>
     _subscription = null;
     _timeoutTimer?.cancel();
     _timeoutTimer = null;
+    _releaseScreenLock();
+  }
+
+  /// Hands the screen back. Safe to call when no lock was ever taken.
+  void _releaseScreenLock() {
+    if (!_screenBlanking) return;
+    _screenBlanking = false;
+    _screenChannel.invokeMethod<bool>('disable').catchError((_) => null);
+  }
+
+  /// Asks the OS to blank the screen while the sensor reads near.
+  ///
+  /// Failure is not worth reporting: without it the test still works, the
+  /// screen simply stays on.
+  Future<void> _takeScreenLock() async {
+    try {
+      final engaged = await _screenChannel.invokeMethod<bool>('enable');
+      if (!mounted) {
+        // Released immediately rather than left held by a dead page.
+        _screenChannel.invokeMethod<bool>('disable').catchError((_) => null);
+        return;
+      }
+      setState(() => _screenBlanking = engaged ?? false);
+    } catch (_) {
+      if (mounted) setState(() => _screenBlanking = false);
+    }
   }
 
   void _start() {
@@ -65,6 +106,8 @@ class _ProximityTestPageState extends State<ProximityTestPage>
       _isNear = false;
       _timedOut = false;
     });
+
+    _takeScreenLock();
 
     try {
       _subscription = ProximitySensor.events.listen(
@@ -100,7 +143,10 @@ class _ProximityTestPageState extends State<ProximityTestPage>
     // near -> far is the full cycle: the sensor both detected an object and
     // recovered when it was removed.
     if (!near && _sawNear) {
-      markPass('Detected the phone approaching and moving away');
+      markPass(_screenBlanking
+          ? 'Detected the phone approaching and moving away, and the screen '
+              'blanked as it does on a call'
+          : 'Detected the phone approaching and moving away');
     }
   }
 
@@ -123,11 +169,16 @@ class _ProximityTestPageState extends State<ProximityTestPage>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const CheckupInstruction(
+        CheckupInstruction(
           icon: Icons.phonelink_ring_outlined,
-          text: 'Hold the phone to your ear as if taking a call, then move it '
-              'away again. The sensor sits near the earpiece at the top of the '
-              'screen.',
+          text: _screenBlanking
+              ? 'Hold the phone to your ear as if taking a call, then move it '
+                  'away again. The screen will go dark while it is covered, '
+                  'just as it does on a call, and come back when you move it '
+                  'away.'
+              : 'Hold the phone to your ear as if taking a call, then move it '
+                  'away again. The sensor sits near the earpiece at the top '
+                  'of the screen.',
         ),
         const SizedBox(height: 16),
         _stateTile(),

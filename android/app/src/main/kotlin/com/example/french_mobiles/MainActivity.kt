@@ -2,6 +2,7 @@ package com.example.french_mobiles
 
 import android.content.Context
 import android.media.AudioManager
+import android.os.PowerManager
 import android.view.KeyEvent
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -11,7 +12,9 @@ class MainActivity : FlutterFragmentActivity() {
 
     private lateinit var channel: MethodChannel
     private lateinit var audioChannel: MethodChannel
+    private lateinit var proximityChannel: MethodChannel
     private var volumeListening = false
+    private var proximityWakeLock: PowerManager.WakeLock? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -56,12 +59,79 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        // Blanks the screen while the proximity sensor is covered, which is
+        // what the phone app does during a call. PROXIMITY_SCREEN_OFF_WAKE_LOCK
+        // is the same mechanism; the OS drives the screen directly from the
+        // sensor, so Flutter never has to.
+        proximityChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "french_mobiles/proximity_screen"
+        )
+        proximityChannel.setMethodCallHandler { call, result ->
+            val power = getSystemService(Context.POWER_SERVICE) as PowerManager
+            val supported = power.isWakeLockLevelSupported(
+                PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK
+            )
+            when (call.method) {
+                "isSupported" -> result.success(supported)
+                "enable" -> {
+                    if (!supported) {
+                        result.success(false)
+                    } else {
+                        if (proximityWakeLock == null) {
+                            proximityWakeLock = power.newWakeLock(
+                                PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK,
+                                "french_mobiles:proximity"
+                            )
+                        }
+                        val lock = proximityWakeLock
+                        if (lock != null && !lock.isHeld) {
+                            // Timed, as a backstop: if anything fails to
+                            // release it, the OS does after two minutes
+                            // rather than leaving the screen dark.
+                            lock.acquire(2 * 60 * 1000L)
+                        }
+                        result.success(true)
+                    }
+                }
+                "disable" -> {
+                    releaseProximityWakeLock()
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         channel.setMethodCallHandler(null)
         audioChannel.setMethodCallHandler(null)
+        // A leaked proximity wake lock leaves the screen dark whenever the
+        // sensor is covered, with no way back. Release it unconditionally.
+        releaseProximityWakeLock()
+        proximityChannel.setMethodCallHandler(null)
         super.cleanUpFlutterEngine(flutterEngine)
+    }
+
+    override fun onStop() {
+        // Backgrounding the app while the lock is held would let it keep
+        // blanking the screen outside the test that asked for it.
+        //
+        // onStop rather than onPause: a proximity blank does not background
+        // the activity, but onPause fires for transient things that should
+        // not end the test.
+        releaseProximityWakeLock()
+        super.onStop()
+    }
+
+    private fun releaseProximityWakeLock() {
+        val lock = proximityWakeLock ?: return
+        proximityWakeLock = null
+        if (!lock.isHeld) return
+        // WAIT_FOR_NO_PROXIMITY, so the screen does not snap back on while
+        // the phone is still against the user's ear.
+        lock.release(PowerManager.RELEASE_FLAG_WAIT_FOR_NO_PROXIMITY)
     }
 
     // Intercept hardware volume keys while the checkup's side-button test is
