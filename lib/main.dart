@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import 'firebase/catalog_firebase.dart';
 import 'features/home/pages/home_page.dart';
+import 'shared/theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,51 +40,27 @@ Future<void> main() async {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, this.home});
 
-  static const Color brandGreen = Color(0xFF32CD32);
+  /// Replaces the home screen.
+  ///
+  /// Only for tests: the real one reads Firebase on its first frame, so the
+  /// app shell cannot otherwise be built without it.
+  @visibleForTesting
+  final Widget? home;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Trade-In App Flow',
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: Colors.white,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: brandGreen,
-          primary: brandGreen,
-          onPrimary: Colors.black,
-          secondary: Colors.black,
-          onSecondary: Colors.white,
-          surface: Colors.white,
-          onSurface: Colors.black,
-          brightness: Brightness.light,
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: brandGreen,
-          foregroundColor: Colors.black,
-          elevation: 0,
-          iconTheme: IconThemeData(color: Colors.black),
-          titleTextStyle: TextStyle(
-            color: Colors.black,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor: brandGreen,
-          foregroundColor: Colors.black,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: brandGreen,
-            foregroundColor: Colors.black,
-          ),
-        ),
-      ),
-      home: const HomePage(),
+      // The design system, applied once. Screens used to wrap themselves in
+      // AppTheme.light individually because MaterialApp still carried the
+      // original inline theme; those wrappers are now redundant rather than
+      // load-bearing, and the screens that never had one — the checkup
+      // flow — stop inheriting black-on-green buttons and a white page.
+      theme: AppTheme.light,
+      home: home ?? const HomePage(),
     );
   }
 }
