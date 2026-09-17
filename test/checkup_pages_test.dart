@@ -56,4 +56,44 @@ void main() {
       size: const Size(320, 640),
     );
   });
+
+  group('CheckupSummaryPage verdict', () {
+    CheckupResult r(String key, CheckupStatus status) =>
+        CheckupResult(key: key, title: key, status: status);
+
+    testWidgets('all passing reads as all passed', (t) async {
+      await _boot(t, CheckupSummaryPage(results: [
+        r('a', CheckupStatus.pass),
+        r('b', CheckupStatus.pass),
+      ]));
+      expect(find.text('All tests passed'), findsOneWidget);
+    });
+
+    testWidgets('a skipped test means the phone is not all-clear', (t) async {
+      await _boot(t, CheckupSummaryPage(results: [
+        r('a', CheckupStatus.pass),
+        r('b', CheckupStatus.skipped),
+      ]));
+      expect(find.text('All tests passed'), findsNothing,
+          reason: 'an untested phone is not a passed one');
+      expect(find.text('1 of 2 passed'), findsOneWidget);
+    });
+
+    testWidgets('a failure outranks everything else', (t) async {
+      await _boot(t, CheckupSummaryPage(results: [
+        r('a', CheckupStatus.pass),
+        r('b', CheckupStatus.fail),
+        r('c', CheckupStatus.skipped),
+      ]));
+      expect(find.text('1 issue found'), findsOneWidget);
+    });
+
+    testWidgets('two failures are counted, not pluralised wrongly', (t) async {
+      await _boot(t, CheckupSummaryPage(results: [
+        r('a', CheckupStatus.fail),
+        r('b', CheckupStatus.fail),
+      ]));
+      expect(find.text('2 issues found'), findsOneWidget);
+    });
+  });
 }

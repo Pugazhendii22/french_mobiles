@@ -8,16 +8,41 @@ import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/widgets.dart';
 
 /// Final screen — lists every test with pass / fail / skip / N/A and an overall
-/// count.
+/// verdict.
 class CheckupSummaryPage extends StatelessWidget {
   final List<CheckupResult> results;
 
   const CheckupSummaryPage({super.key, required this.results});
 
-  int get _passes => results.where((r) => r.status == CheckupStatus.pass).length;
-  int get _fails => results.where((r) => r.status == CheckupStatus.fail).length;
-  int get _skips => results.where((r) => r.status == CheckupStatus.skipped).length;
-  int get _notAvailable => results.where((r) => r.status == CheckupStatus.notAvailable).length;
+  int _count(CheckupStatus status) =>
+      results.where((r) => r.status == status).length;
+
+  int get _passes => _count(CheckupStatus.pass);
+  int get _fails => _count(CheckupStatus.fail);
+
+  /// What the run amounts to, in the order that matters to someone selling a
+  /// phone: a failure outranks everything, and an untested phone is not a
+  /// passed one — so "all passed" has to mean every test actually ran.
+  (IconData, Color, String) get _headline {
+    if (results.isEmpty) {
+      return (Icons.rule_rounded, AppColors.textSecondary, 'Nothing tested yet');
+    }
+    if (_fails > 0) {
+      return (
+        Icons.error_outline_rounded,
+        AppColors.error,
+        _fails == 1 ? '1 issue found' : '$_fails issues found',
+      );
+    }
+    if (_passes == results.length) {
+      return (Icons.verified_rounded, AppColors.success, 'All tests passed');
+    }
+    return (
+      Icons.rule_rounded,
+      AppColors.textSecondary,
+      '$_passes of ${results.length} passed',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,21 +50,39 @@ class CheckupSummaryPage extends StatelessWidget {
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(AppSpacing.screenGutter,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.screenGutter,
                 AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
-            child: AppScreenHeader(title: 'Checkup Results'),
+            child: AppScreenHeader(
+              title: 'Checkup Results',
+              content: _verdict(),
+            ),
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenGutter,
+                0,
+                AppSpacing.screenGutter,
+                AppSpacing.xxxl,
+              ),
               children: [
-                _headlineCard(),
-                const SizedBox(height: 16),
-                for (var i = 0; i < results.length; i++) ...[
-                  AppReveal(index: i, child: _resultTile(results[i])),
-                  const SizedBox(height: 10),
-                ],
+                if (results.isEmpty)
+                  const AppEmptyState(
+                    icon: Icons.fact_check_outlined,
+                    title: 'No results',
+                    message: 'Run a test from the checkup list to see how '
+                        'this phone scores.',
+                  )
+                else
+                  // One enclosure around the whole report rather than a card
+                  // per line: this is a single document, not a feed.
+                  AppGroup(
+                    children: [
+                      for (var i = 0; i < results.length; i++)
+                        AppReveal(index: i, child: _resultRow(results[i])),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -49,112 +92,81 @@ class CheckupSummaryPage extends StatelessWidget {
     );
   }
 
-  Widget _headlineCard() {
-    final allPassed = _fails == 0 && _skips == 0;
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: AppRadius.card,
-        boxShadow: AppShadows.card,
-      ),
-      child: Column(
-        children: [
-          Icon(
-            allPassed ? Icons.verified : Icons.rule,
-            size: 46,
-            color: allPassed ? AppColors.success : AppColors.textSecondary,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            allPassed ? 'All tests passed' : '${results.length} tests reviewed',
-            style: AppTextStyles.body.copyWith(
-                fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
-          ),
-          const SizedBox(height: 10),
+  /// The overall result, sitting on the page under the title. No panel: it is
+  /// the headline for the list below, and boxing it would set it competing
+  /// with the report itself.
+  Widget _verdict() {
+    final (icon, colour, label) = _headline;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: colour, size: 28),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(label, style: AppTextStyles.h3.copyWith(color: colour)),
+            ),
+          ],
+        ),
+        if (results.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.md),
           Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
             children: [
-              _countChip(CheckupStatus.pass, _passes),
-              _countChip(CheckupStatus.fail, _fails),
-              _countChip(CheckupStatus.skipped, _skips),
-              if (_notAvailable > 0) _countChip(CheckupStatus.notAvailable, _notAvailable),
+              // Only the statuses that actually occurred; a row of zeroes
+              // reads as noise.
+              for (final status in CheckupStatus.values)
+                if (_count(status) > 0)
+                  AppBadge(
+                    label: '${_count(status)} ${status.label.toLowerCase()}',
+                    tone: status.badgeTone,
+                    icon: status.icon,
+                  ),
             ],
           ),
         ],
-      ),
+      ],
     );
   }
 
-  Widget _countChip(CheckupStatus status, int count) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: status.color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppRadius.full),
+  Widget _resultRow(CheckupResult result) {
+    return AppSurface(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(status.icon, color: status.color, size: 16),
-          const SizedBox(width: 4),
-          Text(
-            '$count ${status.label.toLowerCase()}',
-            style: AppTextStyles.body.copyWith(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: status.color),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(result.status.icon, color: result.status.color, size: 20),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _resultTile(CheckupResult result) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: AppRadius.card,
-        boxShadow: AppShadows.card,
-      ),
-      child: Row(
-        children: [
-          Icon(result.status.icon, color: result.status.color, size: 22),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   result.title,
-                  style: AppTextStyles.body.copyWith(
-                      fontSize: 14.5, fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.bodyMedium,
                 ),
                 if ((result.detail ?? '').isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text(
-                    result.detail!,
-                    style: AppTextStyles.body.copyWith(
-                        fontSize: 12.5, height: 1.35,
-                        color: AppColors.textSecondary),
-                  ),
+                  Text(result.detail!, style: AppTextStyles.caption),
                 ],
               ],
             ),
           ),
-          Text(
-            result.status.label,
-            style: AppTextStyles.body.copyWith(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.8,
-              color: result.status.color,
-            ),
-          ),
+          const SizedBox(width: AppSpacing.sm),
+          AppBadge(label: result.status.label, tone: result.status.badgeTone),
         ],
       ),
     );
@@ -162,28 +174,20 @@ class CheckupSummaryPage extends StatelessWidget {
 
   Widget _doneBar(BuildContext context) {
     return Container(
-      color: AppColors.surface,
-      padding: EdgeInsets.fromLTRB(
-        16,
-        12,
-        16,
-        12 + MediaQuery.paddingOf(context).bottom,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.border)),
       ),
-      child: SizedBox(
-        height: 52,
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: AppColors.onPrimary,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.full),
-            ),
-            textStyle: AppTextStyles.body.copyWith(fontSize: 15, fontWeight: FontWeight.w800),
-          ),
-          onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
-          child: const Text('Done'),
-        ),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.screenGutter,
+        AppSpacing.md,
+        AppSpacing.screenGutter,
+        AppSpacing.md + MediaQuery.paddingOf(context).bottom,
+      ),
+      child: AppPrimaryButton(
+        label: 'Done',
+        onPressed: () =>
+            Navigator.of(context).popUntil((route) => route.isFirst),
       ),
     );
   }
