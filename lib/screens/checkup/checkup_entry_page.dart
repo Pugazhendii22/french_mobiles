@@ -10,6 +10,7 @@ import 'biometric_test_page.dart';
 import 'bluetooth_test_page.dart';
 import 'buttons_test_page.dart';
 import 'camera_test_page.dart';
+import 'checkup_permissions.dart';
 import 'display_test_page.dart';
 import 'earpiece_test_page.dart';
 import 'flashlight_test_page.dart';
@@ -241,6 +242,10 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
   /// skipping one and carrying on.
   Future<void> _startCheckup() async {
     if (_running) return;
+
+    if (!await _askForPermissions()) return;
+    if (!mounted) return;
+
     setState(() {
       _running = true;
       _results.clear();
@@ -265,6 +270,29 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
 
     if (_results.isEmpty) return;
     await _openSummary();
+  }
+
+  /// Gets every permission the run needs out of the way in one go.
+  ///
+  /// The tests still request their own — that path has to keep working when a
+  /// single test is run from the list, and a permission can be revoked
+  /// between runs — but by then it is granted, so nothing prompts. What this
+  /// removes is being interrupted five separate times, several tests deep,
+  /// by a dialog with no explanation attached.
+  ///
+  /// Returns false only if the user backed out of the explanation sheet. A
+  /// denied permission does not stop the run: most tests do not need it, and
+  /// the ones that do report it themselves.
+  Future<bool> _askForPermissions() async {
+    final outstanding = await CheckupPermissions.outstanding();
+    if (!mounted) return false;
+    if (outstanding.isEmpty) return true;
+
+    final proceed = await showCheckupPermissionSheet(context, outstanding);
+    if (!proceed || !mounted) return false;
+
+    await CheckupPermissions.requestAll();
+    return mounted;
   }
 
   /// Runs a single test, from tapping its row in the list.

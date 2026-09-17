@@ -11,9 +11,9 @@ import 'checkup_test_shell.dart';
 
 /// Test 4 — Wi-Fi.
 ///
-/// Requests the permissions Wi-Fi scanning needs, prompts to turn on Location service
-/// via native location dialog if off, then performs a scan. Passes when at least
-/// one nearby network is found. Auto-advances result.
+/// Requests the permissions Wi-Fi scanning needs, raises Android's own
+/// "Turn on location?" dialog if location services are off, then performs a
+/// scan. Passes when at least one nearby network is found. Auto-advances.
 class WifiTestPage extends StatefulWidget {
   const WifiTestPage({super.key});
 
@@ -21,34 +21,17 @@ class WifiTestPage extends StatefulWidget {
   State<WifiTestPage> createState() => _WifiTestPageState();
 }
 
-class _WifiTestPageState extends State<WifiTestPage>
-    with WidgetsBindingObserver {
+class _WifiTestPageState extends State<WifiTestPage> {
   final List<WiFiAccessPoint> _networks = [];
   bool _scanning = false;
   bool _isPermanentlyDenied = false;
-  bool _awaitingLocationSettings = false;
   String _statusText = 'Preparing Wi-Fi scan…';
   CheckupResult? _result;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _run();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _awaitingLocationSettings) {
-      _awaitingLocationSettings = false;
-      _resumeAfterLocationSettings();
-    }
   }
 
   Future<void> _run() async {
@@ -102,35 +85,51 @@ class _WifiTestPageState extends State<WifiTestPage>
       return;
     }
 
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      _awaitingLocationSettings = true;
-      await Geolocator.openLocationSettings();
+    await _ensureLocationServices();
+    if (!mounted) return;
+
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      if (!mounted) return;
+      _setResult(const CheckupResult(
+        key: 'wifi',
+        title: 'Wi-Fi',
+        status: CheckupStatus.skipped,
+        detail:
+            'Location services are switched off — Android requires them to '
+            'scan for Wi-Fi.',
+      ));
       return;
     }
 
     await _startScan();
   }
 
-  Future<void> _resumeAfterLocationSettings() async {
+  /// Raises Android's own "Turn on location?" dialog when location services
+  /// are off, and returns once the user has answered it.
+  ///
+  /// Asking geolocator for a position is what triggers that dialog; there is
+  /// no call that asks for it directly. The position is thrown away — a Wi-Fi
+  /// scan needs the service switched on, not a fix.
+  ///
+  /// This page used to call openLocationSettings() instead, which threw the
+  /// user out into the system settings app and needed a lifecycle observer to
+  /// notice them coming back. The dialog resolves it without leaving.
+  Future<void> _ensureLocationServices() async {
+    if (await Geolocator.isLocationServiceEnabled()) return;
     if (!mounted) return;
-    setState(() {
-      _scanning = true;
-      _statusText = 'Checking location status…';
-    });
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!mounted) return;
-    if (!serviceEnabled) {
-      _setResult(const CheckupResult(
-        key: 'wifi',
-        title: 'Wi-Fi',
-        status: CheckupStatus.skipped,
-        detail:
-            'Location services are switched off — turn them on to scan for Wi-Fi.',
-      ));
-      return;
+
+    setState(() => _statusText = 'Waiting for location to be switched on…');
+    try {
+      await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.lowest,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+    } catch (_) {
+      // Dismissed, or no fix in time. The caller re-checks the service and
+      // reports it; either way this is not the scan's verdict.
     }
-    await _startScan();
   }
 
   Future<void> _startScan() async {

@@ -9,6 +9,9 @@ import 'package:french_mobiles/models/checkup_result.dart';
 import 'package:french_mobiles/screens/checkup/checkup_entry_page.dart';
 import 'package:french_mobiles/screens/checkup/multitouch_test_page.dart';
 import 'package:french_mobiles/screens/checkup/summary_page.dart';
+import 'package:permission_handler_platform_interface/permission_handler_platform_interface.dart';
+
+import 'support/fake_permission_handler.dart';
 
 Future<void> _boot(WidgetTester t, {Size size = const Size(400, 800)}) async {
   t.view.physicalSize = size;
@@ -30,6 +33,15 @@ Future<void> _openMultitouch(WidgetTester t) async {
 }
 
 void main() {
+  late FakePermissionHandler permissions;
+
+  setUp(() {
+    // Granted by default, so the explanation sheet stays out of the way of
+    // the tests that are about sequencing rather than permissions.
+    permissions = FakePermissionHandler();
+    PermissionHandlerPlatform.instance = permissions;
+  });
+
   testWidgets('the intro count matches the number of registered tests',
       (t) async {
     await _boot(t);

@@ -56,21 +56,14 @@ class _LocationTestPageState extends State<LocationTestPage> {
     }
 
     if (!mounted) return;
-    setState(() => _statusText = 'Checking location services…');
-    final servicesEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!mounted) return;
-    if (!servicesEnabled) {
-      _setResult(const CheckupResult(
-        key: 'location',
-        title: 'Location (GPS)',
-        status: CheckupStatus.skipped,
-        detail: 'Location services are switched off — turn them on for a GPS fix.',
-      ));
-      return;
-    }
-
-    if (!mounted) return;
     setState(() => _statusText = 'Waiting for a GPS fix…');
+
+    // Deliberately no isLocationServiceEnabled() pre-check. Asking geolocator
+    // for a position while location services are off makes it raise Android's
+    // own "Turn on location?" dialog, which resolves the problem in place;
+    // checking first and giving up means the user never sees that dialog and
+    // has to go hunting through system settings instead. If they dismiss it,
+    // LocationServiceDisabledException below reports it as before.
     try {
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
