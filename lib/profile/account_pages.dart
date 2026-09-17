@@ -190,7 +190,7 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
   }
 
   void _shareAddress(String label, String fullAddress) {
-    Share.share('$label: $fullAddress');
+    SharePlus.instance.share(ShareParams(text: '$label: $fullAddress'));
   }
 
   Future<void> _setAsDefault(String docId) async {

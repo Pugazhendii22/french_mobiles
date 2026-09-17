@@ -48,9 +48,12 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           TextButton(
             onPressed: () async {
+              // Captured before the await: the dialog can be dismissed while
+              // sign-out is in flight, and its context would then be dead.
+              final navigator = Navigator.of(context);
               await catalogAuth.signOut();
-              Navigator.pop(context);
-              Navigator.of(context).popUntil((route) => route.isFirst);
+              navigator.pop();
+              navigator.popUntil((route) => route.isFirst);
             },
             child: Text(
               'Log out',

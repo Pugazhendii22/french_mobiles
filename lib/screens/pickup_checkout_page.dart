@@ -150,8 +150,10 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
       }
 
       if (user == null) {
+        if (!mounted) return;
         setState(() => _placingOrder = false);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unable to determine user after login')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Unable to determine user after login')));
         return;
       }
 

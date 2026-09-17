@@ -41,6 +41,7 @@ class _LoginPageState extends State<LoginPage> {
     final data = doc.data();
     final name = (data != null && data['name'] is String) ? (data['name'] as String) : '';
     if (name.trim().isNotEmpty) return;
+    if (!mounted) return;
     // show a dedicated stateful dialog that manages its own controller/state
     await showDialog<bool>(
       context: context,
@@ -57,17 +58,17 @@ class _LoginPageState extends State<LoginPage> {
       final credential = GoogleAuthProvider.credential(idToken: idToken);
       await _catalogAuth.signInWithCredential(credential);
       await ensureUserProfileExists();
-      if (context.mounted) Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, true);
     } on GoogleSignInException catch (e) {
       if (e.code != GoogleSignInExceptionCode.canceled) {
-        if (context.mounted) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Google sign-in failed: ${e.description}')),
           );
         }
       }
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Google sign-in failed. Please try again.')),
         );
@@ -371,11 +372,19 @@ class _NamePromptDialogState extends State<_NamePromptDialog> {
           onPressed: isEmpty
               ? null
               : () async {
+                  // Captured before the await: `mounted` is the State's, but
+                  // `context` here is the builder's, so guarding on one and
+                  // using the other proves nothing.
+                  final navigator = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.of(context);
                   try {
-                    await widget.docRef.update({'name': _controller.text.trim()});
-                    if (mounted) Navigator.pop(context, true);
+                    await widget.docRef
+                        .update({'name': _controller.text.trim()});
+                    navigator.pop(true);
                   } catch (e) {
-                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save name: $e')));
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Failed to save name: $e')),
+                    );
                   }
                 },
         ),
