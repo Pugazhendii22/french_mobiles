@@ -44,7 +44,15 @@ class CheckupTestSpec {
 /// Orchestrator — lists hardware tests and steps through them in order,
 /// collecting a [CheckupResult] from each before opening the summary.
 class CheckupEntryPage extends StatefulWidget {
-  const CheckupEntryPage({super.key});
+  const CheckupEntryPage({super.key, this.tests});
+
+  /// Replaces [specs] for this instance.
+  ///
+  /// Only for tests: every registered test drives hardware that flutter_test
+  /// does not provide, so sequencing behaviour can only be exercised against
+  /// stand-in pages.
+  @visibleForTesting
+  final List<CheckupTestSpec>? tests;
 
   /// Every test in the run, in execution order.
   ///
@@ -189,44 +197,89 @@ class CheckupEntryPage extends StatefulWidget {
   State<CheckupEntryPage> createState() => _CheckupEntryPageState();
 }
 
-class _CheckupEntryPageState extends State<CheckupEntryPage> {
-  List<CheckupTestSpec> get specs => CheckupEntryPage.specs;
 
+class _CheckupEntryPageState extends State<CheckupEntryPage> {
+  List<CheckupTestSpec> get specs => widget.tests ?? CheckupEntryPage.specs;
+
+  /// Results by spec key, whether produced by a full run or by tapping a
+  /// single test. Keyed rather than listed so re-running one test replaces
+  /// its earlier outcome instead of appending a second row.
+  final Map<String, CheckupResult> _results = {};
+
+  /// The spec currently on screen during a sequenced run, or null when the
+  /// user is running one test on its own.
+  String? _currentKey;
   bool _running = false;
 
+  /// Collected results in registration order — the order the summary lists
+  /// them, and the order they were meant to run in.
+  List<CheckupResult> get _collected => [
+        for (final spec in specs)
+          if (_results[spec.key] != null) _results[spec.key]!,
+      ];
+
+  /// Pushes one test and returns its result, or null if the user left the
+  /// page without producing one.
+  ///
+  /// Each hardware test rises into view; the sequence reads as a stack of
+  /// steps rather than a series of cuts.
+  Future<CheckupResult?> _push(CheckupTestSpec spec) {
+    return Navigator.of(context).push<CheckupResult>(
+      AppPageRoute<CheckupResult>(
+        builder: spec.pageBuilder,
+        transition: AppTransition.rise,
+      ),
+    );
+  }
+
+  /// Runs every test back to back.
+  ///
+  /// A null result means the user backed out of the test rather than
+  /// finishing it, and that ends the run. Leaving is the only way out of a
+  /// sixteen-step sequence — treating back as "skip and continue" trapped the
+  /// user on the next test instead. "Skip this test" is still there for
+  /// skipping one and carrying on.
   Future<void> _startCheckup() async {
     if (_running) return;
-    setState(() => _running = true);
+    setState(() {
+      _running = true;
+      _results.clear();
+    });
 
-    final results = <CheckupResult>[];
     for (final spec in specs) {
       if (!mounted) return;
+      setState(() => _currentKey = spec.key);
 
-      // Each hardware test rises into view; the sequence reads as a stack of
-      // steps rather than a series of cuts.
-      final result = await Navigator.of(context).push<CheckupResult>(
-        AppPageRoute<CheckupResult>(
-          builder: spec.pageBuilder,
-          transition: AppTransition.rise,
-        ),
-      );
+      final result = await _push(spec);
       if (!mounted) return;
-      results.add(
-        result ??
-            CheckupResult(
-              key: spec.key,
-              title: spec.title,
-              status: CheckupStatus.skipped,
-              detail: 'Test was not completed',
-            ),
-      );
+      if (result == null) break;
+
+      setState(() => _results[spec.key] = result);
     }
 
     if (!mounted) return;
-    setState(() => _running = false);
-    await Navigator.of(context).push(
+    setState(() {
+      _running = false;
+      _currentKey = null;
+    });
+
+    if (_results.isEmpty) return;
+    await _openSummary();
+  }
+
+  /// Runs a single test, from tapping its row in the list.
+  Future<void> _runOne(CheckupTestSpec spec) async {
+    if (_running) return;
+
+    final result = await _push(spec);
+    if (!mounted || result == null) return;
+    setState(() => _results[spec.key] = result);
+  }
+
+  Future<void> _openSummary() {
+    return Navigator.of(context).push(
       AppPageRoute<void>(
-        builder: (context) => CheckupSummaryPage(results: results),
+        builder: (context) => CheckupSummaryPage(results: _collected),
         transition: AppTransition.fadeThrough,
       ),
     );
@@ -238,21 +291,38 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(AppSpacing.screenGutter,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.screenGutter,
                 AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
-            child: AppScreenHeader(title: 'Device Auto Checkup'),
+            child: AppScreenHeader(
+              title: 'Device Auto Checkup',
+              content: _intro(),
+            ),
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenGutter,
+                0,
+                AppSpacing.screenGutter,
+                AppSpacing.xxxl,
+              ),
               children: [
-                _introCard(),
-                const SizedBox(height: 18),
-                for (var i = 0; i < specs.length; i++) ...[
-                  _testTile(i + 1, specs[i]),
-                  const SizedBox(height: 10),
-                ],
+                // One enclosure around the whole list rather than sixteen
+                // separate cards: these are steps in one procedure, not
+                // sixteen unrelated things.
+                AppGroup(
+                  children: [
+                    for (var i = 0; i < specs.length; i++)
+                      _TestRow(
+                        index: i + 1,
+                        spec: specs[i],
+                        result: _results[specs[i].key],
+                        active: _currentKey == specs[i].key,
+                        onTap: _running ? null : () => _runOne(specs[i]),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -262,138 +332,197 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
     );
   }
 
-  Widget _introCard() {
+  /// Sits on the page under the title — no panel. It is supporting copy for
+  /// the heading above it, and a box around it would only compete with the
+  /// list, which is the thing to look at.
+  Widget _intro() {
+    final done = _results.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '${specs.length} hardware tests',
+          style: AppTextStyles.bodyLarge,
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          done == 0
+              ? 'Run them all in sequence, or tap any single test to run it '
+                  'on its own.'
+              : '$done of ${specs.length} tested. Tap a test to run it again.',
+          style: AppTextStyles.bodySmall,
+        ),
+        if (done > 0) ...[
+          const SizedBox(height: AppSpacing.md),
+          _tally(),
+        ],
+      ],
+    );
+  }
+
+  /// One badge per status that actually occurred — an empty count is noise.
+  Widget _tally() {
+    int count(CheckupStatus status) =>
+        _results.values.where((r) => r.status == status).length;
+
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      children: [
+        for (final status in CheckupStatus.values)
+          if (count(status) > 0)
+            AppBadge(
+              label: '${count(status)} ${status.label.toLowerCase()}',
+              tone: status.badgeTone,
+              icon: status.icon,
+            ),
+      ],
+    );
+  }
+
+  Widget _startBar() {
+    final hasResults = _results.isNotEmpty;
+
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.surface,
-        borderRadius: AppRadius.card,
-        boxShadow: AppShadows.card,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.screenGutter,
+        AppSpacing.md,
+        AppSpacing.screenGutter,
+        AppSpacing.md + MediaQuery.paddingOf(context).bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppPrimaryButton(
+            label: _running ? 'Running checkup…' : 'Start Checkup',
+            loading: _running,
+            onPressed: _running ? null : _startCheckup,
+          ),
+          if (hasResults && !_running)
+            TextButton(
+              onPressed: _openSummary,
+              child: Text(
+                'View results',
+                style: AppTextStyles.button
+                    .copyWith(color: AppColors.textSecondary),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One test in the list: its place in the running order, what it checks, and
+/// its outcome once it has one.
+class _TestRow extends StatelessWidget {
+  const _TestRow({
+    required this.index,
+    required this.spec,
+    required this.result,
+    required this.active,
+    required this.onTap,
+  });
+
+  final int index;
+  final CheckupTestSpec spec;
+  final CheckupResult? result;
+
+  /// True while a sequenced run has this test on screen.
+  final bool active;
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = result?.status;
+
+    return AppSurface(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
       ),
       child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.build_circle_outlined,
-                color: AppColors.surface, size: 26),
-          ),
-          const SizedBox(width: 14),
+          _leading(status),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '9 hardware tests',
-                  style: AppTextStyles.body.copyWith(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
-                  ),
+                  spec.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.bodyMedium,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
-                  'Runs automatically in sequence, then displays your test summary.',
-                  style: AppTextStyles.body.copyWith(
-                    fontSize: 13,
-                    height: 1.4,
-                    color: AppColors.textSecondary,
-                  ),
+                  // Once a test has run, what it found is more use than what
+                  // it was going to do.
+                  result?.detail?.isNotEmpty == true
+                      ? result!.detail!
+                      : spec.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.caption,
                 ),
               ],
             ),
           ),
+          const SizedBox(width: AppSpacing.sm),
+          if (status != null)
+            AppBadge(label: status.label, tone: status.badgeTone)
+          else if (active)
+            const SizedBox(
+              height: 16,
+              width: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.primary,
+              ),
+            )
+          else
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: AppColors.textTertiary,
+            ),
         ],
       ),
     );
   }
 
-  Widget _testTile(int index, CheckupTestSpec spec) {
+  /// The running number, replaced by the test's icon in its status colour
+  /// once there is a verdict to show.
+  Widget _leading(CheckupStatus? status) {
     return Container(
+      height: 32,
+      width: 32,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: AppRadius.card,
-        boxShadow: AppShadows.card,
+        color: status == null
+            ? AppColors.surfaceMuted
+            : status.color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
-      child: Material(
-        color: AppColors.transparent,
-        borderRadius: AppRadius.card,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(spec.icon, size: 19, color: AppColors.primaryDark),
+      child: status == null
+          ? Text(
+              '$index',
+              style: AppTextStyles.caption.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AppColors.textSecondary,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$index. ${spec.title}',
-                      style: AppTextStyles.body.copyWith(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      spec.description,
-                      style: AppTextStyles.body.copyWith(
-                        fontSize: 12.5,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _startBar() {
-    return Container(
-      color: AppColors.surface,
-      padding: EdgeInsets.fromLTRB(
-        16,
-        12,
-        16,
-        12 + MediaQuery.paddingOf(context).bottom,
-      ),
-      child: SizedBox(
-        height: 52,
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: AppColors.onPrimary,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.full),
-            ),
-            textStyle: AppTextStyles.body.copyWith(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          onPressed: _running ? null : _startCheckup,
-          child: Text(_running ? 'Running checkup…' : 'Start Checkup'),
-        ),
-      ),
+            )
+          : Icon(spec.icon, size: 17, color: status.color),
     );
   }
 }

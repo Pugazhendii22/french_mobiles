@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../shared/theme/app_colors.dart';
+import '../shared/widgets/app_badge.dart';
+
 /// Outcome for a single hardware autocheckup test.
 ///
 /// Every test screen produces exactly one of these, written back to the
@@ -23,19 +26,39 @@ class CheckupResult {
 
 /// UI helpers so every screen and the summary page render a status the
 /// same way (green pass / red fail / amber skipped).
+///
+/// Colours come from [AppColors] rather than being defined here, so a status
+/// in the checkup matches the same status anywhere else in the app.
 extension CheckupStatusVisuals on CheckupStatus {
   Color get color => switch (this) {
-        CheckupStatus.pass => const Color(0xFF16A34A),
-        CheckupStatus.fail => const Color(0xFFDC2626),
-        CheckupStatus.skipped => const Color(0xFFF59E0B),
-        CheckupStatus.notAvailable => const Color(0xFF6B7280),
+        CheckupStatus.pass => AppColors.success,
+        CheckupStatus.fail => AppColors.error,
+        CheckupStatus.skipped => AppColors.warning,
+        CheckupStatus.notAvailable => AppColors.textSecondary,
+      };
+
+  /// The soft background matching [color], for a tinted panel or chip.
+  Color get softColor => switch (this) {
+        CheckupStatus.pass => AppColors.successSoft,
+        CheckupStatus.fail => AppColors.errorSoft,
+        CheckupStatus.skipped => AppColors.warningSoft,
+        CheckupStatus.notAvailable => AppColors.surfaceMuted,
+      };
+
+  /// The [AppBadge] preset carrying this status, so status pills in the
+  /// checkup are the same component used everywhere else.
+  AppBadgeTone get badgeTone => switch (this) {
+        CheckupStatus.pass => AppBadgeTone.success,
+        CheckupStatus.fail => AppBadgeTone.error,
+        CheckupStatus.skipped => AppBadgeTone.warning,
+        CheckupStatus.notAvailable => AppBadgeTone.neutral,
       };
 
   IconData get icon => switch (this) {
-        CheckupStatus.pass => Icons.check_circle,
-        CheckupStatus.fail => Icons.cancel,
-        CheckupStatus.skipped => Icons.remove_circle_outline,
-        CheckupStatus.notAvailable => Icons.info_outline,
+        CheckupStatus.pass => Icons.check_circle_rounded,
+        CheckupStatus.fail => Icons.cancel_rounded,
+        CheckupStatus.skipped => Icons.remove_circle_outline_rounded,
+        CheckupStatus.notAvailable => Icons.info_outline_rounded,
       };
 
   String get label => switch (this) {
