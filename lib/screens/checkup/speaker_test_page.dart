@@ -1,5 +1,3 @@
-import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +6,7 @@ import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
 import 'checkup_test_shell.dart';
+import 'checkup_tone.dart';
 
 /// Loudspeaker.
 ///
@@ -30,7 +29,6 @@ class _SpeakerTestPageState extends State<SpeakerTestPage>
   /// 1 kHz: near the ear's most sensitive range, and high enough that a blown
   /// or muffled driver is obvious.
   static const double _frequency = 1000;
-  static const int _sampleRate = 44100;
   static const double _seconds = 2;
 
   @override
@@ -62,43 +60,6 @@ class _SpeakerTestPageState extends State<SpeakerTestPage>
     _player.dispose();
   }
 
-  /// A 16-bit mono PCM sine wave wrapped in a WAV header.
-  Uint8List _buildTone() {
-    final frames = (_sampleRate * _seconds).round();
-    final data = ByteData(44 + frames * 2);
-
-    void ascii(int offset, String s) {
-      for (var i = 0; i < s.length; i++) {
-        data.setUint8(offset + i, s.codeUnitAt(i));
-      }
-    }
-
-    ascii(0, 'RIFF');
-    data.setUint32(4, 36 + frames * 2, Endian.little);
-    ascii(8, 'WAVE');
-    ascii(12, 'fmt ');
-    data.setUint32(16, 16, Endian.little); // PCM chunk size
-    data.setUint16(20, 1, Endian.little); // format: PCM
-    data.setUint16(22, 1, Endian.little); // channels: mono
-    data.setUint32(24, _sampleRate, Endian.little);
-    data.setUint32(28, _sampleRate * 2, Endian.little); // byte rate
-    data.setUint16(32, 2, Endian.little); // block align
-    data.setUint16(34, 16, Endian.little); // bits per sample
-    ascii(36, 'data');
-    data.setUint32(40, frames * 2, Endian.little);
-
-    for (var i = 0; i < frames; i++) {
-      // Fade the first and last 50ms so the tone does not start or end on a
-      // click, which can itself sound like a speaker fault.
-      final fade = min(1.0, min(i, frames - i) / (_sampleRate * 0.05));
-      final sample =
-          sin(2 * pi * _frequency * i / _sampleRate) * 0.6 * fade * 32767;
-      data.setInt16(44 + i * 2, sample.round(), Endian.little);
-    }
-
-    return data.buffer.asUint8List();
-  }
-
   Future<void> _play() async {
     setState(() {
       _playing = true;
@@ -106,7 +67,8 @@ class _SpeakerTestPageState extends State<SpeakerTestPage>
     });
     try {
       await _player.setVolume(1);
-      await _player.play(BytesSource(_buildTone()));
+      await _player.play(BytesSource(
+          CheckupTone.steady(frequency: _frequency, seconds: _seconds)));
       await _player.onPlayerComplete.first;
     } catch (e) {
       if (!mounted) return;

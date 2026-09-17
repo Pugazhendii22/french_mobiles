@@ -12,7 +12,6 @@ class MainActivity : FlutterFragmentActivity() {
     private lateinit var channel: MethodChannel
     private lateinit var audioChannel: MethodChannel
     private var volumeListening = false
-    private var previousAudioMode: Int? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -28,10 +27,17 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
 
-        // Earpiece routing for the checkup's earpiece test. flutter_tts has no
-        // API for this on Android: TTS goes to STREAM_MUSIC (the loudspeaker)
-        // unless the audio mode is switched to in-communication and the
-        // speakerphone is turned off, which is only reachable from native.
+        // Whether this device has a receiver at all. Tablets and some
+        // handsets have only a loudspeaker, and the earpiece test needs to
+        // say so rather than ask the user to listen for a sound that has
+        // nowhere to come out.
+        //
+        // Routing itself is NOT done here. It used to be — setting
+        // MODE_IN_COMMUNICATION with the speakerphone off — but that reroutes
+        // the voice-call stream, while the audio being played was on the
+        // media stream and stayed on the loudspeaker regardless. audioplayers
+        // declares the usage on the player, which is what actually reaches
+        // the receiver, so the Kotlin side no longer touches the audio mode.
         audioChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "french_mobiles/audio_route"
@@ -39,24 +45,7 @@ class MainActivity : FlutterFragmentActivity() {
         audioChannel.setMethodCallHandler { call, result ->
             val manager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
             when (call.method) {
-                "routeToEarpiece" -> {
-                    if (previousAudioMode == null) {
-                        previousAudioMode = manager.mode
-                    }
-                    manager.mode = AudioManager.MODE_IN_COMMUNICATION
-                    @Suppress("DEPRECATION")
-                    manager.isSpeakerphoneOn = false
-                    result.success(true)
-                }
-                "routeToSpeaker" -> {
-                    manager.mode = previousAudioMode ?: AudioManager.MODE_NORMAL
-                    @Suppress("DEPRECATION")
-                    manager.isSpeakerphoneOn = true
-                    previousAudioMode = null
-                    result.success(true)
-                }
                 "hasEarpiece" -> {
-                    // Tablets and some devices have no receiver at all.
                     val devices =
                         manager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
                     val found = devices.any {
@@ -71,15 +60,6 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         channel.setMethodCallHandler(null)
-        // Leaving the device in MODE_IN_COMMUNICATION would keep every later
-        // sound routed to the earpiece, so restore it unconditionally.
-        previousAudioMode?.let {
-            val manager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            manager.mode = it
-            @Suppress("DEPRECATION")
-            manager.isSpeakerphoneOn = true
-            previousAudioMode = null
-        }
         audioChannel.setMethodCallHandler(null)
         super.cleanUpFlutterEngine(flutterEngine)
     }
