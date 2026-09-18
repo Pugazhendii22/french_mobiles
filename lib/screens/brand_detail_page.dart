@@ -241,8 +241,7 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
           childAspectRatio: 0.74,
         ),
         itemCount: 4,
-        itemBuilder: (_, __) =>
-            const AppShimmer(width: double.infinity, height: double.infinity),
+        itemBuilder: (_, __) => const ModelCardSkeleton(),
       );
     }
 
@@ -291,6 +290,78 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
 }
 
 /// A model tile: image, name, release year and the best price on offer.
+/// The shape of a [_ModelCard] before its data arrives.
+///
+/// Public so its fit inside a grid cell can be tested: the heights here are
+/// fixed while the cell's height comes from an aspect ratio, so a narrow
+/// screen is where the two disagree.
+///
+/// Mirrors the card rather than filling the cell with one grey block: a
+/// skeleton's whole job is to show what is coming, so that the page does not
+/// jump when it lands. A solid rectangle promises a shape it then fails to
+/// deliver, which is worse than showing nothing.
+@visibleForTesting
+class ModelCardSkeleton extends StatelessWidget {
+  const ModelCardSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // The photo panel.
+          const Expanded(
+            child: Padding(
+              padding: EdgeInsets.all(AppSpacing.md),
+              child: AppShimmer(width: double.infinity, height: 1000),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Two lines of model name, matching the 40px the card
+                // reserves for it.
+                AppShimmer(
+                  width: double.infinity,
+                  height: 13,
+                  borderRadius: AppRadius.pill,
+                ),
+                const SizedBox(height: 6),
+                AppShimmer(
+                  width: 70,
+                  height: 13,
+                  borderRadius: AppRadius.pill,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                AppShimmer(
+                  width: 36,
+                  height: 10,
+                  borderRadius: AppRadius.pill,
+                ),
+                const SizedBox(height: 6),
+                AppShimmer(
+                  width: 84,
+                  height: 18,
+                  borderRadius: AppRadius.pill,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ModelCard extends StatelessWidget {
   const _ModelCard({required this.model, required this.onTap});
 

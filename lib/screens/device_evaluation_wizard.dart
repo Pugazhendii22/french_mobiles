@@ -376,8 +376,7 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
           mainAxisSpacing: AppSpacing.md,
         ),
         itemCount: 4,
-        itemBuilder: (_, __) =>
-            const AppShimmer(width: double.infinity, height: double.infinity),
+        itemBuilder: (_, __) => const OptionCardSkeleton(),
       );
     }
 
@@ -547,6 +546,54 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
           },
         );
       },
+    );
+  }
+}
+
+
+/// The shape of an [AppOptionCard] before the deduction rules arrive.
+///
+/// Matches the real card — bordered, centred icon, title, subtitle — so the
+/// grid does not rearrange itself the moment the rules land.
+///
+/// Public so its fit inside a grid cell can be tested.
+@visibleForTesting
+class OptionCardSkeleton extends StatelessWidget {
+  const OptionCardSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Expanded(
+              child: Center(
+                child: AppShimmer(width: 40, height: 40),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            AppShimmer(
+              width: double.infinity,
+              height: 12,
+              borderRadius: AppRadius.pill,
+            ),
+            const SizedBox(height: 6),
+            AppShimmer(
+              width: 56,
+              height: 10,
+              borderRadius: AppRadius.pill,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
