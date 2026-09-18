@@ -216,4 +216,55 @@ void main() {
       await _pumpCard(t, _rich, size: const Size(320, 640));
     });
   });
+
+  group('the details fill the cell', () {
+    HomeProduct withStorage(String storage) => HomeProduct(
+          id: 'a',
+          categoryId: 'mobile',
+          brand: 'Apple',
+          title: 'Apple iPhone 13',
+          model: 'iPhone 13',
+          imageUrl: '',
+          price: '₹ 32000',
+          storage: storage,
+          salePriceValue: 32000,
+        );
+
+    // Two complaints, one cause each: a blank line held open where the
+    // storage would go, and the column shrink-wrapping inside a fixed-height
+    // cell so everything under the price was dead space.
+
+    testWidgets('no storage means no empty line above the price', (t) async {
+      await _pumpCard(t, withStorage(''));
+
+      final nameBottom = t.getBottomLeft(find.text('iPhone 13')).dy;
+      final priceTop = t.getTopLeft(find.text('₹ 32000')).dy;
+
+      // Whatever the spacing rules, the price must be pushed to the bottom of
+      // the cell rather than sitting a blank line under the name.
+      expect(priceTop - nameBottom, greaterThan(20),
+          reason: 'the price is bottom-aligned, so the space is above it');
+    });
+
+    testWidgets('the price sits at the bottom of the cell', (t) async {
+      await _pumpCard(t, withStorage('128 GB'));
+
+      final priceBottom = t.getBottomLeft(find.text('₹ 32000')).dy;
+      expect(priceBottom, closeTo(280, 24),
+          reason: 'anything higher leaves dead space under the price, which '
+              'is what the cell looked like before');
+    });
+
+    testWidgets('prices line up whether or not storage is shown', (t) async {
+      await _pumpCard(t, withStorage('128 GB'));
+      final withSpec = t.getBottomLeft(find.text('₹ 32000')).dy;
+
+      await _pumpCard(t, withStorage(''));
+      final without = t.getBottomLeft(find.text('₹ 32000')).dy;
+
+      expect(without, withSpec,
+          reason: 'holding the line open with a space was how this used to '
+              'be achieved; the spacer does it without the gap');
+    });
+  });
 }

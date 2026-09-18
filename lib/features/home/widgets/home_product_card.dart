@@ -74,9 +74,11 @@ class HomeProductCard extends StatelessWidget {
         // the grid read as boxes rather than products.
         child: SizedBox(
           width: width,
+          // Fills the cell rather than shrink-wrapping inside it. The cell's
+          // height is fixed by the grid, so a column that only takes what it
+          // needs leaves the remainder as dead space under the price.
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
             children: [
               _imageBlock(productId),
               const SizedBox(height: 10),
@@ -96,14 +98,21 @@ class HomeProductCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: AppTextStyles.bodyMedium,
               ),
-              const SizedBox(height: 2),
-              Text(
-                product.storage.isNotEmpty ? product.storage : ' ',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.caption,
-              ),
-              const SizedBox(height: 6),
+              // Only when there is one. This used to render a single space to
+              // hold the line open so prices stayed level across a row —
+              // which is the gap between the name and the price on every
+              // listing that has no storage to show. The spacer below keeps
+              // them level without printing an empty line to do it.
+              if (product.storage.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  product.storage,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.caption,
+                ),
+              ],
+              const Spacer(),
               _priceBlock(discount),
             ],
           ),

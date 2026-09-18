@@ -60,9 +60,11 @@ class _InventoryDetailPlaceholderState
     if (d['photo'] is String && (d['photo'] as String).isNotEmpty) {
       candidates.add(d['photo'] as String);
     }
-    return candidates.isEmpty
-        ? ['https://via.placeholder.com/600x400?text=No+Image']
-        : candidates;
+    // One empty slot rather than a URL to an outside placeholder service.
+    // AppNetworkImage draws its own missing-photo state, which works offline
+    // and does not depend on a third party staying up — and keeping a single
+    // page means the gallery still lays out instead of leaving a blank band.
+    return candidates.isEmpty ? const [''] : candidates;
   }
 
   int _safeInt(dynamic v) {
@@ -111,6 +113,9 @@ class _InventoryDetailPlaceholderState
       }
     }
 
+    final condition =
+        (d['condition'] ?? d['grade'] ?? '')?.toString().trim() ?? '';
+
     final title = model.isNotEmpty
         ? '$brand $model'.trim()
         : (brand.isNotEmpty ? brand : 'Product');
@@ -144,7 +149,14 @@ class _InventoryDetailPlaceholderState
                 ),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    _buildPricing(finalPrice, originalPrice, discountPercent),
+                    _buildHeadline(
+                      brand: brand,
+                      model: model,
+                      condition: condition,
+                      originalPrice: originalPrice,
+                      finalPrice: finalPrice,
+                      discountPercent: discountPercent,
+                    ),
                     if (description.isNotEmpty) ...[
                       const SizedBox(height: AppSpacing.xl),
                       Text('Description', style: AppTextStyles.h3),
@@ -261,29 +273,92 @@ class _InventoryDetailPlaceholderState
     );
   }
 
-  Widget _buildPricing(int finalPrice, int originalPrice, int discountPercent) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+  /// Brand, model, grade, and what the saving is.
+  ///
+  /// The price itself is not repeated here: the bottom bar carries it and
+  /// follows the page, so printing it again under the photo said the same
+  /// thing twice and pushed everything else down.
+  ///
+  /// The grade takes its place, because on a second-hand phone it is the
+  /// fact that decides the purchase and it was not shown anywhere on this
+  /// screen — a buyer had to go back to the grid to find it.
+  Widget _buildHeadline({
+    required String brand,
+    required String model,
+    required String condition,
+    required int originalPrice,
+    required int finalPrice,
+    required int discountPercent,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text('₹ $finalPrice', style: AppTextStyles.h1),
-        if (originalPrice > 0) ...[
-          const SizedBox(width: AppSpacing.md),
+        if (brand.isNotEmpty)
           Text(
-            '₹ $originalPrice',
-            style: AppTextStyles.bodySmall.copyWith(
-              decoration: TextDecoration.lineThrough,
-            ),
+            brand.toUpperCase(),
+            style: AppTextStyles.overline
+                .copyWith(color: AppColors.textTertiary),
+          ),
+        if (model.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(model, style: AppTextStyles.h2),
+        ],
+        if (condition.isNotEmpty || discountPercent > 0) ...[
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              if (condition.isNotEmpty)
+                AppBadge(
+                  label: condition.toUpperCase(),
+                  tone: _toneFor(condition),
+                  icon: Icons.verified_outlined,
+                ),
+              if (discountPercent > 0)
+                AppBadge(
+                  label: '$discountPercent% off',
+                  tone: AppBadgeTone.success,
+                ),
+            ],
           ),
         ],
-        if (discountPercent > 0) ...[
-          const SizedBox(width: AppSpacing.md),
-          AppBadge(
-            label: '$discountPercent% OFF',
-            tone: AppBadgeTone.success,
+        if (originalPrice > finalPrice && originalPrice > 0) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Was ₹ $originalPrice',
+            style: AppTextStyles.bodySmall.copyWith(
+              decoration: TextDecoration.lineThrough,
+              color: AppColors.textTertiary,
+            ),
           ),
         ],
       ],
     );
+  }
+
+  /// The same grade vocabulary the listing grid uses, so a phone does not
+  /// change colour between the grid and its own page.
+  AppBadgeTone _toneFor(String condition) {
+    switch (condition.trim().toLowerCase()) {
+      case 'superb':
+      case 'premium':
+      case 'excellent':
+      case 'like new':
+      case 'a+':
+      case 'a':
+        return AppBadgeTone.success;
+      case 'good':
+      case 'b':
+        return AppBadgeTone.primary;
+      case 'fair':
+      case 'average':
+      case 'c':
+        return AppBadgeTone.warning;
+      default:
+        return AppBadgeTone.neutral;
+    }
   }
 
   Widget _buildSpecs(Map<String, dynamic> specs) {
