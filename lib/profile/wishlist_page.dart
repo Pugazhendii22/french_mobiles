@@ -99,11 +99,18 @@ class WishlistPage extends StatelessWidget {
               horizontal: AppSpacing.screenGutter,
             ),
             itemCount: 4,
-            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
-            // 90 is what a WishlistCard measures; the skeleton matching it
-            // exactly is what stops the list shifting when items land.
-            itemBuilder: (_, __) =>
-                const AppShimmer(width: double.infinity, height: 90),
+            separatorBuilder: (_, __) => const Divider(
+              height: 1,
+              thickness: 1,
+              color: AppColors.border,
+            ),
+            // 88 is what a WishlistRow measures now the card around it is
+            // gone; matching it exactly is what stops the list shifting when
+            // items land.
+            itemBuilder: (_, __) => const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: AppShimmer(width: double.infinity, height: 64),
+            ),
           );
         }
 
@@ -138,12 +145,16 @@ class WishlistPage extends StatelessWidget {
             AppSpacing.xxl,
           ),
           itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+          separatorBuilder: (_, __) => const Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.border,
+          ),
           itemBuilder: (context, index) {
             final item = items[index];
             return AppReveal(
               index: index,
-              child: WishlistCard(
+              child: WishlistRow(
                 item: item,
                 onTap: () => _openItem(context, item),
                 onRemove: () => WishlistService.remove(item.productId),
@@ -157,8 +168,8 @@ class WishlistPage extends StatelessWidget {
 }
 
 @visibleForTesting
-class WishlistCard extends StatelessWidget {
-  const WishlistCard({
+class WishlistRow extends StatelessWidget {
+  const WishlistRow({
     super.key,
     required this.item,
     required this.onTap,
@@ -173,24 +184,13 @@ class WishlistCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppPressable(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: AppRadius.card,
-          border: Border.all(color: AppColors.border),
-          boxShadow: AppShadows.card,
-        ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
         child: Row(
           children: [
-            Container(
+            SizedBox(
               height: 64,
               width: 64,
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceMuted,
-                borderRadius: AppRadius.field,
-              ),
               child: AppNetworkImage(
                 url: item.imageUrl,
                 fit: BoxFit.contain,

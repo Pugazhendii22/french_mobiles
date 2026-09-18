@@ -110,13 +110,19 @@ class _OrdersPageState extends State<OrdersPage> {
       stream: stream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return ListView.separated(
+          return ListView(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.screenGutter,
             ),
-            itemCount: 3,
-            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
-            itemBuilder: (_, __) => const OrderCardSkeleton(),
+            children: const [
+              AppGroup(
+                children: [
+                  OrderRowSkeleton(),
+                  OrderRowSkeleton(),
+                  OrderRowSkeleton(),
+                ],
+              ),
+            ],
           );
         }
 
@@ -132,69 +138,71 @@ class _OrdersPageState extends State<OrdersPage> {
           );
         }
 
-        return ListView.separated(
+        return ListView(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.screenGutter,
             0,
             AppSpacing.screenGutter,
             AppSpacing.xxl,
           ),
-          itemCount: docs.length,
-          separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
-          itemBuilder: (context, index) {
-            final doc = docs[index];
-            final d = doc.data();
-
-            final modelName = (d['modelName'] as String?) ?? '';
-            final storage = (d['storage'] as String?) ?? '';
-            final imageUrl = (d['imageUrl'] as String?) ?? '';
-            final status = d['status'] as String?;
-            final payout = (d['finalPayout'] is num)
-                ? (d['finalPayout'] as num).toInt()
-                : int.tryParse('${d['finalPayout']}') ?? 0;
-            final createdAt = d['createdAt'] as Timestamp?;
-
-            return AppReveal(
-              index: index,
-              child: OrderCard(
-                modelName: modelName,
-                storage: storage,
-                imageUrl: imageUrl,
-                payout: payout,
-                date: _formatDate(createdAt),
-                statusLabel: _statusLabel(status),
-                statusTone: _statusTone(status),
-                onTap: () =>
-                    context.pushScreen(OrderTrackingPage(orderId: doc.id)),
-              ),
-            );
-          },
+          children: [
+            // One enclosure around the whole list rather than a card per
+            // order. These are entries in a ledger, not separate objects, and
+            // a box each made the page read as a stack of containers.
+            AppGroup(
+              children: [
+                for (var index = 0; index < docs.length; index++)
+                  _rowFor(context, docs[index], index),
+              ],
+            ),
+          ],
         );
       },
     );
   }
+
+  Widget _rowFor(
+    BuildContext context,
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+    int index,
+  ) {
+    final d = doc.data();
+
+    final payout = (d['finalPayout'] is num)
+        ? (d['finalPayout'] as num).toInt()
+        : int.tryParse('${d['finalPayout']}') ?? 0;
+    final status = d['status'] as String?;
+
+    return AppReveal(
+      index: index,
+      child: OrderRow(
+        modelName: (d['modelName'] as String?) ?? '',
+        storage: (d['storage'] as String?) ?? '',
+        imageUrl: (d['imageUrl'] as String?) ?? '',
+        payout: payout,
+        date: _formatDate(d['createdAt'] as Timestamp?),
+        statusLabel: _statusLabel(status),
+        statusTone: _statusTone(status),
+        onTap: () => context.pushScreen(OrderTrackingPage(orderId: doc.id)),
+      ),
+    );
+  }
 }
 
-/// The shape of an [OrderCard] before the orders arrive.
+/// The shape of an [OrderRow] before the orders arrive.
 ///
-/// Mirrors the card's structure rather than guessing a height. The height it
-/// stood in for was 15px short, so a list of three shifted by 45px the moment
-/// the data landed — the jump a skeleton exists to prevent. Built from the
-/// same pieces, it stays the right height when the card changes.
+/// Mirrors the row's structure rather than guessing a height. The height it
+/// once stood in for was 15px short, so a list of three shifted by 45px the
+/// moment the data landed — the jump a skeleton exists to prevent. Built from
+/// the same pieces, it stays right when the row changes.
 @visibleForTesting
-class OrderCardSkeleton extends StatelessWidget {
-  const OrderCardSkeleton({super.key});
+class OrderRowSkeleton extends StatelessWidget {
+  const OrderRowSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: AppRadius.card,
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadows.card,
-      ),
       child: Column(
         children: [
           Row(
@@ -268,8 +276,8 @@ class OrderCardSkeleton extends StatelessWidget {
 }
 
 @visibleForTesting
-class OrderCard extends StatelessWidget {
-  const OrderCard({
+class OrderRow extends StatelessWidget {
+  const OrderRow({
     super.key,
     required this.modelName,
     required this.storage,
@@ -292,18 +300,10 @@ class OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return AppSurface(
       onTap: onTap,
-      borderRadius: AppRadius.card,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: AppRadius.card,
-          border: Border.all(color: AppColors.border),
-          boxShadow: AppShadows.card,
-        ),
-        child: Column(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
           children: [
             Row(
               children: [
@@ -370,8 +370,7 @@ class OrderCard extends StatelessWidget {
                 ),
               ],
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

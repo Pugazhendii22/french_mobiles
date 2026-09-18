@@ -210,15 +210,10 @@ class _InventoryDetailPlaceholderState
             itemCount: images.length,
             onPageChanged: (i) => setState(() => _currentIndex = i),
             itemBuilder: (context, index) {
-              return Container(
-                margin: const EdgeInsets.symmetric(
+              return Padding(
+                padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.screenGutter,
-                ),
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: AppRadius.card,
-                  border: Border.all(color: AppColors.border),
+                  vertical: AppSpacing.md,
                 ),
                 child: index == 0 && widget.documentId != null
                     // Receives the flight from the home rail / wishlist. Only
@@ -294,51 +289,33 @@ class _InventoryDetailPlaceholderState
   Widget _buildSpecs(Map<String, dynamic> specs) {
     final entries = specs.entries.toList();
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: AppRadius.card,
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < entries.length; i++) ...[
-            if (i > 0)
-              const Divider(
-                height: 1,
-                thickness: 1,
-                indent: AppSpacing.lg,
-                endIndent: AppSpacing.lg,
-                color: AppColors.border,
-              ),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.md,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      entries[i].key,
-                      style: AppTextStyles.caption,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      '${entries[i].value}',
-                      style: AppTextStyles.bodyMedium,
-                    ),
-                  ),
-                ],
-              ),
+    return AppGroup(
+      children: [
+        for (final entry in entries)
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
             ),
-          ],
-        ],
-      ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Text(entry.key, style: AppTextStyles.caption),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    '${entry.value}',
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.textPrimary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

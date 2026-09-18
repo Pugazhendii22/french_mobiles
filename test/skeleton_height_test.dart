@@ -4,6 +4,9 @@
 // instant the data landed — the exact jump a skeleton exists to prevent, and
 // invisible to every other kind of test.
 //
+// The rows lost their individual cards when these pages moved onto the
+// surface system, so the heights moved with them.
+//
 // These measure the real row and its skeleton side by side, so a change to
 // one that is not matched in the other fails here rather than shipping.
 import 'package:flutter/material.dart';
@@ -39,7 +42,7 @@ Future<double> _heightOf(
   return t.getSize(find.byWidget(widget)).height;
 }
 
-const _order = OrderCard(
+const _order = OrderRow(
   modelName: 'iPhone 13 Pro Max',
   storage: '256GB',
   imageUrl: '',
@@ -50,7 +53,7 @@ const _order = OrderCard(
   onTap: _noop,
 );
 
-const _wishlist = WishlistCard(
+const _wishlist = WishlistRow(
   item: WishlistItem(
     productId: 'p1',
     brand: 'Apple',
@@ -74,12 +77,12 @@ void main() {
   for (final width in const [400.0, 320.0]) {
     final label = '${width.toInt()}px';
 
-    testWidgets('an order skeleton is the height of an order card at $label',
+    testWidgets('an order skeleton is the height of an order row at $label',
         (t) async {
       final real = await _heightOf(t, _order, screenWidth: width);
       final skeleton = await _heightOf(
         t,
-        const OrderCardSkeleton(),
+        const OrderRowSkeleton(),
         screenWidth: width,
       );
 
@@ -87,10 +90,12 @@ void main() {
           reason: 'three rows of a 15px error is a 45px jump');
     });
 
-    testWidgets('the wishlist skeleton is the height of its card at $label',
+    testWidgets('the wishlist skeleton is the height of its row at $label',
         (t) async {
       final real = await _heightOf(t, _wishlist, screenWidth: width);
-      expect(real, 90,
+      // The row is now vertical padding either side of a 64px thumbnail,
+      // with no card around it.
+      expect(real, 64 + 2 * AppSpacing.md,
           reason: 'wishlist_page pins its skeleton to this height');
     });
 
