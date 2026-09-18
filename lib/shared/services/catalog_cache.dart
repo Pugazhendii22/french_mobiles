@@ -22,6 +22,13 @@ class CatalogCache {
 
   static final Map<String, List<ModelDetail>> _modelsByBrand = {};
 
+  /// Every model across every brand, for searching.
+  ///
+  /// Read once with a collection-group query rather than a query per brand,
+  /// and kept because a search index that has to be rebuilt on each keystroke
+  /// is not an index.
+  static List<ModelDetail>? _searchIndex;
+
   /// Keyed the way the queries are, so casing cannot split the cache.
   static String _key(String brand) => brand.toLowerCase();
 
@@ -59,8 +66,19 @@ class CatalogCache {
     );
   }
 
+  /// Every model, or null if the search index has not been built.
+  static List<ModelDetail>? get searchIndex =>
+      _searchIndex == null ? null : List<ModelDetail>.from(_searchIndex!);
+
+  static void storeSearchIndex(List<ModelDetail> models) {
+    _searchIndex = List<ModelDetail>.from(models);
+  }
+
   /// Forgets [brand], so the next visit reads it again.
   static void invalidate(String brand) => _modelsByBrand.remove(_key(brand));
 
-  static void clear() => _modelsByBrand.clear();
+  static void clear() {
+    _modelsByBrand.clear();
+    _searchIndex = null;
+  }
 }

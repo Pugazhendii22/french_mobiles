@@ -24,11 +24,25 @@ void main() {
     await _boot(tester, const Size(320, 640));
   });
 
-  testWidgets('searching state with model matches', (tester) async {
+  testWidgets('searching matches brands', (tester) async {
+    await _boot(tester, const Size(400, 800));
+    await tester.enterText(find.byType(TextField), 'apple');
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.textContaining('Apple'), findsWidgets);
+  });
+
+  testWidgets('no model results are invented when the catalogue is absent',
+      (tester) async {
+    // Model results used to come from fourteen names typed into the source
+    // file, so they appeared whether or not the catalogue was reachable —
+    // and tapping one opened the wizard at a flat, invented base price.
     await _boot(tester, const Size(400, 800));
     await tester.enterText(find.byType(TextField), 'iphone');
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('iPhone 13'), findsOneWidget);
+
+    expect(find.text('iPhone 13'), findsNothing,
+        reason: 'there is no Firestore here, so there are no models to show');
   });
 
   testWidgets('search with no brand matches shows empty state', (tester) async {

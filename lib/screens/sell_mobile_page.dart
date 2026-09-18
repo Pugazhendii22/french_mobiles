@@ -6,9 +6,10 @@ import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
 import '../shared/widgets/widgets.dart';
+import '../shared/services/model_search.dart';
 import 'brand_detail_page.dart';
 import 'brand_list_page.dart';
-import 'device_evaluation_wizard.dart';
+import 'variant_selection_page.dart';
 
 /// Entry point of the sell flow: pick a brand, or search for a model
 /// directly.
@@ -31,26 +32,37 @@ class _SellMobilePageState extends State<SellMobilePage> {
   final FocusNode _searchFocusNode = FocusNode();
 
   List<BrandModel> _filteredBrands = brandData;
-  List<String> _filteredModels = [];
+  List<ModelDetail> _filteredModels = [];
   bool _isSearching = false;
 
-  final List<String> _allModels = [
-    'iPhone 15 Pro Max',
-    'iPhone 14',
-    'iPhone 13',
-    'Samsung Galaxy S24 Ultra',
-    'Samsung Galaxy S23 Ultra',
-    'Samsung Galaxy Z Flip 5',
-    'Samsung Galaxy M34',
-    'Motorola Edge 40',
-    'Motorola G84',
-    'Oppo Reno 10 Pro',
-    'Oppo Find N3 Flip',
-    'OnePlus 11 5G',
-    'Xiaomi 13 Pro',
-  ];
+  /// Real models, read once from the catalogue. Empty until they arrive.
+  List<ModelDetail> _allModels = const [];
 
   final List<BrandModel> otherBrandData = moreBrandData;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadModels();
+  }
+
+  Future<void> _loadModels() async {
+    try {
+      final models = await ModelSearch.load();
+      if (!mounted) return;
+      setState(() {
+        _allModels = models;
+        // Re-filter, in case the user typed before the catalogue arrived.
+        if (_isSearching) {
+          _filteredModels =
+              ModelSearch.filter(models, _searchController.text);
+        }
+      });
+    } catch (_) {
+      // Brands still work without it; the model results simply stay empty
+      // rather than the page failing to open.
+    }
+  }
 
   void _onSearchChanged(String query) {
     setState(() {
@@ -67,9 +79,7 @@ class _SellMobilePageState extends State<SellMobilePage> {
                 brand.logoText.toLowerCase().contains(query.toLowerCase()))
             .toList();
 
-        _filteredModels = _allModels
-            .where((model) => model.toLowerCase().contains(query.toLowerCase()))
-            .toList();
+        _filteredModels = ModelSearch.filter(_allModels, query);
       }
     });
   }
@@ -101,15 +111,19 @@ class _SellMobilePageState extends State<SellMobilePage> {
     );
   }
 
-  void _openModel(String modelName) {
-    context.pushScreen(DeviceEvaluationWizard(
-          brandName: '',
-          modelDocId: '',
-          modelName: modelName,
-          imageUrl: null,
-          basePrice: 50000,
-          storage: 'Standard Variant'),
-    );
+  /// Opens the variant list for a searched model.
+  ///
+  /// Deliberately not the grading wizard: the wizard needs a base price, and
+  /// the only honest source for one is the model's own variants. This used to
+  /// jump straight there with a flat ₹50,000 and no brand, so every searched
+  /// phone was graded against the same invented figure.
+  void _openModel(ModelDetail model) {
+    context.pushScreen(VariantSelectionPage(
+      brandName: model.brand,
+      modelDocId: model.docId ?? '',
+      modelName: model.name,
+      imageUrl: model.imageUrl,
+    ));
   }
 
   void _showHelpSheet() {
@@ -305,9 +319,8 @@ class _SellMobilePageState extends State<SellMobilePage> {
                     endIndent: AppSpacing.lg,
                     color: AppColors.border,
                   ),
-                AppListTile(
-                  title: _filteredModels[i],
-                  leadingIcon: Icons.smartphone_rounded,
+                _ModelResultTile(
+                  model: _filteredModels[i],
                   onTap: () => _openModel(_filteredModels[i]),
                 ),
               ],
@@ -701,6 +714,73 @@ class _AccordionItem extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// One model in the search results: its own photo, its name, its brand.
+///
+/// The results used to be a generic phone icon beside a hardcoded string,
+/// which told a seller nothing about whether the match was the phone in their
+/// hand — the thing a photo settles at a glance.
+class _ModelResultTile extends StatelessWidget {
+  const _ModelResultTile({required this.model, required this.onTap});
+
+  final ModelDetail model;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSurface(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            height: 44,
+            width: 44,
+            child: AppNetworkImage(
+              url: model.imageUrl ?? '',
+              fit: BoxFit.contain,
+              borderRadius: BorderRadius.zero,
+              placeholderIcon: Icons.smartphone_rounded,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  model.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.bodyMedium,
+                ),
+                if (model.brand.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    model.brand.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.overline
+                        .copyWith(color: AppColors.textTertiary),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.chevron_right_rounded,
+            size: 20,
+            color: AppColors.textTertiary,
+          ),
+        ],
       ),
     );
   }
