@@ -13,12 +13,16 @@ enum _ButtonStep { volumeDown, volumeUp, power }
 
 /// Test 3 — Side buttons.
 ///
-/// Three independent sub-steps: Volume Down, Volume Up (auto-detected via the
-/// native key-event channel), then a manual Power self-report (Android reserves
-/// the power key, so presses can't be observed by the app). Each sub-step records
-/// its own pass / fail / skip and always advances to the next one. The combined
-/// result is only popped once all three sub-steps have a result; the overall
-/// status is fail if any sub-step failed.
+/// Three independent sub-steps: Volume Down, Volume Up and Power, each
+/// auto-detected. Each records its own pass / fail / skip and always advances
+/// to the next; the combined result pops once all three have one, failing if
+/// any sub-step failed.
+///
+/// The power key cannot be observed directly — Android reserves KEYCODE_POWER
+/// and never delivers it to an app — so the test watches its *effect*
+/// instead: the screen turning off, and then coming back on. Seeing both is
+/// the button working. The self-report is kept only as a fallback for when
+/// nothing is detected, because some OEM builds suppress those broadcasts.
 class ButtonsTestPage extends StatefulWidget {
   const ButtonsTestPage({super.key});
 
@@ -28,12 +32,22 @@ class ButtonsTestPage extends StatefulWidget {
 
 class _ButtonsTestPageState extends State<ButtonsTestPage> {
   static const _channel = MethodChannel('french_mobiles/volume_keys');
+  static const _powerChannel = MethodChannel('french_mobiles/power_button');
+
+  /// Long enough for someone to find the button and unlock, short enough that
+  /// a device which never reports the screen going off is not a dead end.
+  static const Duration _powerWindow = Duration(seconds: 45);
 
   CheckupStatus? _volumeDownResult;
   CheckupStatus? _volumeUpResult;
   CheckupStatus? _powerResult;
   bool _volumeUpPressed = false;
   bool _volumeDownPressed = false;
+
+  bool _watchingScreen = false;
+  bool _sawScreenOff = false;
+  bool _powerTimedOut = false;
+  Timer? _powerTimer;
 
   _ButtonStep get _step {
     if (_volumeDownResult == null) return _ButtonStep.volumeDown;
@@ -49,9 +63,74 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
 
   @override
   void dispose() {
-    _channel.invokeMethod('setVolumeListening', {'enabled': false});
+    // catchError, because a device without the channel throws here and an
+    // unawaited failure in dispose surfaces as an unhandled async error with
+    // no owner.
+    _channel
+        .invokeMethod('setVolumeListening', {'enabled': false})
+        .catchError((_) => null);
     _channel.setMethodCallHandler(null);
+    _stopWatchingScreen();
+    _powerTimer?.cancel();
     super.dispose();
+  }
+
+  /// Starts watching once the power step is the one on screen.
+  ///
+  /// A broadcast receiver that outlives the step would report a screen-off
+  /// from somewhere else entirely as a power-button press.
+  Future<void> _syncScreenWatching() async {
+    if (_step != _ButtonStep.power || _watchingScreen || _powerResult != null) {
+      return;
+    }
+    _watchingScreen = true;
+    _powerChannel.setMethodCallHandler(_onPowerCall);
+
+    try {
+      await _powerChannel.invokeMethod<bool>('startWatching');
+    } catch (_) {
+      // Not Android, or the receiver could not be registered. The self-report
+      // below is the fallback.
+      if (!mounted) return;
+      setState(() => _powerTimedOut = true);
+      return;
+    }
+
+    _powerTimer?.cancel();
+    _powerTimer = Timer(_powerWindow, () {
+      if (mounted && _powerResult == null) {
+        setState(() => _powerTimedOut = true);
+      }
+    });
+  }
+
+  void _stopWatchingScreen() {
+    if (!_watchingScreen) return;
+    _watchingScreen = false;
+    _powerChannel.invokeMethod('stopWatching').catchError((_) => null);
+    _powerChannel.setMethodCallHandler(null);
+  }
+
+  Future<dynamic> _onPowerCall(MethodCall call) async {
+    if (call.method != 'screenEvent' || !mounted) return;
+    if (_step != _ButtonStep.power || _powerResult != null) return;
+
+    final args = call.arguments;
+    final event = args is Map ? args['event'] as String? : null;
+    if (event == null) return;
+
+    if (event == 'screen_off') {
+      setState(() => _sawScreenOff = true);
+      return;
+    }
+
+    // Coming back on only counts once the screen was seen to go off: the
+    // button has to have done both halves of its job.
+    if (_sawScreenOff && (event == 'screen_on' || event == 'user_present')) {
+      _powerTimer?.cancel();
+      _stopWatchingScreen();
+      _recordStep(CheckupStatus.pass);
+    }
   }
 
   Future<void> _listenForVolumeKeys() async {
@@ -66,6 +145,8 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
         _volumeDownResult = CheckupStatus.skipped;
         _volumeUpResult = CheckupStatus.skipped;
       });
+      // Both volume steps skipped lands straight on power.
+      _syncScreenWatching();
     }
   }
 
@@ -112,8 +193,12 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
     if (_volumeDownResult != null &&
         _volumeUpResult != null &&
         _powerResult != null) {
+      _stopWatchingScreen();
       _finish();
+      return;
     }
+
+    _syncScreenWatching();
   }
 
   CheckupStatus get _overallStatus {
@@ -181,8 +266,12 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
               ? Icons.power_settings_new_rounded
               : Icons.volume_up_outlined,
           text: _step == _ButtonStep.power
-              ? 'Press the power button once — does the screen turn off / '
-                  'show the lock screen normally?'
+              ? (_sawScreenOff
+                  ? 'Screen-off detected. Now press the power button again '
+                      'and unlock to finish the test.'
+                  : 'Press the power button to turn the screen off, then '
+                      'press it again and unlock. We watch for the screen '
+                      'going off and coming back.')
               : 'Press the physical Volume Down and Volume Up keys on the '
                   'side of the phone.',
         ),
@@ -286,19 +375,96 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _powerButton(
-          'Yes',
-          Icons.check_circle_outline,
-          AppColors.primary,
-          () => _recordStep(CheckupStatus.pass),
+        _powerProgress(),
+        if (_powerTimedOut) ...[
+          const SizedBox(height: AppSpacing.lg),
+          // Only offered once watching has failed to see anything. Some OEM
+          // builds do not broadcast screen state to a paused app, and a
+          // seller should not be stuck because of that — but asking first
+          // would throw away a real check for a guess.
+          const CheckupInstruction(
+            icon: Icons.help_outline_rounded,
+            tone: AppColors.warning,
+            text: 'We could not detect the screen turning off on this phone. '
+                'Did the power button work when you pressed it?',
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _powerButton(
+            'Yes, it worked',
+            Icons.check_circle_outline,
+            AppColors.primary,
+            () => _recordStep(CheckupStatus.pass),
+          ),
+          const SizedBox(height: 12),
+          _powerButton(
+            'No, it did not',
+            Icons.cancel_outlined,
+            AppColors.error,
+            () => _recordStep(CheckupStatus.fail),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// What the test has seen so far: screen off, then screen back on.
+  Widget _powerProgress() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: _sawScreenOff ? AppColors.primarySoft : AppColors.surface,
+        borderRadius: AppRadius.card,
+        boxShadow: AppShadows.card,
+      ),
+      child: Column(
+        children: [
+          Icon(
+            _sawScreenOff
+                ? Icons.lock_open_rounded
+                : Icons.power_settings_new_rounded,
+            size: 44,
+            color: _sawScreenOff
+                ? AppColors.onPrimarySoft
+                : AppColors.textTertiary,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            _sawScreenOff ? 'Now wake it up' : 'Waiting for the screen to go off',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: _sawScreenOff
+                  ? AppColors.onPrimarySoft
+                  : AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          // Wrap rather than Row: the two milestones together overflow a
+          // padded card at 400px, and stack instead of clipping at 320.
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: AppSpacing.lg,
+            runSpacing: AppSpacing.sm,
+            children: [
+              _powerMilestone('Screen off', _sawScreenOff),
+              _powerMilestone('Screen back on', false),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _powerMilestone(String label, bool done) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          done ? Icons.check_circle : Icons.radio_button_unchecked,
+          size: 16,
+          color: done ? AppColors.success : AppColors.textTertiary,
         ),
-        const SizedBox(height: 12),
-        _powerButton(
-          'No',
-          Icons.cancel_outlined,
-          AppColors.error,
-          () => _recordStep(CheckupStatus.fail),
-        ),
+        const SizedBox(width: 6),
+        Text(label, style: AppTextStyles.caption),
       ],
     );
   }

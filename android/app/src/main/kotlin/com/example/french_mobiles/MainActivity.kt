@@ -1,6 +1,9 @@
 package com.example.french_mobiles
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioManager
 import android.os.Bundle
 import android.os.PowerManager
@@ -51,7 +54,9 @@ class MainActivity : FlutterFragmentActivity() {
     private lateinit var channel: MethodChannel
     private lateinit var audioChannel: MethodChannel
     private lateinit var proximityChannel: MethodChannel
+    private lateinit var powerChannel: MethodChannel
     private var volumeListening = false
+    private var screenReceiver: BroadcastReceiver? = null
     private var proximityWakeLock: PowerManager.WakeLock? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -140,11 +145,76 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        powerChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "french_mobiles/power_button"
+        )
+        powerChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startWatching" -> {
+                    startWatchingScreen()
+                    result.success(true)
+                }
+                "stopWatching" -> {
+                    stopWatchingScreen()
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    /// Watches the screen going off and coming back.
+    ///
+    /// Android reserves the power key — KEYCODE_POWER never reaches an app, so
+    /// the press itself cannot be observed. What can be observed is its
+    /// effect: the screen turning off, and then coming back on. A test that
+    /// sees both has watched the button do its job, which is a great deal
+    /// better than asking the user whether it worked.
+    ///
+    /// Registered at runtime rather than in the manifest: ACTION_SCREEN_OFF
+    /// and ACTION_SCREEN_ON are not delivered to manifest-declared receivers.
+    private fun startWatchingScreen() {
+        if (screenReceiver != null) return
+
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                val event = when (intent?.action) {
+                    Intent.ACTION_SCREEN_OFF -> "screen_off"
+                    Intent.ACTION_SCREEN_ON -> "screen_on"
+                    Intent.ACTION_USER_PRESENT -> "user_present"
+                    else -> return
+                }
+                powerChannel.invokeMethod("screenEvent", mapOf("event" to event))
+            }
+        }
+
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_USER_PRESENT)
+        }
+        registerReceiver(receiver, filter)
+        screenReceiver = receiver
+    }
+
+    private fun stopWatchingScreen() {
+        val receiver = screenReceiver ?: return
+        screenReceiver = null
+        try {
+            unregisterReceiver(receiver)
+        } catch (_: IllegalArgumentException) {
+            // Already gone; nothing to undo.
+        }
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         channel.setMethodCallHandler(null)
         audioChannel.setMethodCallHandler(null)
+        // A receiver outliving the engine would fire into a dead channel.
+        stopWatchingScreen()
+        powerChannel.setMethodCallHandler(null)
         // A leaked proximity wake lock leaves the screen dark whenever the
         // sensor is covered, with no way back. Release it unconditionally.
         releaseProximityWakeLock()
