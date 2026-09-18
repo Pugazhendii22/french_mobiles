@@ -14,6 +14,7 @@ class AppEmptyState extends StatelessWidget {
     required this.title,
     this.message,
     this.icon = Icons.inbox_rounded,
+    this.branded = false,
     this.onRetry,
     this.retryLabel = 'Try again',
   });
@@ -21,6 +22,14 @@ class AppEmptyState extends StatelessWidget {
   final String title;
   final String? message;
   final IconData icon;
+
+  /// Tints the icon in the brand colour.
+  ///
+  /// Off by default: an empty state that is reporting a failure should not
+  /// be wearing the brand. On by choice where the emptiness is ordinary —
+  /// no orders yet, nothing saved yet — and the page would otherwise be
+  /// entirely grey.
+  final bool branded;
   final VoidCallback? onRetry;
   final String retryLabel;
 
@@ -43,12 +52,18 @@ class AppEmptyState extends StatelessWidget {
           Container(
             height: 48,
             width: 48,
-            decoration: const BoxDecoration(
-              color: AppColors.surfaceMuted,
+            decoration: BoxDecoration(
+              color: branded ? AppColors.primarySoft : AppColors.surfaceMuted,
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: Icon(icon, size: 22, color: AppColors.textSecondary),
+            child: Icon(
+              icon,
+              size: 22,
+              color: branded
+                  ? AppColors.onPrimarySoft
+                  : AppColors.textSecondary,
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           Text(

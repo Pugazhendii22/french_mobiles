@@ -133,6 +133,7 @@ class WishlistPage extends StatelessWidget {
               title: 'Your wishlist is empty',
               message: 'Tap the heart on a phone to save it here.',
               icon: Icons.favorite_border_rounded,
+              branded: true,
             ),
           );
         }
@@ -221,7 +222,11 @@ class WishlistRow extends StatelessWidget {
                   ),
                   if (item.price.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.xs),
-                    Text(item.price, style: AppTextStyles.priceSmall),
+                    Text(
+                      item.price,
+                      style: AppTextStyles.priceSmall
+                          .copyWith(color: AppColors.onPrimarySoft),
+                    ),
                   ],
                 ],
               ),

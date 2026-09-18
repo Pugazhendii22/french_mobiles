@@ -59,6 +59,7 @@ class _OrdersPageState extends State<OrdersPage> {
                           title: 'No orders yet',
                           message: _emptyMessage,
                           icon: Icons.receipt_long_outlined,
+                          branded: true,
                         ),
                       )
                     : _buildList(userId),
@@ -117,6 +118,7 @@ class _OrdersPageState extends State<OrdersPage> {
               title: 'No orders yet',
               message: _emptyMessage,
               icon: Icons.receipt_long_outlined,
+              branded: true,
             ),
           );
         }
@@ -323,7 +325,13 @@ class OrderRow extends StatelessWidget {
                         style: AppTextStyles.bodyMedium,
                       ),
                       const SizedBox(height: AppSpacing.xs),
-                      Text('₹ $payout', style: AppTextStyles.priceSmall),
+                      Text(
+                        '₹ $payout',
+                        // The same green the quote breakdown gives "You
+                        // receive". This figure is that promise, later on.
+                        style: AppTextStyles.priceSmall
+                            .copyWith(color: AppColors.onPrimarySoft),
+                      ),
                     ],
                   ),
                 ),

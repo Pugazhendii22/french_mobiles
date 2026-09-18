@@ -139,6 +139,18 @@ void main() {
             'rows, so it is the first thing to keep in step');
   });
 
+  testWidgets('both lists show their figure in the brand green', (t) async {
+    // The green that means money in this app: the same one the quote
+    // breakdown gives "You receive".
+    await _pump(t, _order);
+    final orderPrice = t.widget<Text>(find.textContaining('42000'));
+    expect(orderPrice.style?.color, AppColors.onPrimarySoft);
+
+    await _pump(t, _wishlist);
+    final savedPrice = t.widget<Text>(find.text('30000'));
+    expect(savedPrice.style?.color, AppColors.onPrimarySoft);
+  });
+
   testWidgets('the order row keeps its progress strip', (t) async {
     await _pump(t, _order);
 
