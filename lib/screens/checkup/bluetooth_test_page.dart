@@ -13,6 +13,49 @@ import 'checkup_test_shell.dart';
 ///
 /// Ensures the Bluetooth radio is on and performs a short scan. Passes when
 /// scan completes without error. Auto-advances verdict.
+/// What to do about the adapter's reported state.
+@visibleForTesting
+enum AdapterAction {
+  /// Already on — scan.
+  proceed,
+
+  /// Coming up by itself; wait rather than asking again.
+  waitForOn,
+
+  /// Off, and the user has to allow it.
+  requestTurnOn,
+
+  /// No radio on this device at all.
+  unavailable,
+
+  /// The app is not allowed to use it.
+  unauthorized,
+}
+
+/// Maps an adapter state onto what the test should do next.
+///
+/// Pulled out of the flow because getting this wrong is the bug it was
+/// written for: `turningOn` and `unknown` are both "not on", and treating
+/// them as "off" made the test ask the OS to enable a radio that was already
+/// enabling — then report the user as having declined when that went wrong.
+@visibleForTesting
+AdapterAction actionForAdapterState(BluetoothAdapterState state) {
+  switch (state) {
+    case BluetoothAdapterState.on:
+      return AdapterAction.proceed;
+    case BluetoothAdapterState.turningOn:
+    case BluetoothAdapterState.unknown:
+      return AdapterAction.waitForOn;
+    case BluetoothAdapterState.off:
+    case BluetoothAdapterState.turningOff:
+      return AdapterAction.requestTurnOn;
+    case BluetoothAdapterState.unavailable:
+      return AdapterAction.unavailable;
+    case BluetoothAdapterState.unauthorized:
+      return AdapterAction.unauthorized;
+  }
+}
+
 class BluetoothTestPage extends StatefulWidget {
   const BluetoothTestPage({super.key});
 
@@ -67,25 +110,76 @@ class _BluetoothTestPageState extends State<BluetoothTestPage> {
     });
 
     try {
-      final state = await FlutterBluePlus.adapterState
-          .first
-          .timeout(const Duration(seconds: 10));
-      if (state != BluetoothAdapterState.on) {
-        try {
-          await FlutterBluePlus.turnOn().timeout(const Duration(seconds: 20));
-        } catch (_) {
+      // The first value the adapter reports is not always its settled one: it
+      // can be `unknown` before the platform has answered, or `turningOn`
+      // while the radio comes up. Treating either as "not on" made the test
+      // ask the OS to enable a radio that was already enabling, and a prompt
+      // that then threw or was auto-dismissed was reported as the user
+      // declining — a failure on a perfectly good radio.
+      var state = await FlutterBluePlus.adapterState
+          .firstWhere((s) => s != BluetoothAdapterState.unknown)
+          .timeout(const Duration(seconds: 10),
+              onTimeout: () => BluetoothAdapterState.unknown);
+
+      switch (actionForAdapterState(state)) {
+        case AdapterAction.unavailable:
+          if (!mounted) return;
+          _setResult(const CheckupResult(
+            key: 'bluetooth',
+            title: 'Bluetooth',
+            status: CheckupStatus.notAvailable,
+            detail: 'This device has no Bluetooth radio.',
+          ));
+          return;
+        case AdapterAction.unauthorized:
           if (!mounted) return;
           _setResult(const CheckupResult(
             key: 'bluetooth',
             title: 'Bluetooth',
             status: CheckupStatus.skipped,
-            detail: 'Bluetooth could not be enabled (system prompt declined).',
+            detail: 'Bluetooth permission was not granted.',
           ));
           return;
-        }
-        await FlutterBluePlus.adapterState
-            .firstWhere((s) => s == BluetoothAdapterState.on)
-            .timeout(const Duration(seconds: 10));
+        case AdapterAction.waitForOn:
+          // Already coming up on its own; waiting is the whole fix.
+          setState(() => _statusText = 'Waiting for the Bluetooth radio…');
+          state = await FlutterBluePlus.adapterState
+              .firstWhere((s) => s == BluetoothAdapterState.on)
+              .timeout(const Duration(seconds: 15),
+                  onTimeout: () => BluetoothAdapterState.off);
+          break;
+        case AdapterAction.requestTurnOn:
+          try {
+            await FlutterBluePlus.turnOn().timeout(const Duration(seconds: 20));
+          } catch (_) {
+            if (!mounted) return;
+            _setResult(const CheckupResult(
+              key: 'bluetooth',
+              title: 'Bluetooth',
+              status: CheckupStatus.skipped,
+              detail:
+                  'Bluetooth could not be enabled (system prompt declined).',
+            ));
+            return;
+          }
+          state = await FlutterBluePlus.adapterState
+              .firstWhere((s) => s == BluetoothAdapterState.on)
+              .timeout(const Duration(seconds: 15),
+                  onTimeout: () => BluetoothAdapterState.off);
+          break;
+        case AdapterAction.proceed:
+          break;
+      }
+
+      if (state != BluetoothAdapterState.on) {
+        if (!mounted) return;
+        _setResult(const CheckupResult(
+          key: 'bluetooth',
+          title: 'Bluetooth',
+          status: CheckupStatus.skipped,
+          detail: 'The Bluetooth radio did not come on in time.',
+        ));
+        return;
       }
 
       if (!mounted) return;

@@ -182,24 +182,42 @@ class _WifiTestPageState extends State<WifiTestPage> {
     });
 
     try {
+      // Android throttles Wi-Fi scans to four per two minutes for a
+      // foreground app. Running the checkup a few times in a row hits that
+      // ceiling, and startScan then returns false — which used to be reported
+      // as "the radio did not start a scan", i.e. a hardware failure, on a
+      // radio that was working perfectly.
+      //
+      // A throttled request is not a broken radio. The platform still holds
+      // the results of the last scan, and networks in that list prove the
+      // radio can see them, so a refusal falls through to reading those
+      // rather than failing.
       final scanning = await WiFiScan.instance.startScan();
-      if (!scanning) {
+
+      List<WiFiAccessPoint> found = const [];
+      // A fresh scan needs time to come back; cached results are there
+      // immediately, so a throttled run settles on the first pass.
+      final attempts = scanning ? 12 : 2;
+      for (var i = 0; i < attempts; i++) {
+        try {
+          found = await WiFiScan.instance.getScannedResults();
+        } catch (_) {
+          // Asked too early, or results not readable yet. Keep waiting.
+        }
+        if (found.isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 800));
+      }
+
+      if (!scanning && found.isEmpty) {
+        if (!mounted) return;
         _setResult(const CheckupResult(
           key: 'wifi',
           title: 'Wi-Fi',
-          status: CheckupStatus.fail,
-          detail: 'The Wi-Fi radio did not start a scan.',
+          status: CheckupStatus.skipped,
+          detail: 'Android would not start another scan yet and had no '
+              'recent results. Wait a minute and try again.',
         ));
         return;
-      }
-
-      List<WiFiAccessPoint> found = const [];
-      for (var i = 0; i < 12; i++) {
-        try {
-          found = await WiFiScan.instance.getScannedResults();
-        } catch (_) {}
-        if (found.isNotEmpty) break;
-        await Future<void>.delayed(const Duration(milliseconds: 800));
       }
 
       setState(() {
