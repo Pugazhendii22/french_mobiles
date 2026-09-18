@@ -163,7 +163,10 @@ class _MainShellState extends State<MainShell> {
         data: AppTheme.light,
         child: Scaffold(
           backgroundColor: AppColors.background,
-          body: IndexedStack(
+          // Cross-fades rather than cutting, while keeping every visited tab
+          // in the tree — switching away and back must not reset a scroll
+          // position or re-run a Firestore read.
+          body: AppTabSwitcher(
             index: tabs.indexOf(_current),
             children: [
               for (final tab in tabs)
