@@ -6,6 +6,7 @@
 // reached without a configured app.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:french_mobiles/shared/motion/motion.dart';
 import 'package:french_mobiles/screens/device_evaluation_wizard.dart';
 
 Future<void> _boot(WidgetTester tester, Widget page, {Size? size}) async {
@@ -49,7 +50,44 @@ void main() {
       // before asserting. With no options loaded no deduction applies and the
       // figure is the full base price.
       await t.pumpAndSettle();
-      expect(find.text('₹ 50000'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AppAnimatedCount),
+          matching: find.text('\u20b9 50000'),
+        ),
+        findsOneWidget,
+        reason: 'the payout bar should show the full base price',
+      );
+    });
+
+    testWidgets('the last step itemises how the price was reached', (t) async {
+      await _boot(t, _wizard());
+      for (var i = 0; i < 5; i++) {
+        await t.tap(find.text('Continue'));
+        await t.pump(const Duration(milliseconds: 300));
+      }
+      await t.pumpAndSettle();
+
+      expect(find.text('How we got to this price'), findsOneWidget,
+          reason: 'a number the seller cannot check is the one they stop '
+              'trusting at the door');
+      expect(find.text('Base price'), findsOneWidget);
+      expect(find.text('You receive'), findsOneWidget);
+      expect(find.textContaining('held for'), findsOneWidget,
+          reason: 'the quote validity window belongs beside the quote');
+    });
+
+    testWidgets('no deductions says so rather than showing an empty table',
+        (t) async {
+      await _boot(t, _wizard());
+      for (var i = 0; i < 5; i++) {
+        await t.tap(find.text('Continue'));
+        await t.pump(const Duration(milliseconds: 300));
+      }
+      await t.pumpAndSettle();
+
+      // No rules load under test, so nothing is deducted.
+      expect(find.text('No deductions'), findsOneWidget);
     });
   });
 }

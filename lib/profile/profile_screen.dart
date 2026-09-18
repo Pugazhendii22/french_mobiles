@@ -11,6 +11,7 @@ import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
 import '../shared/widgets/widgets.dart';
 import 'account_pages.dart';
+import 'payment_methods_page.dart';
 import 'orders_page.dart';
 import 'support_page.dart';
 import 'wishlist_page.dart';

@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:french_mobiles/profile/account_pages.dart';
+import 'package:french_mobiles/profile/payment_methods_page.dart';
 
 Future<void> _boot(WidgetTester tester, Widget page, {Size? size}) async {
   tester.view.physicalSize = size ?? const Size(400, 800);
@@ -15,10 +16,25 @@ Future<void> _boot(WidgetTester tester, Widget page, {Size? size}) async {
 }
 
 void main() {
-  testWidgets('PaymentMethodsPage builds', (t) async {
+  testWidgets('PaymentMethodsPage shows no invented payout accounts',
+      (t) async {
     await _boot(t, const PaymentMethodsPage());
+
     expect(find.text('Payment methods'), findsOneWidget);
-    expect(find.text('DEFAULT'), findsOneWidget);
+    // The page used to ship two made-up UPI IDs presented as the user's own.
+    // In an app that pays people, that invites someone to believe their money
+    // is already routed somewhere it is not.
+    expect(find.textContaining('@okaxis'), findsNothing);
+    expect(find.textContaining('@ybl'), findsNothing);
+    expect(find.text('DEFAULT'), findsNothing,
+        reason: 'nothing can be the default when nothing is saved');
+  });
+
+  testWidgets('PaymentMethodsPage asks a signed-out user to sign in',
+      (t) async {
+    // No Firebase here, so the page takes its signed-out path.
+    await _boot(t, const PaymentMethodsPage());
+    expect(find.textContaining('Sign in'), findsOneWidget);
   });
 
   testWidgets('NotificationPreferencesPage toggles', (t) async {

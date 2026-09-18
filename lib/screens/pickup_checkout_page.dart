@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../models/quote_breakdown.dart';
+import '../shared/widgets/quote_breakdown_view.dart';
+
 import 'package:french_mobiles/features/shell/main_shell.dart';
 
 import '../firebase/catalog_firebase.dart';
@@ -22,6 +25,12 @@ class PickupCheckoutPage extends StatefulWidget {
   final int basePrice;
   final int finalPayout;
 
+  /// The itemised quote behind [finalPayout].
+  ///
+  /// Null for a checkout reached from somewhere that has no breakdown to
+  /// give; the summary then shows the totals alone, as it always did.
+  final QuoteBreakdown? quote;
+
   const PickupCheckoutPage({
     super.key,
     required this.brandName,
@@ -31,6 +40,7 @@ class PickupCheckoutPage extends StatefulWidget {
     required this.variant,
     required this.basePrice,
     required this.finalPayout,
+    this.quote,
   });
 
   @override
@@ -173,6 +183,12 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
         'addressLatitude': _selectedAddressLat,
         'addressLongitude': _selectedAddressLng,
         'status': 'placed',
+        // Stored so the payout can still be explained after the fact — at
+        // pickup, in support, or in a dispute. Additive: nothing that read
+        // this document before is affected.
+        if (widget.quote != null) 'quote': widget.quote!.toMap(),
+        if (widget.quote != null) 'quoteValidUntil':
+            Timestamp.fromDate(widget.quote!.validUntil),
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       };
@@ -422,6 +438,13 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
   /// heading, so an enclosure only adds a line for the eye to cross.
   Widget _buildSummaryCard() {
     final deduction = widget.basePrice - widget.finalPayout;
+
+    // The itemised quote if the wizard sent one. A single lumped "condition
+    // adjustment" is what makes a seller suspect the number at the door: with
+    // nothing to check it against, a fair revision and a bait-and-switch look
+    // identical.
+    final quote = widget.quote;
+    if (quote != null) return QuoteBreakdownView(breakdown: quote);
 
     return AppGroup(
       bare: true,
