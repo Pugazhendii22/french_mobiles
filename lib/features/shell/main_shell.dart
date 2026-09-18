@@ -121,6 +121,11 @@ class _MainShellState extends State<MainShell> {
     }
 
     if (!mounted || tab == _current) return;
+
+    // Same reasoning as pushScreen: the tab being left keeps its focus
+    // otherwise, and returning to it re-opens the keyboard.
+    FocusManager.instance.primaryFocus?.unfocus();
+
     setState(() {
       _current = tab;
       _visited.add(tab);

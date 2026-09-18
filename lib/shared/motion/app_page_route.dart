@@ -106,6 +106,17 @@ extension AppNavigation on BuildContext {
     Widget page, {
     AppTransition transition = AppTransition.sharedAxis,
   }) {
+    // Leaving a screen dismisses its keyboard.
+    //
+    // A focused field keeps its focus while the page sits under a pushed
+    // route, so coming back re-opens the keyboard over a page the user was
+    // only returning to look at. Tapping search, opening a phone and pressing
+    // back used to land on the list with the keyboard already up.
+    //
+    // Done here rather than at each call site because it is true of every
+    // push, and a new one should not have to remember.
+    FocusManager.instance.primaryFocus?.unfocus();
+
     return Navigator.of(this).push<T>(
       AppPageRoute<T>(builder: (_) => page, transition: transition),
     );
