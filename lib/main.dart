@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'firebase/catalog_firebase.dart';
-import 'features/home/pages/home_page.dart';
+import 'features/shell/main_shell.dart';
 import 'shared/theme/app_theme.dart';
 
 Future<void> main() async {
@@ -62,7 +62,7 @@ class MyApp extends StatelessWidget {
       // load-bearing, and the screens that never had one — the checkup
       // flow — stop inheriting black-on-green buttons and a white page.
       theme: AppTheme.light,
-      home: home ?? const HomePage(),
+      home: home ?? const MainShell(),
     );
   }
 }

@@ -16,7 +16,7 @@ class AppScreenHeader extends StatelessWidget {
     this.onBack,
     this.trailing,
     this.content,
-    this.showBack = true,
+    this.showBack,
   });
 
   final String title;
@@ -25,17 +25,26 @@ class AppScreenHeader extends StatelessWidget {
   final VoidCallback? onBack;
   final Widget? trailing;
   final Widget? content;
-  final bool showBack;
+
+  /// Defaults to whether this route can be popped at all.
+  ///
+  /// Orders, Saved and Profile are both tabs in the shell and pages pushed
+  /// from the profile menu. As a tab there is nothing to go back to, so a
+  /// back button would be a lie; pushed, there is. Asking the route settles
+  /// it without every page needing a flag.
+  final bool? showBack;
 
   @override
   Widget build(BuildContext context) {
+    final canPop = showBack ?? (ModalRoute.of(context)?.canPop ?? false);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           children: [
-            if (showBack) ...[
+            if (canPop) ...[
               _BackButton(onTap: onBack ?? () => Navigator.of(context).pop()),
               const SizedBox(width: AppSpacing.md),
             ],

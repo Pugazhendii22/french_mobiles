@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:french_mobiles/features/home/data/home_models.dart';
 import 'package:french_mobiles/features/home/data/home_repository.dart';
 import 'package:french_mobiles/features/home/widgets/home_bottom_nav.dart';
+import 'package:french_mobiles/features/shell/main_shell.dart';
 import 'package:french_mobiles/features/home/widgets/home_category_grid.dart';
 import 'package:french_mobiles/features/home/widgets/home_header.dart';
 import 'package:french_mobiles/features/home/widgets/home_location_strip.dart';
@@ -12,13 +13,9 @@ import 'package:french_mobiles/features/home/widgets/home_sell_cta.dart';
 import 'package:french_mobiles/features/home/widgets/home_trust_row.dart';
 import 'package:french_mobiles/firebase/wishlist_service.dart';
 import 'package:french_mobiles/profile/account_pages.dart';
-import 'package:french_mobiles/profile/orders_page.dart';
-import 'package:french_mobiles/profile/profile_screen.dart';
-import 'package:french_mobiles/profile/wishlist_page.dart';
 import 'package:french_mobiles/screens/checkup/checkup_entry_page.dart';
 import 'package:french_mobiles/screens/inventory_detail_page.dart';
 import 'package:french_mobiles/screens/login_page.dart';
-import 'package:french_mobiles/screens/sell_mobile_page.dart';
 import 'package:french_mobiles/shared/motion/motion.dart';
 import 'package:french_mobiles/shared/theme/app_colors.dart';
 import 'package:french_mobiles/shared/theme/app_text_styles.dart';
@@ -156,27 +153,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _onNavTap(HomeNavTab tab) async {
-    switch (tab) {
-      case HomeNavTab.home:
-        return;
-      case HomeNavTab.sell:
-        await context.pushScreen(const SellMobilePage());
-      case HomeNavTab.orders:
-        if (_repository.currentUser == null) {
-          await _openLogin();
-          return;
-        }
-        if (!mounted) return;
-        await context.pushScreen(const OrdersPage());
-      case HomeNavTab.wishlist:
-        await context.pushScreen(const WishlistPage());
-      case HomeNavTab.profile:
-        await context.pushScreen(const ProfilePage(),
-            transition: AppTransition.fadeThrough);
-    }
-  }
-
   // --- Build -------------------------------------------------------------
 
   @override
@@ -219,7 +195,7 @@ class _HomePageState extends State<HomePage> {
                             child: HomeHeader(
                             repository: _repository,
                               onProfileTap: () =>
-                                  _onNavTap(HomeNavTab.profile),
+                                  MainShell.select(HomeNavTab.profile),
                             ),
                           ),
                           const SizedBox(height: AppSpacing.md),
@@ -276,7 +252,7 @@ class _HomePageState extends State<HomePage> {
                           AppReveal(
                             index: 5,
                             child: HomeSellCta(
-                            onSellTap: () => _onNavTap(HomeNavTab.sell),
+                            onSellTap: () => MainShell.select(HomeNavTab.sell),
                             onCheckupTap: () =>
                                   context.pushScreen(const CheckupEntryPage()),
                             ),
@@ -296,7 +272,7 @@ class _HomePageState extends State<HomePage> {
                           title: 'Available now',
                           subtitle: 'Certified pre-owned devices',
                           actionLabel: 'See all',
-                          onActionTap: () => _onNavTap(HomeNavTab.sell),
+                          onActionTap: () => MainShell.select(HomeNavTab.sell),
                         ),
                       ),
                     ),
@@ -322,10 +298,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-          ),
-          bottomNavigationBar: HomeBottomNav(
-            current: HomeNavTab.home,
-            onTap: _onNavTap,
           ),
         ),
       ),

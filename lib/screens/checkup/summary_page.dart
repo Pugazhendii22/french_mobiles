@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../features/shell/main_shell.dart';
 import '../../models/checkup_result.dart';
 import '../../shared/motion/motion.dart';
 import '../../shared/theme/app_colors.dart';
@@ -186,8 +187,10 @@ class CheckupSummaryPage extends StatelessWidget {
       ),
       child: AppPrimaryButton(
         label: 'Done',
-        onPressed: () =>
-            Navigator.of(context).popUntil((route) => route.isFirst),
+        onPressed: () {
+          MainShell.goHome();
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        },
       ),
     );
   }

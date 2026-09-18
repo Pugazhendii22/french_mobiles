@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'package:french_mobiles/features/shell/main_shell.dart';
+
 import '../firebase/catalog_firebase.dart';
 import '../screens/edit_profile_page.dart';
 import '../shared/motion/motion.dart';
@@ -53,6 +55,7 @@ class _ProfilePageState extends State<ProfilePage> {
               final navigator = Navigator.of(context);
               await catalogAuth.signOut();
               navigator.pop();
+              MainShell.goHome();
               navigator.popUntil((route) => route.isFirst);
             },
             child: Text(

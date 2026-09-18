@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'package:french_mobiles/features/shell/main_shell.dart';
+
 import '../firebase/catalog_firebase.dart';
 import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
@@ -58,6 +60,7 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
 
   /// Returns to the first route in the stack, which is HomePage.
   void _goHome() {
+    MainShell.goHome();
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 

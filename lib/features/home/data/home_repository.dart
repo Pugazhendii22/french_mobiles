@@ -26,6 +26,13 @@ class HomeRepository {
 
   User? get currentUser => catalogAuth.currentUser;
 
+  /// Whether anyone is signed in.
+  ///
+  /// Separate from [currentUser] so a caller that only needs the yes/no — the
+  /// shell's sign-in gate on Orders — can be tested without constructing a
+  /// Firebase User, which is not something a test can do.
+  bool get isSignedIn => currentUser != null;
+
   Stream<User?> watchAuthState() => catalogAuth.authStateChanges();
 
   // --- Profile -----------------------------------------------------------

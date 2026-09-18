@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'package:french_mobiles/features/shell/main_shell.dart';
+
 import '../firebase/catalog_firebase.dart';
 import '../profile/account_pages.dart';
 import '../shared/motion/motion.dart';
@@ -188,6 +190,9 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
       //
       // `route.isFirst` keeps HomePage, which main.dart installs as the
       // MaterialApp home and is therefore the bottom of the stack.
+      // The shell remembers its tab, so returning to it is not the same
+      // as returning Home. Say which.
+      MainShell.goHome();
       Navigator.of(context).pushAndRemoveUntil(
         AppPageRoute<void>(
           builder: (_) => OrderTrackingPage(
