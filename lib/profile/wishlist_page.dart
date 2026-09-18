@@ -100,8 +100,10 @@ class WishlistPage extends StatelessWidget {
             ),
             itemCount: 4,
             separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+            // 90 is what a WishlistCard measures; the skeleton matching it
+            // exactly is what stops the list shifting when items land.
             itemBuilder: (_, __) =>
-                const AppShimmer(width: double.infinity, height: 88),
+                const AppShimmer(width: double.infinity, height: 90),
           );
         }
 
@@ -141,7 +143,7 @@ class WishlistPage extends StatelessWidget {
             final item = items[index];
             return AppReveal(
               index: index,
-              child: _WishlistCard(
+              child: WishlistCard(
                 item: item,
                 onTap: () => _openItem(context, item),
                 onRemove: () => WishlistService.remove(item.productId),
@@ -154,8 +156,10 @@ class WishlistPage extends StatelessWidget {
   }
 }
 
-class _WishlistCard extends StatelessWidget {
-  const _WishlistCard({
+@visibleForTesting
+class WishlistCard extends StatelessWidget {
+  const WishlistCard({
+    super.key,
     required this.item,
     required this.onTap,
     required this.onRemove,

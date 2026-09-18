@@ -190,8 +190,9 @@ class _VariantSelectionPageState extends State<VariantSelectionPage> {
         ),
         itemCount: 4,
         separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+        // 70 is what an AppSelectableTile measures.
         itemBuilder: (_, __) =>
-            const AppShimmer(width: double.infinity, height: 72),
+            const AppShimmer(width: double.infinity, height: 70),
       );
     }
 

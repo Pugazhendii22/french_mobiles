@@ -116,8 +116,7 @@ class _OrdersPageState extends State<OrdersPage> {
             ),
             itemCount: 3,
             separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
-            itemBuilder: (_, __) =>
-                const AppShimmer(width: double.infinity, height: 116),
+            itemBuilder: (_, __) => const OrderCardSkeleton(),
           );
         }
 
@@ -157,7 +156,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
             return AppReveal(
               index: index,
-              child: _OrderCard(
+              child: OrderCard(
                 modelName: modelName,
                 storage: storage,
                 imageUrl: imageUrl,
@@ -176,8 +175,102 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 }
 
-class _OrderCard extends StatelessWidget {
-  const _OrderCard({
+/// The shape of an [OrderCard] before the orders arrive.
+///
+/// Mirrors the card's structure rather than guessing a height. The height it
+/// stood in for was 15px short, so a list of three shifted by 45px the moment
+/// the data landed — the jump a skeleton exists to prevent. Built from the
+/// same pieces, it stays the right height when the card changes.
+@visibleForTesting
+class OrderCardSkeleton extends StatelessWidget {
+  const OrderCardSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.card,
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              AppShimmer(
+                width: 52,
+                height: 52,
+                borderRadius: AppRadius.field,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // The two text lines the card reserves: model name, then
+                    // storage and date.
+                    AppShimmer(
+                      width: double.infinity,
+                      height: AppTextStyles.bodyMedium.fontSize! *
+                          AppTextStyles.bodyMedium.height!,
+                      borderRadius: AppRadius.pill,
+                    ),
+                    const SizedBox(height: 2),
+                    AppShimmer(
+                      width: 90,
+                      height: AppTextStyles.caption.fontSize! *
+                          AppTextStyles.caption.height!,
+                      borderRadius: AppRadius.pill,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              AppShimmer(
+                width: 64,
+                height: AppTextStyles.price.fontSize! *
+                    AppTextStyles.price.height!,
+                borderRadius: AppRadius.pill,
+              ),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+            child: Divider(height: 1, thickness: 1, color: AppColors.border),
+          ),
+          Row(
+            children: [
+              // An AppBadge is its overline line-height plus 3px of padding
+              // either side.
+              AppShimmer(
+                width: 88,
+                height: AppTextStyles.overline.fontSize! *
+                        AppTextStyles.overline.height! +
+                    6,
+                borderRadius: AppRadius.pill,
+              ),
+              const Spacer(),
+              AppShimmer(
+                width: 56,
+                height: AppTextStyles.label.fontSize! *
+                    AppTextStyles.label.height!,
+                borderRadius: AppRadius.pill,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+@visibleForTesting
+class OrderCard extends StatelessWidget {
+  const OrderCard({
+    super.key,
     required this.modelName,
     required this.storage,
     required this.imageUrl,
