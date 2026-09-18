@@ -12,6 +12,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:french_mobiles/firebase/wishlist_service.dart';
+import 'package:french_mobiles/models/order_status.dart';
 import 'package:french_mobiles/profile/orders_page.dart';
 import 'package:french_mobiles/profile/wishlist_page.dart';
 import 'package:french_mobiles/shared/theme/app_theme.dart';
@@ -48,8 +49,7 @@ const _order = OrderRow(
   imageUrl: '',
   payout: 42000,
   date: '12 Sep 2026',
-  statusLabel: 'Order Placed',
-  statusTone: AppBadgeTone.warning,
+  stage: OrderStage.placed,
   onTap: _noop,
 );
 

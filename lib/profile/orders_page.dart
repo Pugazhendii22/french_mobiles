@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../firebase/catalog_firebase.dart';
 import '../screens/order_tracking_page.dart';
+import '../models/order_status.dart';
 import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
@@ -28,36 +29,6 @@ class _OrdersPageState extends State<OrdersPage> {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
-  }
-
-  AppBadgeTone _statusTone(String? status) {
-    switch (status) {
-      case 'placed':
-        return AppBadgeTone.warning;
-      case 'agent_assigned':
-        return AppBadgeTone.primary;
-      case 'inspection':
-        return AppBadgeTone.neutral;
-      case 'paid':
-        return AppBadgeTone.success;
-      default:
-        return AppBadgeTone.warning;
-    }
-  }
-
-  String _statusLabel(String? status) {
-    switch (status) {
-      case 'placed':
-        return 'Order Placed';
-      case 'agent_assigned':
-        return 'Agent Assigned';
-      case 'inspection':
-        return 'Under Inspection';
-      case 'paid':
-        return 'Completed & Paid';
-      default:
-        return 'Processing';
-    }
   }
 
   @override
@@ -185,7 +156,6 @@ class _OrdersPageState extends State<OrdersPage> {
     final payout = (d['finalPayout'] is num)
         ? (d['finalPayout'] as num).toInt()
         : int.tryParse('${d['finalPayout']}') ?? 0;
-    final status = d['status'] as String?;
 
     return AppReveal(
       index: index,
@@ -195,8 +165,7 @@ class _OrdersPageState extends State<OrdersPage> {
         imageUrl: (d['imageUrl'] as String?) ?? '',
         payout: payout,
         date: _formatDate(d['createdAt'] as Timestamp?),
-        statusLabel: _statusLabel(status),
-        statusTone: _statusTone(status),
+        stage: OrderStage.fromStatus(d['status'] as String?),
         onTap: () => context.pushScreen(OrderTrackingPage(orderId: doc.id)),
       ),
     );
@@ -215,73 +184,82 @@ class OrderRowSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              AppShimmer(
-                width: 52,
-                height: 52,
-                borderRadius: AppRadius.field,
+          // The status edge, grey until a status is known.
+          Container(width: 3, color: AppColors.border),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      AppShimmer(
+                        width: 44,
+                        height: 44,
+                        borderRadius: AppRadius.field,
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AppShimmer(
+                              width: double.infinity,
+                              height: AppTextStyles.bodyMedium.fontSize! *
+                                  AppTextStyles.bodyMedium.height!,
+                              borderRadius: AppRadius.pill,
+                            ),
+                            const SizedBox(height: 2),
+                            AppShimmer(
+                              width: 90,
+                              height: AppTextStyles.caption.fontSize! *
+                                  AppTextStyles.caption.height!,
+                              borderRadius: AppRadius.pill,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      AppShimmer(
+                        width: 64,
+                        height: AppTextStyles.price.fontSize! *
+                            AppTextStyles.price.height!,
+                        borderRadius: AppRadius.pill,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  // The progress strip: four dots, three connectors, a label.
+                  Row(
+                    children: [
+                      AppShimmer(
+                        width: OrderStage.count * 8 +
+                            (OrderStage.count - 1) * 14,
+                        height: 8,
+                        borderRadius: AppRadius.pill,
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      AppShimmer(
+                        width: 96,
+                        height: AppTextStyles.caption.fontSize! *
+                            AppTextStyles.caption.height!,
+                        borderRadius: AppRadius.pill,
+                      ),
+                      const Spacer(),
+                      // The chevron is 18 and taller than the caption beside
+                      // it, so it sets the row's height. Leaving it out made
+                      // the skeleton two pixels short.
+                      const SizedBox(height: 18, width: 18),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // The two text lines the card reserves: model name, then
-                    // storage and date.
-                    AppShimmer(
-                      width: double.infinity,
-                      height: AppTextStyles.bodyMedium.fontSize! *
-                          AppTextStyles.bodyMedium.height!,
-                      borderRadius: AppRadius.pill,
-                    ),
-                    const SizedBox(height: 2),
-                    AppShimmer(
-                      width: 90,
-                      height: AppTextStyles.caption.fontSize! *
-                          AppTextStyles.caption.height!,
-                      borderRadius: AppRadius.pill,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              AppShimmer(
-                width: 64,
-                height: AppTextStyles.price.fontSize! *
-                    AppTextStyles.price.height!,
-                borderRadius: AppRadius.pill,
-              ),
-            ],
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-            child: Divider(height: 1, thickness: 1, color: AppColors.border),
-          ),
-          Row(
-            children: [
-              // An AppBadge is its overline line-height plus 3px of padding
-              // either side.
-              AppShimmer(
-                width: 88,
-                height: AppTextStyles.overline.fontSize! *
-                        AppTextStyles.overline.height! +
-                    6,
-                borderRadius: AppRadius.pill,
-              ),
-              const Spacer(),
-              AppShimmer(
-                width: 56,
-                height: AppTextStyles.label.fontSize! *
-                    AppTextStyles.label.height!,
-                borderRadius: AppRadius.pill,
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -298,8 +276,7 @@ class OrderRow extends StatelessWidget {
     required this.imageUrl,
     required this.payout,
     required this.date,
-    required this.statusLabel,
-    required this.statusTone,
+    required this.stage,
     required this.onTap,
   });
 
@@ -308,84 +285,123 @@ class OrderRow extends StatelessWidget {
   final String imageUrl;
   final int payout;
   final String date;
-  final String statusLabel;
-  final AppBadgeTone statusTone;
+  final OrderStage stage;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final subtitle = [storage, date].where((s) => s.isNotEmpty).join(' · ');
+
     return AppSurface(
       onTap: onTap,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
+      padding: EdgeInsets.zero,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Container(
-                  height: 52,
-                  width: 52,
-                  padding: const EdgeInsets.all(AppSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceMuted,
-                    borderRadius: AppRadius.field,
-                  ),
-                  child: AppNetworkImage(
-                    url: imageUrl,
-                    fit: BoxFit.contain,
-                    borderRadius: BorderRadius.zero,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        modelName.isEmpty ? 'Device' : modelName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.bodyMedium,
-                      ),
-                      if (storage.isNotEmpty || date.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          [storage, date].where((s) => s.isNotEmpty).join(' · '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.caption,
+            // Colour down the edge rather than a badge alone: scanning a list
+            // of orders, the question is which still owes you money, and an
+            // edge answers it before anything has been read.
+            Container(width: 3, color: stage.color),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        SizedBox(
+                          height: 44,
+                          width: 44,
+                          child: AppNetworkImage(
+                            url: imageUrl,
+                            fit: BoxFit.contain,
+                            borderRadius: BorderRadius.zero,
+                            placeholderIcon: Icons.smartphone_rounded,
+                          ),
                         ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                modelName.isEmpty ? 'Device' : modelName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.bodyMedium,
+                              ),
+                              if (subtitle.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  subtitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTextStyles.caption,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text('₹ $payout', style: AppTextStyles.price),
                       ],
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _progress(),
+                  ],
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                Text('₹ $payout', style: AppTextStyles.price),
-              ],
+              ),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-              child: Divider(height: 1, thickness: 1, color: AppColors.border),
-            ),
-            Row(
-              children: [
-                AppBadge(label: statusLabel, tone: statusTone),
-                const Spacer(),
-                Text(
-                  'Track',
-                  style: AppTextStyles.label.copyWith(
-                    color: AppColors.primary,
-                  ),
-                ),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 18,
-                  color: AppColors.primary,
-                ),
-              ],
-            ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  /// Where the order has got to, as four steps and a name.
+  ///
+  /// This replaces a divider and a status footer, and the divider was the
+  /// problem: once every order stopped being its own card, a rule inside a
+  /// row and a rule between rows looked identical, so there was no telling
+  /// where one order ended and the next began.
+  Widget _progress() {
+    return Row(
+      children: [
+        for (var i = 1; i <= OrderStage.count; i++) ...[
+          if (i > 1)
+            Container(
+              width: 14,
+              height: 2,
+              color: i <= stage.step ? stage.color : AppColors.border,
+            ),
+          Container(
+            height: 8,
+            width: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: i <= stage.step ? stage.color : AppColors.border,
+            ),
+          ),
+        ],
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Text(
+            stage.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.caption.copyWith(color: stage.color),
+          ),
+        ),
+        const Icon(
+          Icons.chevron_right_rounded,
+          size: 18,
+          color: AppColors.textTertiary,
+        ),
+      ],
     );
   }
 }
