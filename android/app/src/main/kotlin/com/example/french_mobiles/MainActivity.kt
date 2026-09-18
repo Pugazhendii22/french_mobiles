@@ -5,9 +5,17 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioManager
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.view.KeyEvent
+import java.net.HttpURLConnection
+import java.net.URL
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -55,6 +63,7 @@ class MainActivity : FlutterFragmentActivity() {
     private lateinit var audioChannel: MethodChannel
     private lateinit var proximityChannel: MethodChannel
     private lateinit var powerChannel: MethodChannel
+    private lateinit var internetChannel: MethodChannel
     private var volumeListening = false
     private var screenReceiver: BroadcastReceiver? = null
     private var proximityWakeLock: PowerManager.WakeLock? = null
@@ -163,6 +172,17 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        internetChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "french_mobiles/internet"
+        )
+        internetChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "probeCellular" -> probeCellularInternet(result)
+                else -> result.notImplemented()
+            }
+        }
     }
 
     /// Watches the screen going off and coming back.
@@ -209,12 +229,107 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    /// Checks whether the cellular radio can actually reach the internet.
+    ///
+    /// The point of doing this natively: an HTTP request from Dart goes out
+    /// over whatever route Android picks, which is Wi-Fi whenever Wi-Fi is
+    /// connected. A phone with a registered SIM and dead mobile data
+    /// therefore passes an ordinary connectivity check — the exact failure
+    /// this is meant to catch.
+    ///
+    /// requestNetwork with TRANSPORT_CELLULAR asks for the cellular network
+    /// specifically, and Network.openConnection sends the probe over that
+    /// network whatever else the phone is connected to.
+    private fun probeCellularInternet(result: MethodChannel.Result) {
+        val manager = getSystemService(Context.CONNECTIVITY_SERVICE)
+            as ConnectivityManager
+        val main = Handler(Looper.getMainLooper())
+        var replied = false
+
+        val request = NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+
+        lateinit var callback: ConnectivityManager.NetworkCallback
+
+        fun reply(outcome: Map<String, Any?>) {
+            main.post {
+                if (replied) return@post
+                replied = true
+                try {
+                    manager.unregisterNetworkCallback(callback)
+                } catch (_: Exception) {
+                    // Already gone.
+                }
+                result.success(outcome)
+            }
+        }
+
+        callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                // Networking is forbidden on the main thread.
+                Thread { reply(probeThrough(network)) }.start()
+            }
+
+            override fun onUnavailable() {
+                reply(mapOf("status" to "no_cellular"))
+            }
+        }
+
+        try {
+            manager.requestNetwork(request, callback)
+        } catch (e: Exception) {
+            result.success(
+                mapOf("status" to "error", "message" to (e.message ?: "\$e"))
+            )
+            return
+        }
+
+        // The two-argument requestNetwork never times out by itself, so the
+        // deadline is ours. Without it a phone with no cellular coverage
+        // would leave the test waiting forever.
+        main.postDelayed({ reply(mapOf("status" to "no_cellular")) }, 20_000)
+    }
+
+    /// Runs the captive-portal probe over one specific network.
+    private fun probeThrough(network: Network): Map<String, Any?> {
+        var connection: HttpURLConnection? = null
+        return try {
+            val url = URL("https://connectivitycheck.gstatic.com/generate_204")
+            connection = network.openConnection(url) as HttpURLConnection
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 10_000
+            connection.instanceFollowRedirects = false
+            connection.useCaches = false
+
+            val startedAt = System.currentTimeMillis()
+            connection.connect()
+            val code = connection.responseCode
+            val millis = System.currentTimeMillis() - startedAt
+
+            mapOf(
+                // 204 with no body is the whole point of this endpoint: any
+                // other reply means something answered instead of the
+                // internet, which is a portal, not a connection.
+                "status" to if (code == 204) "ok" else "captive",
+                "code" to code,
+                "ms" to millis
+            )
+        } catch (e: Exception) {
+            mapOf("status" to "unreachable", "message" to (e.message ?: "\$e"))
+        } finally {
+            connection?.disconnect()
+        }
+    }
+
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         channel.setMethodCallHandler(null)
         audioChannel.setMethodCallHandler(null)
         // A receiver outliving the engine would fire into a dead channel.
         stopWatchingScreen()
         powerChannel.setMethodCallHandler(null)
+        internetChannel.setMethodCallHandler(null)
         // A leaked proximity wake lock leaves the screen dark whenever the
         // sensor is covered, with no way back. Release it unconditionally.
         releaseProximityWakeLock()

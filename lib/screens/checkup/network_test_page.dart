@@ -125,7 +125,8 @@ class _NetworkTestPageState extends State<NetworkTestPage> {
         key: 'network',
         title: 'Mobile network',
         status: CheckupStatus.pass,
-        detail: 'SIM detected ($carrierLabel), mobile data route works.',
+        detail: 'SIM detected ($carrierLabel), and a network route reaches '
+            'the internet. The Internet test checks mobile data specifically.',
       ));
     } else {
       _setResult(const CheckupResult(
@@ -137,6 +138,11 @@ class _NetworkTestPageState extends State<NetworkTestPage> {
     }
   }
 
+  /// Probes over whatever route Android picks — Wi-Fi when Wi-Fi is up.
+  ///
+  /// Deliberately not presented as proof that mobile data works: it used to
+  /// be, and on a phone connected to Wi-Fi that claim was simply untrue. The
+  /// Internet test asks for the cellular network specifically.
   Future<bool> _probeInternet() async {
     try {
       final response = await http

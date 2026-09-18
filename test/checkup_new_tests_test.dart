@@ -40,12 +40,13 @@ void main() {
       // The nine originals must still be present and untouched.
       for (final key in [
         'camera', 'display', 'buttons', 'wifi', 'bluetooth',
-        'biometric', 'network', 'location', 'gyroscope',
+        'biometric', 'network', 'internet', 'location', 'gyroscope',
       ]) {
         expect(keys, contains(key));
       }
 
-      expect(keys.length, 16);
+      // Grew by one when the Internet test was added.
+      expect(keys.length, 17);
     });
 
     test('grouping keeps related hardware adjacent', () {

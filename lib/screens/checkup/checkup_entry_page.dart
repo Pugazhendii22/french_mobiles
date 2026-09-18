@@ -15,6 +15,7 @@ import 'display_test_page.dart';
 import 'earpiece_test_page.dart';
 import 'flashlight_test_page.dart';
 import 'gyroscope_test_page.dart';
+import 'internet_test_page.dart';
 import 'location_test_page.dart';
 import 'microphone_test_page.dart';
 import 'multitouch_test_page.dart';
@@ -159,6 +160,13 @@ class CheckupEntryPage extends StatefulWidget {
       pageBuilder: _network,
     ),
     const CheckupTestSpec(
+      key: 'internet',
+      title: 'Internet',
+      description: 'Mobile data actually reaches the internet',
+      icon: Icons.language_rounded,
+      pageBuilder: _internet,
+    ),
+    const CheckupTestSpec(
       key: 'location',
       title: 'Location (GPS)',
       description: 'Acquires a GPS satellite fix',
@@ -193,6 +201,7 @@ class CheckupEntryPage extends StatefulWidget {
       const MicrophoneTestPage();
   static Widget _proximity(BuildContext context) => const ProximityTestPage();
   static Widget _vibration(BuildContext context) => const VibrationTestPage();
+  static Widget _internet(BuildContext context) => const InternetTestPage();
 
   @override
   State<CheckupEntryPage> createState() => _CheckupEntryPageState();
