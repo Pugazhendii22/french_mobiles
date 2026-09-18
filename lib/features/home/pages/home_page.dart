@@ -41,6 +41,12 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final HomeRepository _repository = const HomeRepository();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
+
+  /// Marks the start of the product list, so focusing search can bring it
+  /// into view without anyone hardcoding how tall the sections above are.
+  final GlobalKey _productsKey = GlobalKey();
 
   String _selectedCategoryId = 'mobile';
   String _searchQuery = '';
@@ -50,12 +56,69 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _productsFuture = _repository.loadProducts(_selectedCategoryId);
+    _searchFocusNode.addListener(_onSearchFocusChanged);
   }
 
   @override
   void dispose() {
+    _searchFocusNode.removeListener(_onSearchFocusChanged);
+    _searchFocusNode.dispose();
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// Brings the product list up to meet the search field when it is tapped.
+  ///
+  /// Search filters that list and nothing else on the page, so typing while
+  /// the categories and the sell prompt fill the screen means watching
+  /// results you cannot see change. Scrolling puts the thing being filtered
+  /// where the filtering happens.
+  void _onSearchFocusChanged() {
+    if (!_searchFocusNode.hasFocus) return;
+
+    // After the frame, because the keyboard is still opening and the
+    // viewport it leaves behind is the one to measure against.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToProducts());
+  }
+
+  /// Walks the list until the product section exists, then reveals it.
+  ///
+  /// The section starts below the fold, and a sliver below the fold has no
+  /// render object at all — so asking for its position on the first frame
+  /// gets nothing and the scroll silently does not happen. Each step builds
+  /// the slivers it passes, so the key resolves within a couple of hops.
+  Future<void> _scrollToProducts({int attempt = 0}) async {
+    if (!mounted || !_scrollController.hasClients) return;
+
+    // Bounded, so a layout that never realises the key cannot spin forever.
+    if (attempt > 4) return;
+
+    final position = _scrollController.position;
+    final target = _productsKey.currentContext?.findRenderObject();
+
+    if (target is! RenderBox) {
+      final next = (position.pixels + position.viewportDimension * 0.9)
+          .clamp(position.minScrollExtent, position.maxScrollExtent);
+      // Already at the bottom and still not built: there is nothing to reach.
+      if (next == position.pixels) return;
+
+      await _scrollController.animateTo(
+        next,
+        duration: AppMotion.duration(context, AppMotion.fast),
+        curve: AppMotion.enter,
+      );
+      return _scrollToProducts(attempt: attempt + 1);
+    }
+
+    await _scrollController.animateTo(
+      AppStickySearchHeader.offsetToRevealBelow(target).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      ),
+      duration: AppMotion.duration(context, AppMotion.slow),
+      curve: AppMotion.enter,
+    );
   }
 
   void _reloadProducts() {
@@ -180,6 +243,7 @@ class _HomePageState extends State<HomePage> {
                 color: AppColors.primary,
                 backgroundColor: AppColors.surface,
                 child: CustomScrollView(
+                  controller: _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverPadding(
@@ -223,6 +287,7 @@ class _HomePageState extends State<HomePage> {
                       delegate: AppStickySearchHeader(
                         child: AppSearchField(
                           controller: _searchController,
+                          focusNode: _searchFocusNode,
                           hintText: 'Search phones, brands…',
                           onChanged: (value) =>
                               setState(() => _searchQuery = value),
@@ -286,6 +351,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       sliver: SliverToBoxAdapter(
                         child: AppSectionHeader(
+                          key: _productsKey,
                           title: 'Available now',
                           subtitle: 'Certified pre-owned devices',
                           actionLabel: 'See all',

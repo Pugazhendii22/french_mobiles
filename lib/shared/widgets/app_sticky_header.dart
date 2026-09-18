@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
@@ -35,6 +36,21 @@ class AppStickySearchHeader extends SliverPersistentHeaderDelegate {
 
   /// What the header occupies, pinned or not.
   static const double height = fieldHeight + _verticalPadding;
+
+  /// The scroll offset that puts [target] just below this header.
+  ///
+  /// getOffsetToReveal asks the viewport where something is, rather than
+  /// adding up the heights of everything above it — which would go stale the
+  /// moment a section is inserted.
+  ///
+  /// It already allows for pinned headers, which is worth stating because the
+  /// obvious next step is to subtract this header's extent as well: doing
+  /// that lands the target a full header lower than intended, measured at
+  /// exactly twice the gap.
+  ///
+  /// Returned unclamped; the caller knows its own scroll extents.
+  static double offsetToRevealBelow(RenderBox target) =>
+      RenderAbstractViewport.of(target).getOffsetToReveal(target, 0).offset;
 
   @override
   double get minExtent => height;

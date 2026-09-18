@@ -166,4 +166,90 @@ void main() {
       isTrue,
     );
   });
+
+  group('scrolling something below the header', () {
+    const targetKey = ValueKey('target');
+
+    Future<ScrollController> pumpList(WidgetTester t) async {
+      t.view.physicalSize = const Size(400, 800);
+      t.view.devicePixelRatio = 1.0;
+      addTearDown(t.view.reset);
+
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+
+      await t.pumpWidget(MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: CustomScrollView(
+            controller: controller,
+            slivers: [
+              SliverList(
+                delegate: SliverChildListDelegate([
+                  for (var i = 0; i < 3; i++) const SizedBox(height: 200),
+                ]),
+              ),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: AppStickySearchHeader(
+                  child: AppSearchField(
+                    controller: TextEditingController(),
+                    hintText: 'Search',
+                    onChanged: (_) {},
+                  ),
+                ),
+              ),
+              SliverList(
+                delegate: SliverChildListDelegate([
+                  // First in the list below the header, so it is laid out
+                  // from the start and the test measures the reveal maths
+                  // rather than lazy building.
+                  const SizedBox(key: targetKey, height: 60),
+                  for (var i = 0; i < 8; i++) const SizedBox(height: 300),
+                ]),
+              ),
+            ],
+          ),
+        ),
+      ));
+      await t.pump();
+      return controller;
+    }
+
+    testWidgets('lands the target below the header, not underneath it',
+        (t) async {
+      final controller = await pumpList(t);
+
+      final box = t.renderObject<RenderBox>(find.byKey(targetKey));
+      controller.jumpTo(
+        AppStickySearchHeader.offsetToRevealBelow(box).clamp(
+          controller.position.minScrollExtent,
+          controller.position.maxScrollExtent,
+        ),
+      );
+      await t.pump();
+
+      final targetTop = t.getTopLeft(find.byKey(targetKey)).dy;
+      expect(targetTop, closeTo(AppStickySearchHeader.height, 1),
+          reason: 'the header is pinned over the top of the viewport, so '
+              'revealing to offset 0 would hide the target behind it');
+    });
+
+    testWidgets('the target is actually visible afterwards', (t) async {
+      final controller = await pumpList(t);
+
+      final box = t.renderObject<RenderBox>(find.byKey(targetKey));
+      controller.jumpTo(
+        AppStickySearchHeader.offsetToRevealBelow(box).clamp(
+          controller.position.minScrollExtent,
+          controller.position.maxScrollExtent,
+        ),
+      );
+      await t.pump();
+
+      expect(find.byKey(targetKey), findsOneWidget);
+      expect(find.byType(AppSearchField), findsOneWidget,
+          reason: 'search stays pinned while its results are brought up');
+    });
+  });
 }
