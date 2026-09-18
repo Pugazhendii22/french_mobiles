@@ -51,6 +51,16 @@ class AppShadows {
         color: AppColors.shadowRaised, blurRadius: 20, offset: Offset(0, 6)),
   ];
 
+  /// Carried by text and icons that sit directly on a photo.
+  ///
+  /// A product photo can be any colour, so a label on top of one has no
+  /// reliable contrast — a grey heart vanishes on a pale screenshot and a
+  /// green grade disappears on grass. A tight dark shadow restores the edge
+  /// without putting a pill or a disc back around either of them.
+  static const List<Shadow> onPhoto = [
+    Shadow(color: Color(0x73000000), blurRadius: 4, offset: Offset(0, 1)),
+  ];
+
   /// Lift for a solid [AppColors.primary] surface.
   static const List<BoxShadow> primary = [
     BoxShadow(

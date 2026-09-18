@@ -163,10 +163,15 @@ class HomeProductCard extends StatelessWidget {
               top: 0,
               left: 0,
               // A plain label rather than a filled pill: the colour still
-              // carries the grade, without another shape on the page.
+              // carries the grade, without another shape on the page. The
+              // shadow is what keeps it readable once the photo behind it
+              // reaches the corner.
               child: Text(
                 product.condition.toUpperCase(),
-                style: AppTextStyles.overline.copyWith(color: gradeFg),
+                style: AppTextStyles.overline.copyWith(
+                  color: gradeFg,
+                  shadows: AppShadows.onPhoto,
+                ),
               ),
             ),
           Positioned(
@@ -277,9 +282,13 @@ class _WishlistButton extends StatelessWidget {
                           ? Icons.favorite_rounded
                           : Icons.favorite_border_rounded,
                       key: ValueKey<bool>(saved),
-                      size: 18,
-                      color:
-                          saved ? AppColors.error : AppColors.textSecondary,
+                      size: 20,
+                      // White rather than grey when unsaved: it sits on a
+                      // photo now, and grey-on-anything-pale was the half of
+                      // this that disappeared. The shadow gives it an edge on
+                      // a pale photo, the fill gives it one on a dark photo.
+                      color: saved ? AppColors.error : AppColors.onOverlay,
+                      shadows: AppShadows.onPhoto,
                     ),
                   ),
                 ),

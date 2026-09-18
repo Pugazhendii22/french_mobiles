@@ -290,4 +290,39 @@ void main() {
               'be achieved; the spacer does it without the gap');
     });
   });
+
+  group('legible on any photo', () {
+    // Both sit directly on the picture, and a picture can be any colour. A
+    // grey heart vanished on a pale screenshot; a green grade disappears on
+    // grass. Neither gets a pill or a disc back — the shadow is what gives
+    // them an edge.
+
+    testWidgets('the grade carries a shadow', (t) async {
+      await _pumpCard(t, _rich);
+
+      final label = t.widget<Text>(find.text('SUPERB'));
+      expect(label.style?.shadows, isNotEmpty,
+          reason: 'without it the grade is unreadable over a light photo');
+    });
+
+    testWidgets('the heart carries a shadow', (t) async {
+      await _pumpCard(t, _rich);
+
+      final heart = t.widget<Icon>(
+        find.byIcon(Icons.favorite_border_rounded),
+      );
+      expect(heart.shadows, isNotEmpty);
+    });
+
+    testWidgets('an unsaved heart is filled light, not grey', (t) async {
+      await _pumpCard(t, _rich);
+
+      final heart = t.widget<Icon>(
+        find.byIcon(Icons.favorite_border_rounded),
+      );
+      expect(heart.color, AppColors.onOverlay,
+          reason: 'grey on a pale photo was the half of this that '
+              'disappeared entirely');
+    });
+  });
 }
