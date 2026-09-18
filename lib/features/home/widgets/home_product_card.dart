@@ -80,7 +80,16 @@ class HomeProductCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _imageBlock(productId),
+              // The photo takes whatever the text does not.
+              //
+              // The cell's height is fixed by the grid and the text needs
+              // less than it, so something has to absorb the difference.
+              // Giving it to the price pushed the price to the bottom and
+              // put the whole gap between the name and the price; leaving it
+              // at the end put it under the price. Giving it to the photo
+              // puts it nowhere — the text packs together at the bottom and
+              // the picture simply gets bigger.
+              Expanded(child: _imageBlock(productId)),
               const SizedBox(height: 10),
               if (product.brand.isNotEmpty)
                 Text(
@@ -112,7 +121,6 @@ class HomeProductCard extends StatelessWidget {
                   style: AppTextStyles.caption,
                 ),
               ],
-              const Spacer(),
               _priceBlock(discount),
             ],
           ),
@@ -127,14 +135,11 @@ class HomeProductCard extends StatelessWidget {
   /// around something that did not need one, and it framed the product
   /// instead of showing it.
   ///
-  /// Fixed height rather than a square: the grid pins cell height in logical
-  /// pixels, so an aspect-ratio image would change the text budget every time
-  /// the screen width changed.
+  /// Fills the space the text leaves, rather than claiming a fixed height.
   Widget _imageBlock(String productId) {
     final gradeFg = _gradeColor();
 
     return SizedBox(
-      height: 150,
       width: double.infinity,
       child: Stack(
         children: [

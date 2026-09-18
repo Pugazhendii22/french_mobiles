@@ -14,6 +14,7 @@ import 'package:french_mobiles/features/home/data/home_models.dart';
 import 'package:french_mobiles/features/home/data/home_repository.dart';
 import 'package:french_mobiles/features/home/widgets/home_product_card.dart';
 import 'package:french_mobiles/shared/theme/app_colors.dart';
+import 'package:french_mobiles/shared/widgets/app_network_image.dart';
 
 /// Stands in for the real repository so the card can render without Firebase.
 /// Signed out is the interesting case: the wishlist heart still has to draw.
@@ -234,23 +235,45 @@ void main() {
     // storage would go, and the column shrink-wrapping inside a fixed-height
     // cell so everything under the price was dead space.
 
-    testWidgets('no storage means no empty line above the price', (t) async {
+    testWidgets('the price follows the name closely', (t) async {
       await _pumpCard(t, withStorage(''));
 
       final nameBottom = t.getBottomLeft(find.text('iPhone 13')).dy;
       final priceTop = t.getTopLeft(find.text('₹ 32000')).dy;
 
-      // Whatever the spacing rules, the price must be pushed to the bottom of
-      // the cell rather than sitting a blank line under the name.
-      expect(priceTop - nameBottom, greaterThan(20),
-          reason: 'the price is bottom-aligned, so the space is above it');
+      // Two failed attempts at this: a blank line held the gap open, then
+      // bottom-aligning the price moved the cell's spare height into the same
+      // place. The photo absorbs it now, so the text is a block.
+      expect(priceTop - nameBottom, lessThan(12),
+          reason: 'anything more is the gap that keeps coming back');
+    });
+
+    testWidgets('a storage line does not open the gap either', (t) async {
+      await _pumpCard(t, withStorage('128 GB'));
+
+      final storageBottom = t.getBottomLeft(find.text('128 GB')).dy;
+      final priceTop = t.getTopLeft(find.text('₹ 32000')).dy;
+
+      expect(priceTop - storageBottom, lessThan(12));
+    });
+
+    testWidgets('the photo takes the space the text does not', (t) async {
+      await _pumpCard(t, withStorage(''));
+      final tall = t.getSize(find.byType(AppNetworkImage)).height;
+
+      await _pumpCard(t, withStorage('128 GB'));
+      final shorter = t.getSize(find.byType(AppNetworkImage)).height;
+
+      expect(shorter, lessThan(tall),
+          reason: 'an extra line of text comes out of the picture, not out '
+              'of the space around the price');
     });
 
     testWidgets('the price sits at the bottom of the cell', (t) async {
       await _pumpCard(t, withStorage('128 GB'));
 
       final priceBottom = t.getBottomLeft(find.text('₹ 32000')).dy;
-      expect(priceBottom, closeTo(280, 24),
+      expect(priceBottom, closeTo(280, 16),
           reason: 'anything higher leaves dead space under the price, which '
               'is what the cell looked like before');
     });
