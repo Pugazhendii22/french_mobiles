@@ -150,7 +150,7 @@ class _SellMobilePageState extends State<SellMobilePage> {
                 ),
                 SliverPersistentHeader(
                   pinned: true,
-                  delegate: _SearchHeaderDelegate(
+                  delegate: AppStickySearchHeader(
                     child: AppSearchField(
                       controller: _searchController,
                       focusNode: _searchFocusNode,
@@ -449,55 +449,6 @@ class _Reveal extends StatelessWidget {
 
 /// Pinned search bar. Keeps a solid background so content scrolls beneath it
 /// cleanly, and grows a hairline rule once it overlaps.
-class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _SearchHeaderDelegate({required this.child});
-
-  final Widget child;
-
-  /// The child is pinned to exactly these dimensions rather than being left
-  /// to size itself: a pinned header derives paintExtent from the child's
-  /// real height but layoutExtent from [maxExtent], and Flutter asserts if
-  /// the two disagree by even a pixel.
-  static const double _fieldHeight = 48;
-  static const double _verticalPadding = AppSpacing.lg + AppSpacing.md;
-  static const double _height = _fieldHeight + _verticalPadding;
-
-  @override
-  double get minExtent => _height;
-
-  @override
-  double get maxExtent => _height;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenGutter,
-        AppSpacing.lg,
-        AppSpacing.screenGutter,
-        AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        border: Border(
-          bottom: BorderSide(
-            color: overlapsContent ? AppColors.border : AppColors.transparent,
-          ),
-        ),
-      ),
-      child: SizedBox(height: _fieldHeight, child: child),
-    );
-  }
-
-  @override
-  bool shouldRebuild(covariant _SearchHeaderDelegate oldDelegate) =>
-      oldDelegate.child != child;
-}
-
 /// Trailing grid cell that opens the full, searchable brand list.
 class _ViewAllTile extends StatelessWidget {
   const _ViewAllTile({required this.onTap});

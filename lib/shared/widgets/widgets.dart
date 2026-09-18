@@ -19,4 +19,5 @@ export 'app_selectable_tile.dart';
 export 'app_section_header.dart';
 export 'app_shimmer.dart';
 export 'app_step_progress.dart';
+export 'app_sticky_header.dart';
 export 'app_surface.dart';

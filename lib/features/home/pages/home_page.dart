@@ -22,6 +22,7 @@ import 'package:french_mobiles/shared/theme/app_text_styles.dart';
 import 'package:french_mobiles/shared/theme/app_theme.dart';
 import 'package:french_mobiles/shared/widgets/app_search_field.dart';
 import 'package:french_mobiles/shared/widgets/app_section_header.dart';
+import 'package:french_mobiles/shared/widgets/app_sticky_header.dart';
 
 /// The home screen.
 ///
@@ -210,30 +211,46 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: AppSpacing.lg),
-                          AppReveal(
-                            index: 2,
-                            child: AppSearchField(
-                            controller: _searchController,
-                            hintText: 'Search phones, brands…',
-                            onChanged: (value) =>
-                                setState(() => _searchQuery = value),
-                            trailing: _searchQuery.isEmpty
-                                ? null
-                                : IconButton(
-                                    icon: const Icon(
-                                      Icons.close_rounded,
-                                      size: 18,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() => _searchQuery = '');
-                                      },
-                                    ),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.xl),
+                        ]),
+                      ),
+                    ),
+                    // Pinned, so search stays reachable once the greeting and
+                    // the address strip have scrolled away. Its own padding
+                    // replaces the gap that used to sit above it, which is
+                    // why the list above ends here.
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: AppStickySearchHeader(
+                        child: AppSearchField(
+                          controller: _searchController,
+                          hintText: 'Search phones, brands…',
+                          onChanged: (value) =>
+                              setState(() => _searchQuery = value),
+                          trailing: _searchQuery.isEmpty
+                              ? null
+                              : IconButton(
+                                  icon: const Icon(
+                                    Icons.close_rounded,
+                                    size: 18,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                ),
+                        ),
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.screenGutter,
+                        0,
+                        AppSpacing.screenGutter,
+                        0,
+                      ),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
                           AppReveal(
                             index: 3,
                             child:
