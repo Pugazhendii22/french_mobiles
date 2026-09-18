@@ -14,8 +14,10 @@ import 'package:french_mobiles/firebase/wishlist_service.dart';
 import 'package:french_mobiles/models/order_status.dart';
 import 'package:french_mobiles/profile/orders_page.dart';
 import 'package:french_mobiles/profile/wishlist_page.dart';
+import 'package:french_mobiles/shared/motion/motion.dart';
 import 'package:french_mobiles/shared/theme/app_colors.dart';
 import 'package:french_mobiles/shared/theme/app_theme.dart';
+import 'package:french_mobiles/shared/widgets/app_network_image.dart';
 import 'package:french_mobiles/shared/widgets/widgets.dart';
 
 /// Every BoxDecoration the row itself paints.
@@ -118,9 +120,31 @@ void main() {
     await _pump(t, _order);
 
     // Losing the lift means the affordance has to come from somewhere: the
-    // chevron, and press feedback from AppSurface.
+    // chevron, and press feedback from AppPressable.
     expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
-    expect(find.byType(AppSurface), findsWidgets);
+    expect(find.byType(AppPressable), findsWidgets);
+  });
+
+  testWidgets('an order row is shaped like a saved row', (t) async {
+    // Asked for explicitly: the same list treatment on both tabs. Worth
+    // pinning, because the two have drifted apart twice already.
+    await _pump(t, _order);
+    final orderPhoto = t.getSize(find.byType(AppNetworkImage)).height;
+
+    await _pump(t, _wishlist);
+    final savedPhoto = t.getSize(find.byType(AppNetworkImage)).height;
+
+    expect(orderPhoto, savedPhoto,
+        reason: 'the photo is the most visible difference between two list '
+            'rows, so it is the first thing to keep in step');
+  });
+
+  testWidgets('the order row keeps its progress strip', (t) async {
+    await _pump(t, _order);
+
+    expect(find.text(OrderStage.placed.label), findsOneWidget,
+        reason: 'the tracking section stays, which is the half of this that '
+            'was explicitly to be left alone');
   });
 }
 

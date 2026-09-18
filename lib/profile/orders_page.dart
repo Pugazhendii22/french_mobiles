@@ -95,19 +95,17 @@ class _OrdersPageState extends State<OrdersPage> {
       stream: _ordersFor(userId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return ListView(
+          return ListView.separated(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.screenGutter,
             ),
-            children: const [
-              AppGroup(
-                children: [
-                  OrderRowSkeleton(),
-                  OrderRowSkeleton(),
-                  OrderRowSkeleton(),
-                ],
-              ),
-            ],
+            itemCount: 3,
+            separatorBuilder: (_, __) => const Divider(
+              height: 1,
+              thickness: 1,
+              color: AppColors.border,
+            ),
+            itemBuilder: (_, __) => const OrderRowSkeleton(),
           );
         }
 
@@ -123,24 +121,22 @@ class _OrdersPageState extends State<OrdersPage> {
           );
         }
 
-        return ListView(
+        return ListView.separated(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.screenGutter,
             0,
             AppSpacing.screenGutter,
             AppSpacing.xxl,
           ),
-          children: [
-            // One enclosure around the whole list rather than a card per
-            // order. These are entries in a ledger, not separate objects, and
-            // a box each made the page read as a stack of containers.
-            AppGroup(
-              children: [
-                for (var index = 0; index < docs.length; index++)
-                  _rowFor(context, docs[index], index),
-              ],
-            ),
-          ],
+          itemCount: docs.length,
+          // A hairline between orders and nothing around them, the same as
+          // the Saved list.
+          separatorBuilder: (_, __) => const Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.border,
+          ),
+          itemBuilder: (context, index) => _rowFor(context, docs[index], index),
         );
       },
     );
@@ -184,82 +180,65 @@ class OrderRowSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // The status edge, grey until a status is known.
-          Container(width: 3, color: AppColors.border),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      AppShimmer(
-                        width: 44,
-                        height: 44,
-                        borderRadius: AppRadius.field,
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppShimmer(
-                              width: double.infinity,
-                              height: AppTextStyles.bodyMedium.fontSize! *
-                                  AppTextStyles.bodyMedium.height!,
-                              borderRadius: AppRadius.pill,
-                            ),
-                            const SizedBox(height: 2),
-                            AppShimmer(
-                              width: 90,
-                              height: AppTextStyles.caption.fontSize! *
-                                  AppTextStyles.caption.height!,
-                              borderRadius: AppRadius.pill,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      AppShimmer(
-                        width: 64,
-                        height: AppTextStyles.price.fontSize! *
-                            AppTextStyles.price.height!,
-                        borderRadius: AppRadius.pill,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  // The progress strip: four dots, three connectors, a label.
-                  Row(
-                    children: [
-                      AppShimmer(
-                        width: OrderStage.count * 8 +
-                            (OrderStage.count - 1) * 14,
-                        height: 8,
-                        borderRadius: AppRadius.pill,
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      AppShimmer(
-                        width: 96,
-                        height: AppTextStyles.caption.fontSize! *
-                            AppTextStyles.caption.height!,
-                        borderRadius: AppRadius.pill,
-                      ),
-                      const Spacer(),
-                      // The chevron is 18 and taller than the caption beside
-                      // it, so it sets the row's height. Leaving it out made
-                      // the skeleton two pixels short.
-                      const SizedBox(height: 18, width: 18),
-                    ],
-                  ),
-                ],
+          Row(
+            children: [
+              const AppShimmer(width: 64, height: 64),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AppShimmer(
+                      width: 110,
+                      height: AppTextStyles.overline.fontSize! *
+                          AppTextStyles.overline.height!,
+                      borderRadius: AppRadius.pill,
+                    ),
+                    const SizedBox(height: 2),
+                    AppShimmer(
+                      width: double.infinity,
+                      height: AppTextStyles.bodyMedium.fontSize! *
+                          AppTextStyles.bodyMedium.height!,
+                      borderRadius: AppRadius.pill,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    AppShimmer(
+                      width: 72,
+                      height: AppTextStyles.priceSmall.fontSize! *
+                          AppTextStyles.priceSmall.height!,
+                      borderRadius: AppRadius.pill,
+                    ),
+                  ],
+                ),
               ),
-            ),
+              // The chevron sets the row height when it is taller than the
+              // text beside it.
+              const SizedBox(width: 20, height: 20),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              AppShimmer(
+                width: OrderStage.count * 8 + (OrderStage.count - 1) * 14,
+                height: 8,
+                borderRadius: AppRadius.pill,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              AppShimmer(
+                width: 96,
+                height: AppTextStyles.caption.fontSize! *
+                    AppTextStyles.caption.height!,
+                borderRadius: AppRadius.pill,
+              ),
+            ],
           ),
         ],
       ),
@@ -292,82 +271,78 @@ class OrderRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final subtitle = [storage, date].where((s) => s.isNotEmpty).join(' · ');
 
-    return AppSurface(
+    // Deliberately the same shape as a Saved row: 64px photo, a quiet line
+    // above, the name, then the figure. No card and no coloured edge — those
+    // were chrome, and the progress strip below already carries the colour
+    // that matters.
+    return AppPressable(
       onTap: onTap,
-      padding: EdgeInsets.zero,
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Colour down the edge rather than a badge alone: scanning a list
-            // of orders, the question is which still owes you money, and an
-            // edge answers it before anything has been read.
-            Container(width: 3, color: stage.color),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        SizedBox(
-                          height: 44,
-                          width: 44,
-                          child: AppNetworkImage(
-                            url: imageUrl,
-                            fit: BoxFit.contain,
-                            borderRadius: BorderRadius.zero,
-                            placeholderIcon: Icons.smartphone_rounded,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                modelName.isEmpty ? 'Device' : modelName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTextStyles.bodyMedium,
-                              ),
-                              if (subtitle.isNotEmpty) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  subtitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTextStyles.caption,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Text('₹ $payout', style: AppTextStyles.price),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    _progress(),
-                  ],
+            Row(
+              children: [
+                SizedBox(
+                  height: 64,
+                  width: 64,
+                  child: AppNetworkImage(
+                    url: imageUrl,
+                    fit: BoxFit.contain,
+                    borderRadius: BorderRadius.zero,
+                    placeholderIcon: Icons.smartphone_rounded,
+                  ),
                 ),
-              ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (subtitle.isNotEmpty)
+                        Text(
+                          subtitle.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.overline.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      const SizedBox(height: 2),
+                      Text(
+                        modelName.isEmpty ? 'Device' : modelName,
+                        // One line, unlike Saved's two: a product title is
+                        // marketing copy and wraps, an order's model name is
+                        // short. Letting it wrap makes the row's height
+                        // depend on the name, and a skeleton cannot then
+                        // match it at every width.
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.bodyMedium,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text('₹ $payout', style: AppTextStyles.priceSmall),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: AppColors.textTertiary,
+                ),
+              ],
             ),
+            const SizedBox(height: AppSpacing.md),
+            _progress(),
           ],
         ),
       ),
     );
   }
 
-  /// Where the order has got to, as four steps and a name.
-  ///
-  /// This replaces a divider and a status footer, and the divider was the
-  /// problem: once every order stopped being its own card, a rule inside a
-  /// row and a rule between rows looked identical, so there was no telling
-  /// where one order ended and the next began.
+  /// Where the order has got to, as four steps and a name. Kept as it was.
   Widget _progress() {
     return Row(
       children: [
@@ -395,11 +370,6 @@ class OrderRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: AppTextStyles.caption.copyWith(color: stage.color),
           ),
-        ),
-        const Icon(
-          Icons.chevron_right_rounded,
-          size: 18,
-          color: AppColors.textTertiary,
         ),
       ],
     );
