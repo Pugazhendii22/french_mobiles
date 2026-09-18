@@ -31,6 +31,14 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
   String _searchQuery = '';
   bool _fetchingLocation = false;
 
+  /// Subscribed once, in initState. A stream created inside build is a new
+  /// listener every frame, and each one bills a fresh read of the whole list.
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _addresses;
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> get _addressesStream =>
+      _addresses ??=
+          _addressesRef!.orderBy('createdAt', descending: true).snapshots();
+
   @override
   void initState() {
     super.initState();
@@ -271,8 +279,7 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
         Text('Saved addresses', style: AppTextStyles.h3),
         const SizedBox(height: AppSpacing.md),
         StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream:
-              _addressesRef!.orderBy('createdAt', descending: true).snapshots(),
+          stream: _addressesStream,
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return AppEmptyState(

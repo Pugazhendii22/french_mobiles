@@ -146,9 +146,26 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  /// The profile document, subscribed once.
+  ///
+  /// Built here rather than inside build(): a stream created during build is
+  /// a new listener on every frame, and every new listener bills a fresh read
+  /// of the document it watches.
+  Stream<DocumentSnapshot<Map<String, dynamic>>>? _profileStream;
+  String? _profileUid;
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>> _profileFor(String uid) {
+    if (_profileUid != uid || _profileStream == null) {
+      _profileUid = uid;
+      _profileStream =
+          catalogFirestore.collection('users').doc(uid).snapshots();
+    }
+    return _profileStream!;
+  }
+
   Widget _buildHeaderCard(String uid) {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: catalogFirestore.collection('users').doc(uid).snapshots(),
+      stream: _profileFor(uid),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const AppShimmer(width: double.infinity, height: 112);

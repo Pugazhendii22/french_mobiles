@@ -33,6 +33,14 @@ class OrderTrackingPage extends StatefulWidget {
 }
 
 class _OrderTrackingPageState extends State<OrderTrackingPage> {
+  /// Subscribed once for the page's lifetime.
+  ///
+  /// This one mattered most: the tracker rebuilds on every status change, and
+  /// a stream created inside build would re-listen — and re-read — each time
+  /// it did.
+  late final Stream<DocumentSnapshot<Map<String, dynamic>>> _orderStream =
+      catalogFirestore.collection('orders').doc(widget.orderId).snapshots();
+
   /// Pickup milestones, in order. Index + 1 matches the `currentStep` the
   /// order's `status` field maps to.
   static const List<(IconData, String, String)> _steps = [
@@ -87,10 +95,7 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
         backgroundColor: AppColors.background,
         body: SafeArea(
           child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-            stream: catalogFirestore
-                .collection('orders')
-                .doc(widget.orderId)
-                .snapshots(),
+            stream: _orderStream,
             builder: (context, snapshot) {
               return ListView(
                 padding: const EdgeInsets.fromLTRB(

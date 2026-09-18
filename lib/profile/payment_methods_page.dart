@@ -27,6 +27,9 @@ class PaymentMethodsPage extends StatefulWidget {
 class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
   CollectionReference<Map<String, dynamic>>? _methodsRef;
 
+  /// Subscribed once: a stream built during build re-listens every frame.
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _methodsStream;
+
   @override
   void initState() {
     super.initState();
@@ -186,7 +189,8 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     }
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: ref.orderBy('createdAt', descending: false).snapshots(),
+      stream: _methodsStream ??=
+          ref.orderBy('createdAt', descending: false).snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(

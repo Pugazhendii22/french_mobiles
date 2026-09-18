@@ -74,20 +74,35 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
       final variantResults = await Future.wait(
         querySnapshot.docs.map((doc) async {
           final modelData = doc.data();
-          final variantsSnapshot = await _catalogFirestore
-              .collection('brands')
-              .doc(widget.brandName.toLowerCase())
-              .collection('models')
-              .doc(doc.id)
-              .collection('variants')
-              .get();
 
+          // The list only needs a headline price. When the model document
+          // already carries one, the variants are not read at all.
+          //
+          // This used to fetch every model's variants just to find the
+          // highest — one query per model, so a brand with thirty models
+          // cost thirty-one round trips on every visit, and the variants
+          // were then read a second time when one was tapped.
+          //
+          // The proper fix is a max_base_price field maintained on the model
+          // document, which would remove the fallback below entirely. That
+          // is a change to the data, not to this app.
+          final declared = _parsePrice(modelData['base_price']);
           int highestBasePrice = 0;
-          for (final variantDoc in variantsSnapshot.docs) {
-            final variantData = variantDoc.data();
-            final variantPrice = _parsePrice(variantData['base_price']);
-            if (variantPrice > highestBasePrice) {
-              highestBasePrice = variantPrice;
+
+          if (declared == 0) {
+            final variantsSnapshot = await _catalogFirestore
+                .collection('brands')
+                .doc(widget.brandName.toLowerCase())
+                .collection('models')
+                .doc(doc.id)
+                .collection('variants')
+                .get();
+
+            for (final variantDoc in variantsSnapshot.docs) {
+              final variantPrice = _parsePrice(variantDoc.data()['base_price']);
+              if (variantPrice > highestBasePrice) {
+                highestBasePrice = variantPrice;
+              }
             }
           }
 
@@ -100,9 +115,7 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
           return ModelDetail(
             name: modelName,
             category: category,
-            maxPrice: highestBasePrice == 0
-                ? _parsePrice(modelData['base_price'])
-                : highestBasePrice,
+            maxPrice: highestBasePrice == 0 ? declared : highestBasePrice,
             imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
             docId: doc.id,
           );

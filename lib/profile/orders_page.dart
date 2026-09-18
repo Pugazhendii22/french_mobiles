@@ -99,15 +99,29 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
-  Widget _buildList(String userId) {
-    final stream = catalogFirestore
-        .collection('orders')
-        .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .snapshots();
+  /// One subscription per signed-in user, not one per frame.
+  ///
+  /// A stream created inside build is re-established on every rebuild, and
+  /// each new listener bills a fresh read of every document it matches — the
+  /// whole order list, every time.
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _ordersStream;
+  String? _ordersUid;
 
+  Stream<QuerySnapshot<Map<String, dynamic>>> _ordersFor(String userId) {
+    if (_ordersUid != userId || _ordersStream == null) {
+      _ordersUid = userId;
+      _ordersStream = catalogFirestore
+          .collection('orders')
+          .where('userId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .snapshots();
+    }
+    return _ordersStream!;
+  }
+
+  Widget _buildList(String userId) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: stream,
+      stream: _ordersFor(userId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return ListView(
