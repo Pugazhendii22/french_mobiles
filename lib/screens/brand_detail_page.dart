@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/model_detail.dart';
 import '../shared/motion/motion.dart';
+import '../shared/services/catalog_cache.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
@@ -57,6 +58,20 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
   }
 
   Future<void> _loadModels() async {
+    // Served from the cache when this brand has already been read. The
+    // headline price shown here never becomes a quote — the real price is
+    // read from the variants the moment a model is tapped — so there is
+    // nothing to go stale that matters.
+    final cached = CatalogCache.models(widget.brandName);
+    if (cached != null) {
+      setState(() {
+        _allBrandModels = cached;
+        _filteredModels = _applyFilters(_modelSearchController.text);
+        _isLoadingModels = false;
+      });
+      return;
+    }
+
     setState(() {
       _isLoadingModels = true;
       _filteredModels = [];
@@ -123,6 +138,7 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
       );
 
       models.addAll(variantResults);
+      CatalogCache.storeModels(widget.brandName, models);
 
       setState(() {
         _allBrandModels = models;
@@ -156,13 +172,24 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
     });
   }
 
-  void _openModel(ModelDetail item) {
-    context.pushScreen(VariantSelectionPage(
+  Future<void> _openModel(ModelDetail item) async {
+    await context.pushScreen(VariantSelectionPage(
           brandName: widget.brandName,
           modelDocId: item.docId!,
           modelName: item.name,
           imageUrl: item.imageUrl),
     );
+    if (!mounted) return;
+
+    // The variant page reads the real prices. If they disagreed with the
+    // headline shown here, it corrected the cache — so pick the correction
+    // up rather than continuing to show a number already known to be wrong.
+    final refreshed = CatalogCache.models(widget.brandName);
+    if (refreshed == null) return;
+    setState(() {
+      _allBrandModels = refreshed;
+      _filteredModels = _applyFilters(_modelSearchController.text);
+    });
   }
 
   @override

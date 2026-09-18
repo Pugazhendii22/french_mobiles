@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import '../shared/motion/motion.dart';
+import '../shared/services/catalog_cache.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
@@ -65,6 +66,22 @@ class _VariantSelectionPageState extends State<VariantSelectionPage> {
           'storage': (data['storage'] ?? '').toString(),
           'base_price': data['base_price'] is num ? (data['base_price'] as num).toInt() : int.tryParse('${data['base_price']}') ?? 0,
         });
+      }
+
+      // The authoritative read. These are the prices a quote is built from,
+      // so the browsing list's cached headline is corrected against them —
+      // a stale teaser is harmless, a stale quote is not.
+      var highest = 0;
+      for (final variant in results) {
+        final price = variant['base_price'] as int? ?? 0;
+        if (price > highest) highest = price;
+      }
+      if (highest > 0) {
+        CatalogCache.updateHeadlinePrice(
+          widget.brandName,
+          widget.modelDocId,
+          highest,
+        );
       }
 
       setState(() {
