@@ -20,7 +20,6 @@ class AppBrandCard extends StatelessWidget {
     required this.brand,
     this.onTap,
     this.width,
-    this.showDiscount = true,
   });
 
   final BrandModel brand;
@@ -29,7 +28,6 @@ class AppBrandCard extends StatelessWidget {
   /// Set for a fixed-width card in a horizontal rail; leave null to fill a
   /// grid cell.
   final double? width;
-  final bool showDiscount;
 
   @override
   Widget build(BuildContext context) {
@@ -63,17 +61,6 @@ class AppBrandCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: AppTextStyles.label,
               ),
-              if (showDiscount && brand.discountText.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  brand.discountText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.onPrimarySoft,
-                  ),
-                ),
-              ],
             ],
           ),
         ),

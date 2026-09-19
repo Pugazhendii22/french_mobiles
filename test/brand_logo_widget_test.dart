@@ -31,7 +31,6 @@ const _simpleSvg =
 
 final _samsung = BrandModel(
   name: 'Samsung',
-  discountText: '',
   logoText: 'SAMSUNG',
   themeColor: const Color(0xFF1D4ED8),
   logoAssetPath: 'assets/logos/samsung.svg',
@@ -39,7 +38,6 @@ final _samsung = BrandModel(
 
 final _realmeBrand = BrandModel(
   name: 'Realme',
-  discountText: '',
   logoText: 'realme',
   themeColor: const Color(0xFFCA8A04),
 );

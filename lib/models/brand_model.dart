@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 class BrandModel {
   final String name;
-  final String discountText;
   final String logoText;
   final Color themeColor;
   final Widget? logo;
@@ -14,7 +13,6 @@ class BrandModel {
 
   BrandModel({
     required this.name,
-    required this.discountText,
     required this.logoText,
     required this.themeColor,
     this.logo,
@@ -224,7 +222,6 @@ const Widget googleLogo = Row(
 final List<BrandModel> brandData = [
   BrandModel(
     name: 'Samsung',
-    discountText: 'Up to 30% off',
     logoText: 'SAMSUNG',
     themeColor: const Color(0xFF1D4ED8),
     logo: samsungLogo,
@@ -233,7 +230,6 @@ final List<BrandModel> brandData = [
   ),
   BrandModel(
     name: 'Motorola',
-    discountText: 'Up to 40% off',
     logoText: 'M motorola',
     themeColor: const Color(0xFF334155),
     logo: motorolaLogo,
@@ -242,7 +238,6 @@ final List<BrandModel> brandData = [
   ),
   BrandModel(
     name: 'Oppo',
-    discountText: 'Up to 35% off',
     logoText: 'oppo',
     themeColor: const Color(0xFF15803D),
     logo: oppoLogo,
@@ -251,7 +246,6 @@ final List<BrandModel> brandData = [
   ),
   BrandModel(
     name: 'Apple',
-    discountText: 'Up to 50% off',
     logoText: 'Apple',
     themeColor: const Color(0xFF111827),
     logo: appleLogo,
@@ -264,7 +258,6 @@ final List<BrandModel> brandData = [
 final List<BrandModel> moreBrandData = [
   BrandModel(
     name: 'OnePlus',
-    discountText: 'Up to 35% off',
     logoText: 'OnePlus',
     themeColor: const Color(0xFFDC2626),
     logo: oneplusLogo,
@@ -273,7 +266,6 @@ final List<BrandModel> moreBrandData = [
   ),
   BrandModel(
     name: 'Xiaomi',
-    discountText: 'Up to 45% off',
     logoText: 'Xiaomi',
     themeColor: const Color(0xFFEA580C),
     logo: xiaomiLogo,
@@ -282,7 +274,6 @@ final List<BrandModel> moreBrandData = [
   ),
   BrandModel(
     name: 'Vivo',
-    discountText: 'Up to 40% off',
     logoText: 'vivo',
     themeColor: const Color(0xFF2563EB),
     logo: vivoLogo,
@@ -291,7 +282,6 @@ final List<BrandModel> moreBrandData = [
   ),
   BrandModel(
     name: 'Realme',
-    discountText: 'Up to 30% off',
     logoText: 'realme',
     themeColor: const Color(0xFFCA8A04),
     logo: realmeLogo,
@@ -299,7 +289,6 @@ final List<BrandModel> moreBrandData = [
   ),
   BrandModel(
     name: 'Google',
-    discountText: 'Up to 35% off',
     logoText: 'Google',
     themeColor: const Color(0xFF059669),
     logo: googleLogo,
