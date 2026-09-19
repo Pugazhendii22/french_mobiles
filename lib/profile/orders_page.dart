@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../firebase/catalog_firebase.dart';
+import '../screens/login_page.dart';
 import '../screens/order_tracking_page.dart';
 import '../models/order_status.dart';
 import '../shared/motion/motion.dart';
@@ -20,6 +22,8 @@ class OrdersPage extends StatefulWidget {
 class _OrdersPageState extends State<OrdersPage> {
   static const String _emptyMessage =
       'No orders yet — sell your first phone to see it here';
+  static const String _signedOutMessage =
+      'Sign in to track the phones you have sold.';
 
   String _formatDate(Timestamp? ts) {
     if (ts == null) return '';
@@ -33,41 +37,59 @@ class _OrdersPageState extends State<OrdersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final userId = catalogAuth.currentUser?.uid;
+    // Orders is a tab, so this State outlives any one sign-in — MainShell
+    // keeps every visited tab mounted rather than rebuilding it on switch.
+    // A one-off catalogAuth.currentUser read here would go stale the moment
+    // someone signs in or out somewhere else (checkout, Profile's logout,
+    // the Orders tab's own sign-in gate on first visit) and never notice,
+    // which is also how a *different* signed-in user could end up staring
+    // at the previous user's cached order list. Watching authStateChanges()
+    // keeps this in step with sign-in wherever it happens.
+    return StreamBuilder<User?>(
+      stream: catalogAuth.authStateChanges(),
+      initialData: catalogAuth.currentUser,
+      builder: (context, authSnapshot) {
+        final userId = authSnapshot.data?.uid;
 
-    return Theme(
-      data: AppTheme.light,
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        body: SafeArea(
-          child: Column(
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppSpacing.screenGutter,
-                  AppSpacing.lg,
-                  AppSpacing.screenGutter,
-                  AppSpacing.lg,
-                ),
-                child: AppScreenHeader(title: 'My sell orders'),
+        return Theme(
+          data: AppTheme.light,
+          child: Scaffold(
+            backgroundColor: AppColors.background,
+            body: SafeArea(
+              child: Column(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.screenGutter,
+                      AppSpacing.lg,
+                      AppSpacing.screenGutter,
+                      AppSpacing.lg,
+                    ),
+                    child: AppScreenHeader(title: 'My sell orders'),
+                  ),
+                  Expanded(
+                    child: userId == null
+                        ? Padding(
+                            padding:
+                                const EdgeInsets.all(AppSpacing.screenGutter),
+                            child: AppEmptyState(
+                              title: 'Sign in to see your orders',
+                              message: _signedOutMessage,
+                              icon: Icons.receipt_long_outlined,
+                              branded: true,
+                              retryLabel: 'Sign in',
+                              onRetry: () =>
+                                  context.pushScreen(const LoginPage()),
+                            ),
+                          )
+                        : _buildList(userId),
+                  ),
+                ],
               ),
-              Expanded(
-                child: userId == null
-                    ? const Padding(
-                        padding: EdgeInsets.all(AppSpacing.screenGutter),
-                        child: AppEmptyState(
-                          title: 'No orders yet',
-                          message: _emptyMessage,
-                          icon: Icons.receipt_long_outlined,
-                          branded: true,
-                        ),
-                      )
-                    : _buildList(userId),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'package:french_mobiles/features/shell/main_shell.dart';
 
 import '../firebase/catalog_firebase.dart';
 import '../screens/edit_profile_page.dart';
+import '../screens/login_page.dart';
 import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
@@ -71,8 +73,25 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = catalogAuth.currentUser;
+    // This screen lives for the lifetime of the tab, not the lifetime of a
+    // sign-in — MainShell keeps every visited tab mounted so switching back
+    // to it doesn't lose scroll position or refire reads. That means a
+    // one-off `catalogAuth.currentUser` read here goes stale the moment
+    // someone signs in or out from anywhere else in the app (the checkout
+    // flow, the Orders tab's own sign-in gate, and so on): this build()
+    // would never run again to notice. Watching authStateChanges() instead
+    // is what makes every screen update wherever the sign-in happened.
+    return StreamBuilder<User?>(
+      stream: catalogAuth.authStateChanges(),
+      initialData: catalogAuth.currentUser,
+      builder: (context, authSnapshot) {
+        final user = authSnapshot.data;
+        return _buildScaffold(context, user);
+      },
+    );
+  }
 
+  Widget _buildScaffold(BuildContext context, User? user) {
     return Theme(
       data: AppTheme.light,
       child: Scaffold(
@@ -89,10 +108,12 @@ class _ProfilePageState extends State<ProfilePage> {
               const AppScreenHeader(title: 'My profile'),
               const SizedBox(height: AppSpacing.xl),
               if (user == null)
-                const AppEmptyState(
+                AppEmptyState(
                   title: "You're not signed in",
                   message: 'Sign in to view your profile.',
                   icon: Icons.person_outline_rounded,
+                  retryLabel: 'Sign in',
+                  onRetry: () => context.pushScreen(const LoginPage()),
                 )
               else ...[
                 AppReveal(index: 0, child: _buildHeaderCard(user.uid)),
