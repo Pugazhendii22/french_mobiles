@@ -11,6 +11,7 @@ import 'package:french_mobiles/screens/sell_mobile_page.dart';
 import 'package:french_mobiles/shared/motion/motion.dart';
 import 'package:french_mobiles/shared/theme/app_colors.dart';
 import 'package:french_mobiles/shared/theme/app_theme.dart';
+import 'package:french_mobiles/shared/widgets/app_mascot.dart';
 
 /// The app's root: the five main destinations, with the navigation bar under
 /// all of them.
@@ -26,6 +27,7 @@ class MainShell extends StatefulWidget {
     this.initialTab = HomeNavTab.home,
     this.pageBuilder,
     this.repository = const HomeRepository(),
+    this.showMascot = true,
   });
 
   final HomeNavTab initialTab;
@@ -41,6 +43,15 @@ class MainShell extends StatefulWidget {
   /// Only for tests: decides whether the Orders tab asks for sign-in.
   @visibleForTesting
   final HomeRepository repository;
+
+  /// Only for tests: leaves the mascot out.
+  ///
+  /// It walks about under its own ticker and so never stops scheduling
+  /// frames, which is the point of it and also means `pumpAndSettle` can
+  /// never return while it is on screen. Tests about which tab is showing
+  /// should not have to care, so they switch it off.
+  @visibleForTesting
+  final bool showMascot;
 
   /// A pending request to change tab, watched by the live shell.
   ///
@@ -171,15 +182,27 @@ class _MainShellState extends State<MainShell> {
           // Cross-fades rather than cutting, while keeping every visited tab
           // in the tree — switching away and back must not reset a scroll
           // position or re-run a Firestore read.
-          body: AppTabSwitcher(
-            index: tabs.indexOf(_current),
+          body: Stack(
             children: [
-              for (final tab in tabs)
-                // An unvisited tab is an empty box rather than the real page,
-                // so nothing it would fetch happens until it is opened.
-                _visited.contains(tab)
-                    ? _pageFor(tab)
-                    : const SizedBox.shrink(),
+              AppTabSwitcher(
+                index: tabs.indexOf(_current),
+                children: [
+                  for (final tab in tabs)
+                    // An unvisited tab is an empty box rather than the real
+                    // page, so nothing it would fetch happens until it is
+                    // opened.
+                    _visited.contains(tab)
+                        ? _pageFor(tab)
+                        : const SizedBox.shrink(),
+                ],
+              ),
+              // Inside the shell, so it is covered the moment anything is
+              // pushed over it. A mascot loose on top of the whole app would
+              // sit over the checkup's own tests and be measured by them.
+              if (widget.showMascot)
+                const Positioned.fill(
+                  child: SafeArea(child: AppMascot()),
+                ),
             ],
           ),
           bottomNavigationBar: HomeBottomNav(

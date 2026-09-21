@@ -16,8 +16,7 @@ import 'package:french_mobiles/screens/checkup/checkup_entry_page.dart';
 import 'package:french_mobiles/screens/checkup/internet_test_page.dart';
 
 const _internet = MethodChannel('french_mobiles/internet');
-const _connectivity =
-    MethodChannel('dev.fluttercommunity.plus/connectivity');
+const _connectivity = MethodChannel('dev.fluttercommunity.plus/connectivity');
 
 /// Drives the native cellular probe's reply.
 void _cellularReplies(Map<String, dynamic> reply) {

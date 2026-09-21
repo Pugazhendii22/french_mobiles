@@ -12,6 +12,8 @@ import android.net.NetworkRequest
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.BatteryManager
+import android.os.Build
 import android.os.PowerManager
 import android.view.KeyEvent
 import java.net.HttpURLConnection
@@ -51,6 +53,149 @@ class MainActivity : FlutterFragmentActivity() {
     /// This also takes over edge-to-edge from Dart: asking Flutter for
     /// SystemUiMode.edgeToEdge explicitly shows every bar, which would undo
     /// the hide on startup.
+    private fun readBattery(): Map<String, Any?> {
+        val manager = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val out = HashMap<String, Any?>()
+
+        // Present on every version.
+        val level = manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        if (level in 0..100) out["level"] = level
+
+        val chargeCounter =
+            manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
+        if (chargeCounter > 0) out["chargeMicroAmpHours"] = chargeCounter
+
+        // Negative while discharging, which is worth keeping: the sign is how
+        // the app knows whether the phone is taking power or giving it.
+        val currentNow =
+            manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+        if (currentNow != Int.MIN_VALUE && currentNow != 0) {
+            out["currentMicroAmps"] = currentNow
+        }
+
+        // The sticky broadcast carries what the properties API does not.
+        val status = registerReceiver(
+            null,
+            IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        )
+        if (status != null) {
+            val tenths = status.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1)
+            if (tenths > 0) out["temperatureCelsius"] = tenths / 10.0
+
+            val milliVolts = status.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1)
+            if (milliVolts > 0) out["voltage"] = milliVolts / 1000.0
+
+            out["technology"] = status.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY)
+            out["powerSource"] = when (
+                status.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
+            ) {
+                BatteryManager.BATTERY_PLUGGED_AC -> "mains"
+                BatteryManager.BATTERY_PLUGGED_USB -> "usb"
+                BatteryManager.BATTERY_PLUGGED_WIRELESS -> "wireless"
+                BatteryManager.BATTERY_PLUGGED_DOCK -> "dock"
+                else -> "battery"
+            }
+            out["charging"] = status.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ==
+                BatteryManager.BATTERY_STATUS_CHARGING
+
+            // Android 14 and up. A real wear figure, and the closest thing
+            // to battery health the platform will give: there is no
+            // state-of-health API at any API level — BatteryManager has no
+            // such constant, which is why every app that shows a health
+            // percentage is estimating one.
+            if (Build.VERSION.SDK_INT >= 34) {
+                val cycles = status.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, -1)
+                if (cycles > 0) out["cycleCount"] = cycles
+
+                out["capacityLevel"] = when (
+                    status.getIntExtra(BatteryManager.EXTRA_CAPACITY_LEVEL, -1)
+                ) {
+                    BatteryManager.BATTERY_CAPACITY_LEVEL_FULL -> "full"
+                    BatteryManager.BATTERY_CAPACITY_LEVEL_HIGH -> "high"
+                    BatteryManager.BATTERY_CAPACITY_LEVEL_NORMAL -> "normal"
+                    BatteryManager.BATTERY_CAPACITY_LEVEL_LOW -> "low"
+                    BatteryManager.BATTERY_CAPACITY_LEVEL_CRITICAL -> "critical"
+                    else -> null
+                }
+            }
+
+            out["healthFlag"] = when (
+                status.getIntExtra(BatteryManager.EXTRA_HEALTH, -1)
+            ) {
+                BatteryManager.BATTERY_HEALTH_GOOD -> "good"
+                BatteryManager.BATTERY_HEALTH_OVERHEAT -> "overheat"
+                BatteryManager.BATTERY_HEALTH_DEAD -> "dead"
+                BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "over_voltage"
+                BatteryManager.BATTERY_HEALTH_COLD -> "cold"
+                BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE -> "failure"
+                else -> null
+            }
+        }
+
+        out["sdkInt"] = Build.VERSION.SDK_INT
+        return out
+    }
+
+    private fun readThermal(): Map<String, Any?> {
+        val power = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val out = HashMap<String, Any?>()
+
+        if (Build.VERSION.SDK_INT >= 29) {
+            out["status"] = when (power.currentThermalStatus) {
+                PowerManager.THERMAL_STATUS_NONE -> "none"
+                PowerManager.THERMAL_STATUS_LIGHT -> "light"
+                PowerManager.THERMAL_STATUS_MODERATE -> "moderate"
+                PowerManager.THERMAL_STATUS_SEVERE -> "severe"
+                PowerManager.THERMAL_STATUS_CRITICAL -> "critical"
+                PowerManager.THERMAL_STATUS_EMERGENCY -> "emergency"
+                PowerManager.THERMAL_STATUS_SHUTDOWN -> "shutdown"
+                else -> null
+            }
+        }
+
+        // 0..1 where 1.0 is the throttling threshold; above 1 it is already
+        // being held back. Forecast of 0 means "right now".
+        if (Build.VERSION.SDK_INT >= 30) {
+            try {
+                val headroom = power.getThermalHeadroom(0)
+                if (!headroom.isNaN()) out["headroom"] = headroom.toDouble()
+            } catch (_: Exception) {
+                // Not implemented by this device's HAL.
+            }
+        }
+
+        // Best effort. Most phones refuse; the ones that allow it give a
+        // per-core picture nothing else can.
+        val sensors = ArrayList<Map<String, Any?>>()
+        try {
+            java.io.File("/sys/class/thermal").listFiles()?.forEach { zone ->
+                if (!zone.name.startsWith("thermal_zone")) return@forEach
+                val type = java.io.File(zone, "type").takeIf { it.canRead() }
+                    ?.readText()?.trim() ?: return@forEach
+                if (!type.contains("cpu", true) &&
+                    !type.contains("soc", true) &&
+                    !type.contains("tsens", true)
+                ) {
+                    return@forEach
+                }
+                val raw = java.io.File(zone, "temp").takeIf { it.canRead() }
+                    ?.readText()?.trim()?.toLongOrNull() ?: return@forEach
+                // Kernels report millidegrees; a few report degrees.
+                val celsius = if (raw > 1000) raw / 1000.0 else raw.toDouble()
+                if (celsius > 0 && celsius < 150) {
+                    sensors.add(mapOf("name" to type, "celsius" to celsius))
+                }
+            }
+        } catch (_: Exception) {
+            // Unreadable, which is the normal case.
+        }
+        if (sensors.isNotEmpty()) {
+            out["sensors"] = sensors.sortedByDescending { it["celsius"] as Double }
+        }
+
+        return out
+    }
+
     private fun hideNavigationBar() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val controller = WindowInsetsControllerCompat(window, window.decorView)
@@ -64,6 +209,8 @@ class MainActivity : FlutterFragmentActivity() {
     private lateinit var proximityChannel: MethodChannel
     private lateinit var powerChannel: MethodChannel
     private lateinit var internetChannel: MethodChannel
+    private lateinit var batteryChannel: MethodChannel
+    private lateinit var thermalChannel: MethodChannel
     private var volumeListening = false
     private var screenReceiver: BroadcastReceiver? = null
     private var proximityWakeLock: PowerManager.WakeLock? = null
@@ -108,6 +255,51 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                     result.success(found)
                 }
+                else -> result.notImplemented()
+            }
+        }
+
+        // What the battery will admit about itself.
+        //
+        // There is no state-of-health API on Android, at any level.
+        // BatteryManager has no such constant — checked against the API 37
+        // android.jar. Every app that displays a battery health percentage is
+        // therefore estimating one, usually by reflecting into the hidden
+        // PowerProfile class for the design capacity, which has been
+        // restricted since Android 9 and is only meaningful at a full charge.
+        // That guess is not made here.
+        //
+        // What the platform does give, from Android 14, is the charge cycle
+        // count — a real wear figure and the best signal available.
+        //
+        // Everything else — level, temperature, voltage, and the coarse
+        // health flag that catches a dead or swollen cell — comes from the
+        // sticky ACTION_BATTERY_CHANGED broadcast and works everywhere.
+        batteryChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "french_mobiles/battery"
+        )
+        batteryChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "read" -> result.success(readBattery())
+                else -> result.notImplemented()
+            }
+        }
+
+        // How hot the phone thinks it is, and how close to throttling.
+        //
+        // getCurrentThermalStatus and getThermalHeadroom are the platform's
+        // own account of whether it is about to slow down — far better than
+        // guessing from /sys/class/thermal, which is SELinux-blocked on most
+        // modern devices. The per-sensor temperatures are read from there
+        // anyway when they happen to be legible, purely as extra detail.
+        thermalChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "french_mobiles/thermal"
+        )
+        thermalChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "read" -> result.success(readThermal())
                 else -> result.notImplemented()
             }
         }

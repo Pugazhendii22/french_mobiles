@@ -96,10 +96,14 @@ void main() {
     expect(cards, isEmpty); // the card is a Container, not a Card
 
     // Two cells share a row: the first two have the same vertical offset.
-    final first = t.getTopLeft(find.text('Galaxy S24 Ultra Titanium Violet '
-        'Special Edition').at(0));
-    final second = t.getTopLeft(find.text('Galaxy S24 Ultra Titanium Violet '
-        'Special Edition').at(1));
+    final first = t.getTopLeft(find
+        .text('Galaxy S24 Ultra Titanium Violet '
+            'Special Edition')
+        .at(0));
+    final second = t.getTopLeft(find
+        .text('Galaxy S24 Ultra Titanium Violet '
+            'Special Edition')
+        .at(1));
     expect(first.dy, second.dy, reason: 'first two cards should share a row');
     expect(first.dx, lessThan(second.dx));
   });
@@ -155,9 +159,8 @@ void main() {
         (t) async {
       await _pumpGrid(t, count: 4);
 
-      final borders = _cellDecorations(t)
-          .map((d) => d.border! as Border)
-          .toList();
+      final borders =
+          _cellDecorations(t).map((d) => d.border! as Border).toList();
       expect(borders.length, 4);
 
       // Cells alternate left, right, left, right.
@@ -167,13 +170,11 @@ void main() {
           reason: 'right column must not draw a rule at the screen edge');
     });
 
-    testWidgets('every row but the last carries a horizontal rule',
-        (t) async {
+    testWidgets('every row but the last carries a horizontal rule', (t) async {
       await _pumpGrid(t, count: 4);
 
-      final borders = _cellDecorations(t)
-          .map((d) => d.border! as Border)
-          .toList();
+      final borders =
+          _cellDecorations(t).map((d) => d.border! as Border).toList();
 
       // Row 0 (indices 0,1) has a rule beneath it; row 1 (2,3) is last.
       expect(borders[0].bottom.color, AppColors.border);
@@ -207,9 +208,8 @@ void main() {
     testWidgets('an odd count leaves the lone last cell without a rule',
         (t) async {
       await _pumpGrid(t, count: 5);
-      final borders = _cellDecorations(t)
-          .map((d) => d.border! as Border)
-          .toList();
+      final borders =
+          _cellDecorations(t).map((d) => d.border! as Border).toList();
       expect(borders.last.bottom.color, AppColors.transparent);
     });
   });

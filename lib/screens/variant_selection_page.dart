@@ -8,7 +8,7 @@ import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
 import '../shared/widgets/widgets.dart';
-import 'device_evaluation_wizard.dart';
+import 'device_questions_page.dart';
 
 class VariantSelectionPage extends StatefulWidget {
   final String brandName;
@@ -100,13 +100,13 @@ class _VariantSelectionPageState extends State<VariantSelectionPage> {
 
   void _continue() {
     final selected = _variants[_selectedIndex!];
-    context.pushScreen(DeviceEvaluationWizard(
-          brandName: widget.brandName,
-          modelDocId: widget.modelDocId,
-          modelName: widget.modelName,
-          imageUrl: widget.imageUrl,
-          basePrice: selected['base_price'] ?? 0,
-          storage: (selected['storage'] ?? '').toString(),
+    context.pushScreen(DeviceQuestionsPage(
+        brandName: widget.brandName,
+        modelDocId: widget.modelDocId,
+        modelName: widget.modelName,
+        imageUrl: widget.imageUrl,
+        basePrice: selected['base_price'] ?? 0,
+        storage: (selected['storage'] ?? '').toString(),
       ),
     );
   }

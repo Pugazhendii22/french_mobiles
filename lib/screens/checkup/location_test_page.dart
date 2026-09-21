@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../models/checkup_result.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
+import 'checkup_demo.dart';
 import 'checkup_test_shell.dart';
 
 /// Test 8 — Location (GPS).
@@ -21,7 +22,6 @@ class LocationTestPage extends StatefulWidget {
 }
 
 class _LocationTestPageState extends State<LocationTestPage> {
-  bool _busy = true;
   bool _isPermanentlyDenied = false;
   String _statusText = 'Checking location permission…';
   CheckupResult? _result;
@@ -37,12 +37,15 @@ class _LocationTestPageState extends State<LocationTestPage> {
     if (!mounted) return;
     if (status.isPermanentlyDenied) {
       setState(() => _isPermanentlyDenied = true);
-      _setResult(const CheckupResult(
-        key: 'location',
-        title: 'Location (GPS)',
-        status: CheckupStatus.skipped,
-        detail: 'Location permission is permanently denied. Open Settings to grant.',
-      ), hold: true);
+      _setResult(
+          const CheckupResult(
+            key: 'location',
+            title: 'Location (GPS)',
+            status: CheckupStatus.skipped,
+            detail:
+                'Location permission is permanently denied. Open Settings to grant.',
+          ),
+          hold: true);
       return;
     }
     if (!status.isGranted) {
@@ -103,7 +106,8 @@ class _LocationTestPageState extends State<LocationTestPage> {
         key: 'location',
         title: 'Location (GPS)',
         status: CheckupStatus.skipped,
-        detail: 'Location services are switched off — turn them on for a GPS fix.',
+        detail:
+            'Location services are switched off — turn them on for a GPS fix.',
       ));
     } catch (e) {
       if (!mounted) return;
@@ -124,7 +128,6 @@ class _LocationTestPageState extends State<LocationTestPage> {
   void _setResult(CheckupResult result, {bool hold = false}) {
     if (!mounted) return;
     setState(() {
-      _busy = false;
       _result = result;
     });
     if (hold) return;
@@ -161,10 +164,10 @@ class _LocationTestPageState extends State<LocationTestPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (_busy)
-              const CircularProgressIndicator(color: AppColors.primary)
-            else
-              const Icon(Icons.location_searching, color: AppColors.primary, size: 48),
+            // The pulsing search animation replaces both the spinner and the
+            // static icon: it reads as "looking for a fix" without a word of
+            // English, which a bare spinner does not.
+            const CheckupDemo(kind: CheckupDemoKind.gpsFix, height: 116),
             const SizedBox(height: 20),
             Text(
               _statusText,

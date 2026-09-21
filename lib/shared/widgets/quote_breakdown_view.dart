@@ -156,9 +156,7 @@ class QuoteBreakdownView extends StatelessWidget {
     final expired = breakdown.isExpired;
 
     return _note(
-      icon: expired
-          ? Icons.schedule_rounded
-          : Icons.verified_outlined,
+      icon: expired ? Icons.schedule_rounded : Icons.verified_outlined,
       tone: expired ? AppColors.error : AppColors.textSecondary,
       text: expired
           ? 'This quote has expired. Run the check again for a current price.'

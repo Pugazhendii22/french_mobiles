@@ -81,8 +81,12 @@ void main() {
     test('is zero without an original price', () {
       expect(
         const HomeProduct(
-          id: 'a', categoryId: 'mobile', brand: 'Apple',
-          title: 'Apple iPhone 13', imageUrl: '', price: '₹ 32000',
+          id: 'a',
+          categoryId: 'mobile',
+          brand: 'Apple',
+          title: 'Apple iPhone 13',
+          imageUrl: '',
+          price: '₹ 32000',
           salePriceValue: 32000,
         ).discountPercent,
         0,
@@ -92,9 +96,14 @@ void main() {
     test('is zero when the original is not higher', () {
       expect(
         const HomeProduct(
-          id: 'a', categoryId: 'mobile', brand: 'Apple',
-          title: 'Apple iPhone 13', imageUrl: '', price: '₹ 32000',
-          salePriceValue: 32000, originalPriceValue: 30000,
+          id: 'a',
+          categoryId: 'mobile',
+          brand: 'Apple',
+          title: 'Apple iPhone 13',
+          imageUrl: '',
+          price: '₹ 32000',
+          salePriceValue: 32000,
+          originalPriceValue: 30000,
         ).discountPercent,
         0,
       );
@@ -156,8 +165,13 @@ void main() {
 
     test('grade vocabularies map to tones', () {
       HomeProduct p(String c) => HomeProduct(
-            id: 'a', categoryId: 'mobile', brand: '', title: '',
-            imageUrl: '', price: '', condition: c,
+            id: 'a',
+            categoryId: 'mobile',
+            brand: '',
+            title: '',
+            imageUrl: '',
+            price: '',
+            condition: c,
           );
       // Cashify
       expect(p('Superb').conditionTone, ConditionTone.top);
@@ -179,9 +193,13 @@ void main() {
       await _pumpCard(
         t,
         const HomeProduct(
-          id: 'a', categoryId: 'mobile', brand: 'Apple',
-          title: 'Apple iPhone 13', model: 'iPhone 13',
-          imageUrl: '', price: '₹ 32000',
+          id: 'a',
+          categoryId: 'mobile',
+          brand: 'Apple',
+          title: 'Apple iPhone 13',
+          model: 'iPhone 13',
+          imageUrl: '',
+          price: '₹ 32000',
         ),
       );
       expect(find.textContaining('% off'), findsNothing);
@@ -192,12 +210,17 @@ void main() {
       await _pumpCard(
         t,
         const HomeProduct(
-          id: 'a', categoryId: 'mobile', brand: 'Samsung',
+          id: 'a',
+          categoryId: 'mobile',
+          brand: 'Samsung',
           title: 'Samsung Galaxy S24 Ultra Titanium Violet',
           model: 'Galaxy S24 Ultra Titanium Violet Special Edition',
-          imageUrl: '', price: '₹ 128000', storage: '1TB',
+          imageUrl: '',
+          price: '₹ 128000',
+          storage: '1TB',
           condition: 'Excellent',
-          salePriceValue: 128000, originalPriceValue: 165000,
+          salePriceValue: 128000,
+          originalPriceValue: 165000,
         ),
       );
     });
@@ -206,8 +229,12 @@ void main() {
       await _pumpCard(
         t,
         const HomeProduct(
-          id: 'a', categoryId: 'mobile', brand: '', title: 'Unknown',
-          imageUrl: '', price: '',
+          id: 'a',
+          categoryId: 'mobile',
+          brand: '',
+          title: 'Unknown',
+          imageUrl: '',
+          price: '',
         ),
       );
       expect(find.text('Price on request'), findsOneWidget);

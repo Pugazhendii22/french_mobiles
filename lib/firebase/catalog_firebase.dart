@@ -1,3 +1,11 @@
+// The marketplace project, reached through a *named* app.
+//
+// It is also the default app now (android/app/google-services.json), so
+// `catalogFirestore` and `FirebaseFirestore.instance` point at the same
+// project. The named app is kept anyway: firebase_auth persists a session per
+// FirebaseApp name, so collapsing this into the default would sign out
+// everyone who is signed in today. Leave it alone.
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';

@@ -16,11 +16,21 @@ class CheckupResult {
   final CheckupStatus status;
   final String? detail;
 
+  /// Anything the test measured, for a caller that needs the number rather
+  /// than the sentence.
+  ///
+  /// [detail] is written for a person to read; the battery test also produces
+  /// a health percentage that the sell wizard uses to preselect a deduction,
+  /// and parsing that back out of English would be a poor way to decide what
+  /// someone gets paid.
+  final Map<String, dynamic>? data;
+
   const CheckupResult({
     required this.key,
     required this.title,
     required this.status,
     this.detail,
+    this.data,
   });
 }
 

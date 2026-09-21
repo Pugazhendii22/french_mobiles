@@ -30,7 +30,7 @@ void main() {
     testWidgets('builds at step 1', (t) async {
       await _boot(t, _wizard());
       expect(find.text('Screen condition'), findsOneWidget);
-      expect(find.text('STEP 1/6'), findsOneWidget);
+      expect(find.text('STEP 1/5'), findsOneWidget);
     });
 
     testWidgets('builds narrow', (t) async {
@@ -39,12 +39,12 @@ void main() {
 
     testWidgets('advances through every step to the payout bar', (t) async {
       await _boot(t, _wizard());
-      for (var i = 0; i < 5; i++) {
+      for (var i = 0; i < 4; i++) {
         await t.tap(find.text('Continue'));
         await t.pump(const Duration(milliseconds: 300));
       }
       expect(find.text('Lock status & payout'), findsOneWidget);
-      expect(find.text('STEP 6/6'), findsOneWidget);
+      expect(find.text('STEP 5/5'), findsOneWidget);
       expect(find.text('Get paid'), findsOneWidget);
       // The payout counts up to its value, so wait for the animation to land
       // before asserting. With no options loaded no deduction applies and the
@@ -62,7 +62,7 @@ void main() {
 
     testWidgets('the last step itemises how the price was reached', (t) async {
       await _boot(t, _wizard());
-      for (var i = 0; i < 5; i++) {
+      for (var i = 0; i < 4; i++) {
         await t.tap(find.text('Continue'));
         await t.pump(const Duration(milliseconds: 300));
       }
@@ -80,7 +80,7 @@ void main() {
     testWidgets('no deductions says so rather than showing an empty table',
         (t) async {
       await _boot(t, _wizard());
-      for (var i = 0; i < 5; i++) {
+      for (var i = 0; i < 4; i++) {
         await t.tap(find.text('Continue'));
         await t.pump(const Duration(milliseconds: 300));
       }

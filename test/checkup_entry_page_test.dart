@@ -27,9 +27,11 @@ Future<void> _boot(WidgetTester t, {Size size = const Size(400, 800)}) async {
 /// one that can actually be opened under flutter_test.
 Future<void> _openMultitouch(WidgetTester t) async {
   final tile = find.text('Panel tracks five fingers at once');
-  await t.scrollUntilVisible(tile, 200, scrollable: find.byType(Scrollable).first);
+  await t.scrollUntilVisible(tile, 200,
+      scrollable: find.byType(Scrollable).first);
   await t.tap(tile);
-  await t.pumpAndSettle();
+  await t.pump();
+  await t.pump(const Duration(milliseconds: 600));
 }
 
 void main() {
@@ -67,7 +69,8 @@ void main() {
     await _openMultitouch(t);
 
     await t.tap(find.text('Skip this test'));
-    await t.pumpAndSettle();
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 600));
 
     expect(find.byType(MultitouchTestPage), findsNothing);
     expect(find.text('SKIPPED'), findsOneWidget,
@@ -79,10 +82,12 @@ void main() {
     await _boot(t);
     await _openMultitouch(t);
     await t.tap(find.text('Skip this test'));
-    await t.pumpAndSettle();
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 600));
 
     await t.tap(find.text('View results'));
-    await t.pumpAndSettle();
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 600));
 
     expect(find.byType(CheckupSummaryPage), findsOneWidget);
   });
@@ -140,9 +145,11 @@ void main() {
     await _boot(t);
     await _openMultitouch(t);
     await t.tap(find.text('Skip this test'));
-    await t.pumpAndSettle();
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 600));
     await t.tap(find.text('View results'));
-    await t.pumpAndSettle();
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 600));
 
     final summary =
         t.widget<CheckupSummaryPage>(find.byType(CheckupSummaryPage));

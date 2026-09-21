@@ -6,6 +6,7 @@ import 'package:record/record.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
+import 'checkup_demo.dart';
 import 'checkup_test_shell.dart';
 
 /// Microphone.
@@ -144,6 +145,7 @@ class _MicrophoneTestPageState extends State<MicrophoneTestPage>
       padding: const EdgeInsets.all(16),
       children: [
         const CheckupInstruction(
+          demo: CheckupDemoKind.microphone,
           icon: Icons.mic_none_rounded,
           text: 'Tap record, then speak normally for three seconds — say '
               'anything. The test measures what the microphone actually '
@@ -174,7 +176,8 @@ class _MicrophoneTestPageState extends State<MicrophoneTestPage>
           primary: _recording ? null : (_finished ? null : _start),
           primaryLabel: 'Start recording',
           retryLabel: 'Record again',
-          onRetry: _recording ? null : (_finished || _error != null ? _retry : null),
+          onRetry:
+              _recording ? null : (_finished || _error != null ? _retry : null),
           onIssue: () => markFail(
             _finished
                 ? 'Captured audio peaked at only '

@@ -17,6 +17,7 @@ class AppOptionCard extends StatelessWidget {
     required this.selected,
     this.subtitle,
     this.iconUrl,
+    this.art,
     this.fallbackIcon = Icons.smartphone_rounded,
     this.multiSelect = false,
     this.onTap,
@@ -25,6 +26,14 @@ class AppOptionCard extends StatelessWidget {
   final String title;
   final String? subtitle;
   final String? iconUrl;
+
+  /// A drawn illustration, used ahead of [iconUrl] and [fallbackIcon].
+  ///
+  /// The condition steps supply one of these because every option's
+  /// `icon_url` in Firestore is empty, so they all landed on the same generic
+  /// handset and told the seller nothing.
+  final Widget? art;
+
   final IconData fallbackIcon;
   final bool selected;
   final bool multiSelect;
@@ -57,22 +66,23 @@ class AppOptionCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Center(
-                      child: (iconUrl != null && iconUrl!.trim().isNotEmpty)
-                          ? AppNetworkImage(
-                              url: iconUrl!,
-                              height: 44,
-                              width: 44,
-                              fit: BoxFit.contain,
-                              borderRadius: BorderRadius.zero,
-                              placeholderIcon: fallbackIcon,
-                            )
-                          : Icon(
-                              fallbackIcon,
-                              size: 32,
-                              color: selected
-                                  ? AppColors.onPrimarySoft
-                                  : AppColors.textSecondary,
-                            ),
+                      child: art ??
+                          ((iconUrl != null && iconUrl!.trim().isNotEmpty)
+                              ? AppNetworkImage(
+                                  url: iconUrl!,
+                                  height: 44,
+                                  width: 44,
+                                  fit: BoxFit.contain,
+                                  borderRadius: BorderRadius.zero,
+                                  placeholderIcon: fallbackIcon,
+                                )
+                              : Icon(
+                                  fallbackIcon,
+                                  size: 32,
+                                  color: selected
+                                      ? AppColors.onPrimarySoft
+                                      : AppColors.textSecondary,
+                                )),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),

@@ -4,10 +4,12 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:sim_data/sim_data.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
+import 'checkup_demo.dart';
 import 'checkup_test_shell.dart';
 
 /// How a route answered the probe.
@@ -108,10 +110,23 @@ class _InternetTestPageState extends State<InternetTestPage>
 
   /// Asks the platform for the cellular network and probes over it.
   Future<RouteReport> _probeCellular() async {
+    // With no SIM there is no cellular network to ask for, and the probe
+    // below would sit waiting for one that is never going to arrive — half a
+    // minute of "Looking for a mobile data connection…" that reads as a hung
+    // app. Settle it here in a fraction of a second and move on to Wi-Fi.
+    if (await _noSimPresent()) {
+      return const RouteReport(
+        outcome: RouteOutcome.absent,
+        detail: 'No SIM card in this phone',
+      );
+    }
+
     try {
       final raw = await _channel
           .invokeMapMethod<String, dynamic>('probeCellular')
-          .timeout(const Duration(seconds: 30));
+          // Shorter than it was: past about ten seconds the answer is not
+          // going to change, and the wait is indistinguishable from a freeze.
+          .timeout(const Duration(seconds: 12));
 
       // No reply at all means nothing implements the channel — iOS, or a
       // build without the native side. That is "cannot be tested here", not
@@ -152,8 +167,31 @@ class _InternetTestPageState extends State<InternetTestPage>
         outcome: RouteOutcome.absent,
         detail: 'Mobile data cannot be tested separately on this platform',
       );
+    } on TimeoutException {
+      // A SIM is in the phone — established above — and the route still never
+      // answered. That is a real fault, not an absent route, so it must not be
+      // softened into "not available".
+      return const RouteReport(
+        outcome: RouteOutcome.unreachable,
+        detail: 'The mobile network never answered',
+      );
     } catch (e) {
       return RouteReport(outcome: RouteOutcome.unreachable, detail: '$e');
+    }
+  }
+
+  /// True only when the phone definitely has no SIM.
+  ///
+  /// Anything unreadable — no phone-state permission, a plugin error, iOS —
+  /// returns false so the probe still runs. Guessing "no SIM" from a failed
+  /// read would quietly turn a broken data connection into "not available".
+  Future<bool> _noSimPresent() async {
+    try {
+      final simData =
+          await SimDataPlugin.getSimData().timeout(const Duration(seconds: 4));
+      return simData.cards.isEmpty;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -243,6 +281,7 @@ class _InternetTestPageState extends State<InternetTestPage>
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
         CheckupInstruction(
+          demo: CheckupDemoKind.dataExchange,
           icon: Icons.language_rounded,
           busy: _running,
           text: _running

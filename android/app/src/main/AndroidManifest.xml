@@ -29,6 +29,10 @@
     <!-- PROXIMITY_SCREEN_OFF_WAKE_LOCK, so the checkup's proximity test can
          blank the screen the way a call does. -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- Android 13 and up: notifications are opt-in and must be asked for at
+         runtime. Without this the request silently returns denied and order
+         updates never appear. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
     <uses-feature android:name="android.hardware.camera.flash" android:required="false"/>
     <uses-feature android:name="android.hardware.sensor.proximity" android:required="false"/>
@@ -36,6 +40,26 @@
         android:label="french_mobiles"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Where order-update notifications land, so the first one does
+             not create an unconfigurable default channel. Must match
+             OrderNotifications._channelId. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="order_updates"/>
+        <!-- Maps SDK for Android reads the key from here; it cannot be passed
+             from Dart, because the native map view is created before any Dart
+             code could hand it over. Same key as
+             lib/shared/config/google_maps_config.dart.
+
+             If the map renders as a blank grey grid, the key is reaching
+             Google but being refused: check that "Maps SDK for Android" is in
+             this key's API restrictions, and that its Android app restriction
+             lists this package name with the signing certificate's SHA-1. A
+             key restricted to the debug certificate will show grey in a
+             release build, and vice versa. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyBuNeSp9nFFImMvMPiV7UQMh_ykbiwsZN0"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -32,6 +32,9 @@ void main() {
         'microphone',
         'proximity',
         'vibration',
+        'internet_stability',
+        'battery',
+        'cpu_throttle',
       ]) {
         expect(keys.where((k) => k == key).length, 1,
             reason: '$key should appear exactly once');
@@ -39,14 +42,24 @@ void main() {
 
       // The nine originals must still be present and untouched.
       for (final key in [
-        'camera', 'display', 'buttons', 'wifi', 'bluetooth',
-        'biometric', 'network', 'internet', 'location', 'gyroscope',
+        'camera',
+        'display',
+        'buttons',
+        'wifi',
+        'bluetooth',
+        'biometric',
+        'network',
+        'internet',
+        'location',
+        'gyroscope',
       ]) {
         expect(keys, contains(key));
       }
 
-      // Grew by one when the Internet test was added.
-      expect(keys.length, 17);
+      // Grew by one when the Internet test was added, again for the
+      // stability watch that follows it, and again for battery and the
+      // processor load test.
+      expect(keys.length, 20);
     });
 
     test('grouping keeps related hardware adjacent', () {
@@ -58,6 +71,13 @@ void main() {
       // The audio trio runs together.
       expect(keys.indexOf('earpiece'), keys.indexOf('speaker') + 1);
       expect(keys.indexOf('microphone'), keys.indexOf('earpiece') + 1);
+      // The long stability watch follows the quick reachability check, so a
+      // phone with no working data at all fails in seconds rather than after
+      // three minutes of recording nothing.
+      expect(keys.indexOf('internet_stability'), keys.indexOf('internet') + 1);
+      // The processor run is a full minute of deliberate heat, so it goes
+      // last — nothing after it has to wait on a phone that is warming up.
+      expect(keys.last, 'cpu_throttle');
     });
 
     test('every spec has a distinct key and a non-empty description', () {
@@ -101,12 +121,14 @@ void main() {
         ),
       ));
       await t.tap(find.text('go'));
-      await t.pumpAndSettle();
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 600));
 
       await act(t);
 
       await t.pump(const Duration(milliseconds: 1600));
-      await t.pumpAndSettle();
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 600));
       return popped;
     }
 
@@ -158,7 +180,8 @@ void main() {
       for (final g in gestures) {
         await g.up();
       }
-      await t.pumpAndSettle();
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 600));
     });
 
     testWidgets('skip returns a skipped result', (t) async {

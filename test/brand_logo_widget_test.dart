@@ -78,7 +78,8 @@ void main() {
     );
   });
 
-  testWidgets('AppBrandLogo without asset renders wordmark text', (tester) async {
+  testWidgets('AppBrandLogo without asset renders wordmark text',
+      (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(

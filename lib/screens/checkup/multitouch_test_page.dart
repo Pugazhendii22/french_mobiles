@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
+import 'checkup_demo.dart';
 import 'checkup_test_shell.dart';
 
 /// Multi-touch.
@@ -68,6 +69,7 @@ class _MultitouchTestPageState extends State<MultitouchTestPage>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: CheckupInstruction(
+            demo: CheckupDemoKind.fiveFingers,
             icon: Icons.touch_app_outlined,
             text: 'Place $_required fingers on the panel below at the same '
                 'time. Best seen so far: $_maxSeen of $_required.',
@@ -119,9 +121,7 @@ class _MultitouchTestPageState extends State<MultitouchTestPage>
             color: AppColors.surface,
             borderRadius: AppRadius.card,
             border: Border.all(
-              color: _pointers.isEmpty
-                  ? AppColors.border
-                  : AppColors.primary,
+              color: _pointers.isEmpty ? AppColors.border : AppColors.primary,
               width: _pointers.isEmpty ? 1 : 1.5,
             ),
           ),

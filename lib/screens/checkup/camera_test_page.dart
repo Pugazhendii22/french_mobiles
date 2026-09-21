@@ -55,12 +55,15 @@ class _CameraTestPageState extends State<CameraTestPage> {
     if (!mounted) return;
     if (status.isPermanentlyDenied) {
       setState(() => _isPermanentlyDenied = true);
-      _setResult(const CheckupResult(
-        key: 'camera',
-        title: 'Camera',
-        status: CheckupStatus.skipped,
-        detail: 'Camera permission is permanently denied. Open Settings to enable.',
-      ), hold: true);
+      _setResult(
+          const CheckupResult(
+            key: 'camera',
+            title: 'Camera',
+            status: CheckupStatus.skipped,
+            detail:
+                'Camera permission is permanently denied. Open Settings to enable.',
+          ),
+          hold: true);
       return;
     }
     if (!status.isGranted) {
@@ -133,7 +136,9 @@ class _CameraTestPageState extends State<CameraTestPage> {
     setState(() {
       _busy = true;
       _cameraError = null;
-      _phase = direction == CameraLensDirection.back ? _CameraPhase.back : _CameraPhase.front;
+      _phase = direction == CameraLensDirection.back
+          ? _CameraPhase.back
+          : _CameraPhase.front;
     });
 
     final previous = _controller;
@@ -202,7 +207,8 @@ class _CameraTestPageState extends State<CameraTestPage> {
     );
   }
 
-  String get _phaseLabel => _phase == _CameraPhase.back ? 'Back Camera' : 'Front Camera';
+  String get _phaseLabel =>
+      _phase == _CameraPhase.back ? 'Back Camera' : 'Front Camera';
 
   @override
   Widget build(BuildContext context) {
@@ -214,7 +220,8 @@ class _CameraTestPageState extends State<CameraTestPage> {
 
   Widget _cameraView() {
     if (_cameraError != null) return _cameraUnavailableView();
-    final previewOk = _controller != null && _controller!.value.isInitialized && !_busy;
+    final previewOk =
+        _controller != null && _controller!.value.isInitialized && !_busy;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -246,7 +253,8 @@ class _CameraTestPageState extends State<CameraTestPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.no_photography_outlined, size: 64, color: AppColors.onOverlayMuted),
+            const Icon(Icons.no_photography_outlined,
+                size: 64, color: AppColors.onOverlayMuted),
             const SizedBox(height: 14),
             Text(
               'Camera unavailable',
@@ -256,8 +264,8 @@ class _CameraTestPageState extends State<CameraTestPage> {
             Text(
               _cameraError ?? 'The camera could not be opened.',
               textAlign: TextAlign.center,
-              style: AppTextStyles.body
-                  .copyWith(color: AppColors.onOverlayMuted),
+              style:
+                  AppTextStyles.body.copyWith(color: AppColors.onOverlayMuted),
             ),
             const SizedBox(height: 28),
             CheckupSkipButton(onSkip: _skipTest),
@@ -279,7 +287,8 @@ class _CameraTestPageState extends State<CameraTestPage> {
           const SizedBox(
             width: 14,
             height: 14,
-            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+            child: CircularProgressIndicator(
+                strokeWidth: 2, color: AppColors.primary),
           ),
           const SizedBox(width: 10),
           Expanded(

@@ -60,9 +60,8 @@ class AppEmptyState extends StatelessWidget {
             child: Icon(
               icon,
               size: 22,
-              color: branded
-                  ? AppColors.onPrimarySoft
-                  : AppColors.textSecondary,
+              color:
+                  branded ? AppColors.onPrimarySoft : AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: AppSpacing.md),

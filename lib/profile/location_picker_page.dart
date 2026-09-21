@@ -1,9 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../shared/services/reverse_geocoder.dart';
 import '../shared/theme/app_colors.dart';
@@ -34,8 +33,12 @@ class PickedLocation {
 /// is worse on a phone: the finger covers the thing being placed, and the pin
 /// can be dragged off-screen.
 ///
-/// Tiles come from OpenStreetMap — no API key, no billing account — matching
-/// the Nominatim geocoding the address sheet already used.
+/// Google Maps supplies the map; [ReverseGeocoder] supplies the address text
+/// under the pin. Both go through the project's Maps Platform key, but by
+/// different routes — the map reads it from AndroidManifest.xml (the native
+/// view is built before Dart could pass anything), the geocoder from
+/// `google_maps_config.dart`. Enabling one API on that key does not enable
+/// the other, which is why the map can be grey while addresses still resolve.
 class LocationPickerPage extends StatefulWidget {
   const LocationPickerPage({
     super.key,
@@ -59,14 +62,12 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   static const double _countryZoom = 4;
   static const double _streetZoom = 16;
 
-  /// How long the map must sit still before the address is looked up. Long
-  /// enough that panning across a city is one request, not fifty.
-  static const Duration _settleDelay = Duration(milliseconds: 700);
-
-  final MapController _map = MapController();
+  /// Completes when the native map view exists. Camera moves have to wait for
+  /// it — "go to my location" can resolve before the map has been created.
+  final Completer<GoogleMapController> _controller =
+      Completer<GoogleMapController>();
   final ReverseGeocoder _geocoder = ReverseGeocoder();
 
-  Timer? _settleTimer;
   LatLng _centre = _fallbackCentre;
   String? _address;
   bool _lookingUp = false;
@@ -93,22 +94,24 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
 
   @override
   void dispose() {
-    _settleTimer?.cancel();
     _geocoder.dispose();
-    _map.dispose();
     super.dispose();
   }
 
   bool get _hasInitialPoint =>
       widget.initialLatitude != null && widget.initialLongitude != null;
 
-  /// Called continuously while the map moves; the lookup waits for it to stop.
-  void _onMoved(MapCamera camera, bool hasGesture) {
-    _centre = camera.center;
-    _settleTimer?.cancel();
-    _settleTimer = Timer(_settleDelay, () => _lookUp(_centre));
+  /// Fires continuously while the map moves. The stale address is cleared
+  /// immediately so the bar never shows a street the pin has left.
+  void _onCameraMove(CameraPosition position) {
+    _centre = position.target;
     if (_address != null) setState(() => _address = null);
   }
+
+  /// Fires once the map stops. This replaces the debounce timer the OSM map
+  /// needed: the platform reports settling directly, so a fling across a city
+  /// costs one lookup rather than one per frame.
+  void _onCameraIdle() => _lookUp(_centre);
 
   Future<void> _lookUp(LatLng point) async {
     final generation = ++_lookupGeneration;
@@ -151,9 +154,12 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
 
       final point = LatLng(position.latitude, position.longitude);
       _centre = point;
-      _map.move(point, _streetZoom);
-      _settleTimer?.cancel();
-      await _lookUp(point);
+
+      final controller = await _controller.future;
+      if (!mounted) return;
+      await controller
+          .animateCamera(CameraUpdate.newLatLngZoom(point, _streetZoom));
+      // The camera-idle callback that follows the animation does the lookup.
     } catch (e) {
       if (!mounted) return;
       _complain('Could not find your location: $e');
@@ -200,30 +206,28 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   Widget _mapArea() {
     return Stack(
       children: [
-        FlutterMap(
-          mapController: _map,
-          options: MapOptions(
-            initialCenter: _centre,
-            initialZoom: _hasInitialPoint ? _streetZoom : _countryZoom,
-            onPositionChanged: _onMoved,
-            interactionOptions: const InteractionOptions(
-              // Rotation is only ever an accident here, and a rotated map
-              // makes a fixed centre pin confusing.
-              flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-            ),
+        GoogleMap(
+          initialCameraPosition: CameraPosition(
+            target: _centre,
+            zoom: _hasInitialPoint ? _streetZoom : _countryZoom,
           ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.example.french_mobiles',
-            ),
-            // OpenStreetMap's licence requires visible credit.
-            const RichAttributionWidget(
-              attributions: [
-                TextSourceAttribution('OpenStreetMap contributors'),
-              ],
-            ),
-          ],
+          onMapCreated: (controller) {
+            if (!_controller.isCompleted) _controller.complete(controller);
+          },
+          onCameraMove: _onCameraMove,
+          onCameraIdle: _onCameraIdle,
+          // Rotation and tilt are only ever accidents here, and both make a
+          // fixed centre pin confusing.
+          rotateGesturesEnabled: false,
+          tiltGesturesEnabled: false,
+          compassEnabled: false,
+          // The blue dot is welcome; Google's own controls are not — this
+          // screen supplies its own button, and the rest would sit under the
+          // pin and the confirm bar.
+          myLocationEnabled: true,
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+          mapToolbarEnabled: false,
         ),
         const IgnorePointer(child: Center(child: _CentrePin())),
         Positioned(

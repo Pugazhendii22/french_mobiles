@@ -7,6 +7,7 @@ import '../../models/checkup_result.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
+import 'checkup_demo.dart';
 import 'checkup_test_shell.dart';
 
 enum _ButtonStep { volumeDown, volumeUp, power }
@@ -66,9 +67,8 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
     // catchError, because a device without the channel throws here and an
     // unawaited failure in dispose surfaces as an unhandled async error with
     // no owner.
-    _channel
-        .invokeMethod('setVolumeListening', {'enabled': false})
-        .catchError((_) => null);
+    _channel.invokeMethod(
+        'setVolumeListening', {'enabled': false}).catchError((_) => null);
     _channel.setMethodCallHandler(null);
     _stopWatchingScreen();
     _powerTimer?.cancel();
@@ -262,6 +262,9 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
         _stepProgress(),
         const SizedBox(height: 16),
         CheckupInstruction(
+          demo: _step == _ButtonStep.power
+              ? CheckupDemoKind.powerButton
+              : CheckupDemoKind.volumeButtons,
           icon: _step == _ButtonStep.power
               ? Icons.power_settings_new_rounded
               : Icons.volume_up_outlined,
@@ -284,7 +287,8 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
           const SizedBox(height: AppSpacing.lg),
           CheckupSkipButton(onSkip: _skipStep, label: 'Skip this step'),
         ] else ...[
-          _keyTile('Volume Down', Icons.remove_circle_outline, _volumeDownPressed),
+          _keyTile(
+              'Volume Down', Icons.remove_circle_outline, _volumeDownPressed),
           const SizedBox(height: 12),
           _keyTile('Volume Up', Icons.add_circle_outline, _volumeUpPressed),
           const SizedBox(height: AppSpacing.lg),
@@ -314,8 +318,7 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
             _stepLabel,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.label
-                .copyWith(color: AppColors.textSecondary),
+            style: AppTextStyles.label.copyWith(color: AppColors.textSecondary),
           ),
         ),
       ],
@@ -349,9 +352,7 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
       child: Row(
         children: [
           Icon(icon,
-              color: detected
-                  ? AppColors.primary
-                  : AppColors.textTertiary),
+              color: detected ? AppColors.primary : AppColors.textTertiary),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -361,9 +362,7 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
           ),
           Icon(
             detected ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: detected
-                ? AppColors.success
-                : AppColors.borderStrong,
+            color: detected ? AppColors.success : AppColors.borderStrong,
             size: 22,
           ),
         ],
@@ -429,7 +428,9 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            _sawScreenOff ? 'Now wake it up' : 'Waiting for the screen to go off',
+            _sawScreenOff
+                ? 'Now wake it up'
+                : 'Waiting for the screen to go off',
             textAlign: TextAlign.center,
             style: AppTextStyles.bodyMedium.copyWith(
               color: _sawScreenOff
@@ -469,7 +470,8 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
     );
   }
 
-  Widget _powerButton(String label, IconData icon, Color color, VoidCallback onPressed) {
+  Widget _powerButton(
+      String label, IconData icon, Color color, VoidCallback onPressed) {
     return OutlinedButton(
       style: OutlinedButton.styleFrom(
         foregroundColor: color,
@@ -483,7 +485,8 @@ class _ButtonsTestPageState extends State<ButtonsTestPage> {
         children: [
           Icon(icon, size: 20),
           const SizedBox(width: 8),
-          Text(label, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
+          Text(label,
+              style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
         ],
       ),
     );

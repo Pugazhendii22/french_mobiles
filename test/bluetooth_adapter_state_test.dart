@@ -15,8 +15,8 @@ import 'package:french_mobiles/screens/checkup/bluetooth_test_page.dart';
 
 void main() {
   test('an adapter that is on is simply used', () {
-    expect(actionForAdapterState(BluetoothAdapterState.on),
-        AdapterAction.proceed);
+    expect(
+        actionForAdapterState(BluetoothAdapterState.on), AdapterAction.proceed);
   });
 
   test('a radio already coming up is waited for, not asked again', () {

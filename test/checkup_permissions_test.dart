@@ -155,7 +155,10 @@ void main() {
 
       await _boot(t);
       await t.tap(find.text('Drives no hardware'));
-      await t.pumpAndSettle();
+      // Not pumpAndSettle: the test page that opens carries a looping
+      // instruction animation, so there is nothing to settle to.
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 600));
 
       expect(find.text('Before we start'), findsNothing);
       expect(find.byType(MultitouchTestPage), findsOneWidget,

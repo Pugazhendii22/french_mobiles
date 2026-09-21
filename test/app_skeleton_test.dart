@@ -26,8 +26,7 @@ Future<void> _pump(WidgetTester t, bool loading) async {
 }
 
 void main() {
-  testWidgets('content that was never loading shows straight away',
-      (t) async {
+  testWidgets('content that was never loading shows straight away', (t) async {
     await _pump(t, false);
 
     expect(find.text('content'), findsOneWidget);

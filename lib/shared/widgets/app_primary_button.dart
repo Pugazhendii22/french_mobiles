@@ -40,39 +40,39 @@ class AppPrimaryButton extends StatelessWidget {
         child: AnimatedSwitcher(
           duration: AppMotion.duration(context, AppMotion.fast),
           child: loading
-            ? const SizedBox(
-                key: ValueKey('loading'),
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor:
-                      AlwaysStoppedAnimation<Color>(AppColors.onPrimary),
-                ),
-              )
-            : Row(
-                key: const ValueKey('label'),
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: 20, color: AppColors.onPrimary),
-                    const SizedBox(width: AppSpacing.sm),
-                  ],
-                  // Flexible, because a label long enough to fill the button
-                  // overflows on a 320px screen otherwise — and an overflow
-                  // clips the label rather than shrinking it.
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.button,
-                    ),
+              ? const SizedBox(
+                  key: ValueKey('loading'),
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(AppColors.onPrimary),
                   ),
-                ],
-              ),
+                )
+              : Row(
+                  key: const ValueKey('label'),
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, size: 20, color: AppColors.onPrimary),
+                      const SizedBox(width: AppSpacing.sm),
+                    ],
+                    // Flexible, because a label long enough to fill the button
+                    // overflows on a 320px screen otherwise — and an overflow
+                    // clips the label rather than shrinking it.
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.button,
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );

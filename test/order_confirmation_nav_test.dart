@@ -37,8 +37,7 @@ class _Confirmation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    void goHome() =>
-        Navigator.of(context).popUntil((route) => route.isFirst);
+    void goHome() => Navigator.of(context).popUntil((route) => route.isFirst);
 
     return PopScope(
       canPop: false,

@@ -6,15 +6,18 @@ import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/widgets.dart';
+import 'battery_test_page.dart';
 import 'biometric_test_page.dart';
 import 'bluetooth_test_page.dart';
 import 'buttons_test_page.dart';
 import 'camera_test_page.dart';
 import 'checkup_permissions.dart';
+import 'cpu_throttle_test_page.dart';
 import 'display_test_page.dart';
 import 'earpiece_test_page.dart';
 import 'flashlight_test_page.dart';
 import 'gyroscope_test_page.dart';
+import 'internet_stability_test_page.dart';
 import 'internet_test_page.dart';
 import 'location_test_page.dart';
 import 'microphone_test_page.dart';
@@ -46,7 +49,19 @@ class CheckupTestSpec {
 /// Orchestrator — lists hardware tests and steps through them in order,
 /// collecting a [CheckupResult] from each before opening the summary.
 class CheckupEntryPage extends StatefulWidget {
-  const CheckupEntryPage({super.key, this.tests});
+  const CheckupEntryPage({
+    super.key,
+    this.tests,
+    this.collectResults = false,
+  });
+
+  /// Pops the collected results back to whoever pushed this page, instead of
+  /// finishing at the home screen.
+  ///
+  /// Set by the sell flow, which offers the checkup as a step and needs what
+  /// it found. Left false everywhere else, so opening the checkup from the
+  /// home screen still ends where it always did.
+  final bool collectResults;
 
   /// Replaces [specs] for this instance.
   ///
@@ -167,6 +182,20 @@ class CheckupEntryPage extends StatefulWidget {
       pageBuilder: _internet,
     ),
     const CheckupTestSpec(
+      key: 'internet_stability',
+      title: 'Connection stability',
+      description: 'Mobile data holds up over several minutes',
+      icon: Icons.timeline_rounded,
+      pageBuilder: _internetStability,
+    ),
+    const CheckupTestSpec(
+      key: 'battery',
+      title: 'Battery',
+      description: 'Reads health, cycles and temperature',
+      icon: Icons.battery_full_rounded,
+      pageBuilder: _battery,
+    ),
+    const CheckupTestSpec(
       key: 'location',
       title: 'Location (GPS)',
       description: 'Acquires a GPS satellite fix',
@@ -180,6 +209,13 @@ class CheckupEntryPage extends StatefulWidget {
       icon: Icons.threed_rotation,
       pageBuilder: _gyroscope,
     ),
+    const CheckupTestSpec(
+      key: 'cpu_throttle',
+      title: 'Processor under load',
+      description: 'Holds its speed when the phone gets warm',
+      icon: Icons.memory_rounded,
+      pageBuilder: _cpuThrottle,
+    ),
   ];
 
   static Widget _camera(BuildContext context) => const CameraTestPage();
@@ -191,22 +227,23 @@ class CheckupEntryPage extends StatefulWidget {
   static Widget _network(BuildContext context) => const NetworkTestPage();
   static Widget _location(BuildContext context) => const LocationTestPage();
   static Widget _gyroscope(BuildContext context) => const GyroscopeTestPage();
-  static Widget _flashlight(BuildContext context) =>
-      const FlashlightTestPage();
-  static Widget _multitouch(BuildContext context) =>
-      const MultitouchTestPage();
+  static Widget _flashlight(BuildContext context) => const FlashlightTestPage();
+  static Widget _multitouch(BuildContext context) => const MultitouchTestPage();
   static Widget _speaker(BuildContext context) => const SpeakerTestPage();
   static Widget _earpiece(BuildContext context) => const EarpieceTestPage();
-  static Widget _microphone(BuildContext context) =>
-      const MicrophoneTestPage();
+  static Widget _microphone(BuildContext context) => const MicrophoneTestPage();
   static Widget _proximity(BuildContext context) => const ProximityTestPage();
   static Widget _vibration(BuildContext context) => const VibrationTestPage();
   static Widget _internet(BuildContext context) => const InternetTestPage();
+  static Widget _battery(BuildContext context) => const BatteryTestPage();
+  static Widget _cpuThrottle(BuildContext context) =>
+      const CpuThrottleTestPage();
+  static Widget _internetStability(BuildContext context) =>
+      const InternetStabilityTestPage();
 
   @override
   State<CheckupEntryPage> createState() => _CheckupEntryPageState();
 }
-
 
 class _CheckupEntryPageState extends State<CheckupEntryPage> {
   List<CheckupTestSpec> get specs => widget.tests ?? CheckupEntryPage.specs;
@@ -313,13 +350,45 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
     setState(() => _results[spec.key] = result);
   }
 
-  Future<void> _openSummary() {
-    return Navigator.of(context).push(
+  /// Re-runs one test from the summary and keeps this page's copy in step, so
+  /// backing out of the summary shows the corrected result rather than the
+  /// one that was just replaced.
+  Future<CheckupResult?> _retest(String key) async {
+    CheckupTestSpec? spec;
+    for (final candidate in specs) {
+      if (candidate.key == key) {
+        spec = candidate;
+        break;
+      }
+    }
+    if (spec == null) return null;
+
+    final result = await _push(spec);
+    if (!mounted || result == null) return null;
+
+    setState(() => _results[key] = result);
+    return result;
+  }
+
+  Future<void> _openSummary() async {
+    await Navigator.of(context).push(
       AppPageRoute<void>(
-        builder: (context) => CheckupSummaryPage(results: _collected),
+        builder: (context) => CheckupSummaryPage(
+          results: _collected,
+          onRetest: _retest,
+          onDone: widget.collectResults ? _finishWithResults : null,
+        ),
         transition: AppTransition.fadeThrough,
       ),
     );
+  }
+
+  /// Closes the summary and this page together, handing the results to the
+  /// caller. Retests done on the summary are already folded into [_collected].
+  void _finishWithResults() {
+    final navigator = Navigator.of(context);
+    navigator.pop(); // the summary
+    navigator.pop(_collected); // this page, carrying the results
   }
 
   @override
@@ -351,12 +420,15 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
                 AppGroup(
                   children: [
                     for (var i = 0; i < specs.length; i++)
-                      _TestRow(
-                        index: i + 1,
-                        spec: specs[i],
-                        result: _results[specs[i].key],
-                        active: _currentKey == specs[i].key,
-                        onTap: _running ? null : () => _runOne(specs[i]),
+                      AppReveal(
+                        index: i,
+                        child: _TestRow(
+                          index: i + 1,
+                          spec: specs[i],
+                          result: _results[specs[i].key],
+                          active: _currentKey == specs[i].key,
+                          onTap: _running ? null : () => _runOne(specs[i]),
+                        ),
                       ),
                   ],
                 ),

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../models/checkup_result.dart';
 import '../models/quote_breakdown.dart';
 import '../shared/widgets/quote_breakdown_view.dart';
 
@@ -31,6 +32,13 @@ class PickupCheckoutPage extends StatefulWidget {
   /// give; the summary then shows the totals alone, as it always did.
   final QuoteBreakdown? quote;
 
+  /// What the automatic checkup found, or empty when it was skipped.
+  ///
+  /// Written onto the order as evidence for the pickup agent. It never
+  /// affected [finalPayout] — the seller's own answers did — so it is stored
+  /// alongside the quote rather than inside it.
+  final List<CheckupResult> checkupResults;
+
   const PickupCheckoutPage({
     super.key,
     required this.brandName,
@@ -41,6 +49,7 @@ class PickupCheckoutPage extends StatefulWidget {
     required this.basePrice,
     required this.finalPayout,
     this.quote,
+    this.checkupResults = const [],
   });
 
   @override
@@ -189,6 +198,20 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
         if (widget.quote != null) 'quote': widget.quote!.toMap(),
         if (widget.quote != null) 'quoteValidUntil':
             Timestamp.fromDate(widget.quote!.validUntil),
+        // The automatic checkup, when it was run. Evidence for the agent
+        // rather than an input to the price, so it sits beside the quote and
+        // not inside it. Omitted entirely when the checkup was skipped, so a
+        // skipped run is distinguishable from one that found nothing.
+        if (widget.checkupResults.isNotEmpty)
+          'checkup': [
+            for (final result in widget.checkupResults)
+              {
+                'key': result.key,
+                'title': result.title,
+                'status': result.status.name,
+                if (result.detail != null) 'detail': result.detail,
+              },
+          ],
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       };

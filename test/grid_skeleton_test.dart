@@ -19,8 +19,7 @@ import 'package:french_mobiles/shared/widgets/app_shimmer.dart';
 /// Mirrors both grids: a screen-gutter each side, one gap between columns,
 /// and a height set by the aspect ratio.
 Size _cell(double width, double aspectRatio) {
-  final cellWidth =
-      (width - 2 * AppSpacing.screenGutter - AppSpacing.md) / 2;
+  final cellWidth = (width - 2 * AppSpacing.screenGutter - AppSpacing.md) / 2;
   return Size(cellWidth, cellWidth / aspectRatio);
 }
 

@@ -58,8 +58,10 @@ class CatalogCache {
 
     final stale = models[index];
     models[index] = ModelDetail(
+      brand: stale.brand,
       name: stale.name,
       category: stale.category,
+      series: stale.series,
       maxPrice: maxPrice,
       imageUrl: stale.imageUrl,
       docId: stale.docId,

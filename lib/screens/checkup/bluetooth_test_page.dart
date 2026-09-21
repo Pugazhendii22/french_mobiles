@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../models/checkup_result.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
+import 'checkup_demo.dart';
 import 'checkup_test_shell.dart';
 
 /// Test 5 — Bluetooth.
@@ -83,18 +84,25 @@ class _BluetoothTestPageState extends State<BluetoothTestPage> {
 
     if (!mounted) return;
 
-    if (scanPerm.isPermanentlyDenied || connectPerm.isPermanentlyDenied || locationPerm.isPermanentlyDenied) {
+    if (scanPerm.isPermanentlyDenied ||
+        connectPerm.isPermanentlyDenied ||
+        locationPerm.isPermanentlyDenied) {
       setState(() => _isPermanentlyDenied = true);
-      _setResult(const CheckupResult(
-        key: 'bluetooth',
-        title: 'Bluetooth',
-        status: CheckupStatus.skipped,
-        detail: 'Bluetooth/Location permission is permanently denied. Open Settings to grant.',
-      ), hold: true);
+      _setResult(
+          const CheckupResult(
+            key: 'bluetooth',
+            title: 'Bluetooth',
+            status: CheckupStatus.skipped,
+            detail:
+                'Bluetooth/Location permission is permanently denied. Open Settings to grant.',
+          ),
+          hold: true);
       return;
     }
 
-    if (!scanPerm.isGranted && !connectPerm.isGranted && !locationPerm.isGranted) {
+    if (!scanPerm.isGranted &&
+        !connectPerm.isGranted &&
+        !locationPerm.isGranted) {
       _setResult(const CheckupResult(
         key: 'bluetooth',
         title: 'Bluetooth',
@@ -188,7 +196,8 @@ class _BluetoothTestPageState extends State<BluetoothTestPage> {
       await FlutterBluePlus.startScan(timeout: const Duration(seconds: 10));
       final found = await FlutterBluePlus.scanResults
           .firstWhere((list) => list.isNotEmpty)
-          .timeout(const Duration(seconds: 12), onTimeout: () => <ScanResult>[]);
+          .timeout(const Duration(seconds: 12),
+              onTimeout: () => <ScanResult>[]);
       await FlutterBluePlus.stopScan();
 
       if (!mounted) return;
@@ -265,6 +274,7 @@ class _BluetoothTestPageState extends State<BluetoothTestPage> {
       padding: const EdgeInsets.all(16),
       children: [
         CheckupInstruction(
+          demo: CheckupDemoKind.bluetoothScan,
           icon: Icons.bluetooth,
           busy: _scanning,
           text: _statusText,
@@ -275,7 +285,8 @@ class _BluetoothTestPageState extends State<BluetoothTestPage> {
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 4),
               dense: true,
-              leading: const Icon(Icons.bluetooth, color: AppColors.textSecondary),
+              leading:
+                  const Icon(Icons.bluetooth, color: AppColors.textSecondary),
               title: Text(
                 result.device.platformName.isEmpty
                     ? result.device.advName.isEmpty

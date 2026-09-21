@@ -112,8 +112,8 @@ void main() {
     await _screen(t, 'screen_on');
     await t.pump(const Duration(milliseconds: 300));
 
-    expect(find.textContaining('Waiting for the screen to go off'),
-        findsOneWidget,
+    expect(
+        find.textContaining('Waiting for the screen to go off'), findsOneWidget,
         reason: 'the button has to do both halves of its job');
   });
 

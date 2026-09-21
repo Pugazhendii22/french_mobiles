@@ -5,6 +5,8 @@ import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/widgets.dart';
+import 'checkup_demo.dart';
+import 'checkup_verdict_mark.dart';
 
 /// Shared chrome for a checkup test page.
 ///
@@ -48,6 +50,7 @@ class CheckupInstruction extends StatelessWidget {
     required this.text,
     this.tone,
     this.busy = false,
+    this.demo,
   });
 
   final IconData icon;
@@ -60,9 +63,15 @@ class CheckupInstruction extends StatelessWidget {
   /// whose instruction card doubles as their progress readout.
   final bool busy;
 
+  /// A wordless animation of the action being asked for, shown above the
+  /// text. Every test that wants something *done* should set one: the written
+  /// instruction is unreadable to a seller who does not read English, and the
+  /// picture is the only part of the card that reaches them.
+  final CheckupDemoKind? demo;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -93,6 +102,26 @@ class CheckupInstruction extends StatelessWidget {
           ),
         ],
       ),
+    );
+
+    final kind = demo;
+    if (kind == null) return card;
+
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: AppRadius.card,
+            boxShadow: AppShadows.card,
+          ),
+          child: CheckupDemo(kind: kind),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        card,
+      ],
     );
   }
 }
@@ -141,7 +170,8 @@ class CheckupActions extends StatelessWidget {
     return Column(
       children: [
         if (primary != null) ...[
-          AppPrimaryButton(label: primaryLabel ?? 'Continue', onPressed: primary),
+          AppPrimaryButton(
+              label: primaryLabel ?? 'Continue', onPressed: primary),
           const SizedBox(height: AppSpacing.md),
         ],
         Row(
@@ -170,7 +200,8 @@ class CheckupActions extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textPrimary,
                     side: const BorderSide(color: AppColors.borderStrong),
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: AppSpacing.md),
                     shape: RoundedRectangleBorder(
                       borderRadius: AppRadius.field,
                     ),
@@ -225,25 +256,31 @@ mixin CheckupTestFlow<T extends StatefulWidget> on State<T> {
     });
   }
 
-  void markPass(String detail) => setResult(CheckupResult(
+  void markPass(String detail, {Map<String, dynamic>? data}) =>
+      setResult(CheckupResult(
         key: testKey,
         title: testTitle,
         status: CheckupStatus.pass,
         detail: detail,
+        data: data,
       ));
 
-  void markFail(String detail) => setResult(CheckupResult(
+  void markFail(String detail, {Map<String, dynamic>? data}) =>
+      setResult(CheckupResult(
         key: testKey,
         title: testTitle,
         status: CheckupStatus.fail,
         detail: detail,
+        data: data,
       ));
 
-  void markNotAvailable(String detail) => setResult(CheckupResult(
+  void markNotAvailable(String detail, {Map<String, dynamic>? data}) =>
+      setResult(CheckupResult(
         key: testKey,
         title: testTitle,
         status: CheckupStatus.notAvailable,
         detail: detail,
+        data: data,
       ));
 
   void skipTest() {
@@ -277,26 +314,100 @@ class CheckupVerdict extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(result.status.icon, size: 56, color: result.status.color),
+            CheckupVerdictMark(status: result.status),
             const SizedBox(height: AppSpacing.lg),
-            Text(
-              result.status.label,
-              style: AppTextStyles.h3.copyWith(color: result.status.color),
-            ),
-            if (result.detail != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                result.detail!,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.bodySmall,
+            // The wording arrives just behind the mark, so the eye reads the
+            // symbol first and the label second rather than both at once.
+            _FadeUp(
+              delay: const Duration(milliseconds: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    result.status.label,
+                    style:
+                        AppTextStyles.h3.copyWith(color: result.status.color),
+                  ),
+                  if (result.detail != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      result.detail!,
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.bodySmall,
+                    ),
+                  ],
+                ],
               ),
-            ],
+            ),
             if (action != null) ...[
               const SizedBox(height: AppSpacing.xl),
               action!,
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Fades its child upward into place once, [delay] after it is built.
+///
+/// The wait is an [Interval] on the one controller rather than a
+/// `Future.delayed`, deliberately: a pending timer outlives the widget, keeps
+/// a closure alive after dispose, and fails any test that finishes inside the
+/// delay. Driving it from the ticker leaves nothing behind.
+class _FadeUp extends StatefulWidget {
+  const _FadeUp({required this.child, required this.delay});
+
+  final Widget child;
+  final Duration delay;
+
+  static const Duration duration = Duration(milliseconds: 320);
+
+  @override
+  State<_FadeUp> createState() => _FadeUpState();
+}
+
+class _FadeUpState extends State<_FadeUp> with SingleTickerProviderStateMixin {
+  late final Duration _total = widget.delay + _FadeUp.duration;
+
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: _total,
+  )..forward();
+
+  late final Animation<double> _eased = CurvedAnimation(
+    parent: _controller,
+    curve: Interval(
+      widget.delay.inMilliseconds / _total.inMilliseconds,
+      1,
+      curve: Curves.easeOut,
+    ),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // The child stays in the tree throughout, at zero opacity, so anything
+    // looking for the verdict text — a test, a screen reader — finds it
+    // immediately; only the fade waits.
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      return widget.child;
+    }
+
+    return FadeTransition(
+      opacity: _eased,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.25),
+          end: Offset.zero,
+        ).animate(_eased),
+        child: widget.child,
       ),
     );
   }
@@ -312,10 +423,17 @@ class CheckupPermissionAction extends StatelessWidget {
     super.key,
     required this.onOpenSettings,
     required this.onContinue,
+    this.openLabel = 'Open Settings',
+    this.openIcon = Icons.settings_outlined,
   });
 
   final VoidCallback onOpenSettings;
   final VoidCallback onContinue;
+
+  /// Overridden where the fix is not the settings app — location services can
+  /// be switched on from a system dialog without leaving.
+  final String openLabel;
+  final IconData openIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -334,8 +452,8 @@ class CheckupPermissionAction extends StatelessWidget {
             shape: RoundedRectangleBorder(borderRadius: AppRadius.pill),
           ),
           onPressed: onOpenSettings,
-          icon: const Icon(Icons.settings_outlined, size: 18),
-          label: Text('Open Settings', style: AppTextStyles.button),
+          icon: Icon(openIcon, size: 18),
+          label: Text(openLabel, style: AppTextStyles.button),
         ),
         const SizedBox(height: AppSpacing.sm),
         TextButton(

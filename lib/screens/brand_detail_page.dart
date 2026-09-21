@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/model_detail.dart';
 import '../shared/motion/motion.dart';
 import '../shared/services/catalog_cache.dart';
+import '../shared/services/model_series.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
@@ -27,7 +28,7 @@ class BrandDetailPage extends StatefulWidget {
 
 class _BrandDetailPageState extends State<BrandDetailPage> {
   final TextEditingController _modelSearchController = TextEditingController();
-  String _selectedCategory = 'All';
+  String _selectedSeries = 'All';
   List<ModelDetail> _allBrandModels = [];
   List<ModelDetail> _filteredModels = [];
   bool _isLoadingModels = true;
@@ -86,8 +87,21 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
 
       final models = <ModelDetail>[];
 
+      // Models the admin has hidden never reach the list. Filtering here, and
+      // not further down, is what makes it cheap: a hidden model skips the
+      // variants query below entirely rather than being fetched and discarded.
+      //
+      // Only an explicit `hidden: true` hides a model. A missing field means
+      // visible, which is deliberate — an equality query on `hidden` would
+      // have needed the flag backfilled onto every document in the catalogue,
+      // and any document that missed the backfill would have disappeared from
+      // the app with nothing to show why.
+      final visibleDocs = querySnapshot.docs
+          .where((doc) => doc.data()['hidden'] != true)
+          .toList();
+
       final variantResults = await Future.wait(
-        querySnapshot.docs.map((doc) async {
+        visibleDocs.map((doc) async {
           final modelData = doc.data();
 
           // The list only needs a headline price. When the model document
@@ -130,6 +144,7 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
           return ModelDetail(
             name: modelName,
             category: category,
+            series: deriveSeries(modelName, widget.brandName),
             maxPrice: highestBasePrice == 0 ? declared : highestBasePrice,
             imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
             docId: doc.id,
@@ -160,9 +175,9 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
     final searchQuery = query.toLowerCase();
     return _allBrandModels.where((model) {
       final matchesQuery = model.name.toLowerCase().contains(searchQuery);
-      final matchesCategory =
-          _selectedCategory == 'All' || model.category == _selectedCategory;
-      return matchesQuery && matchesCategory;
+      final matchesSeries =
+          _selectedSeries == 'All' || model.series == _selectedSeries;
+      return matchesQuery && matchesSeries;
     }).toList();
   }
 
@@ -194,9 +209,11 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final categories = [
+    // Sorted so the row does not reshuffle between visits; the models arrive
+    // from Firestore in no particular order.
+    final seriesOptions = [
       'All',
-      ...{for (final m in _allBrandModels) m.category}
+      ...{for (final m in _allBrandModels) m.series}.toList()..sort(),
     ];
 
     return Theme(
@@ -225,7 +242,16 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
                     ),
                   ),
                 ),
-                if (categories.length > 2) _buildCategoryRow(categories),
+                if (seriesOptions.length > 2)
+                  _buildChipRow(
+                    seriesOptions,
+                    _selectedSeries,
+                    (value) => setState(() {
+                      _selectedSeries = value;
+                      _filteredModels =
+                          _applyFilters(_modelSearchController.text);
+                    }),
+                  ),
                 Expanded(child: _buildBody()),
               ],
             ),
@@ -235,7 +261,11 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
     );
   }
 
-  Widget _buildCategoryRow(List<String> categories) {
+  Widget _buildChipRow(
+    List<String> options,
+    String selected,
+    ValueChanged<String> onSelect,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.lg),
       child: SizedBox(
@@ -245,19 +275,14 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.screenGutter,
           ),
-          itemCount: categories.length,
+          itemCount: options.length,
           separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
           itemBuilder: (context, index) {
-            final cat = categories[index];
+            final option = options[index];
             return AppFilterChip(
-              label: cat,
-              selected: cat == _selectedCategory,
-              onTap: () {
-                setState(() {
-                  _selectedCategory = cat;
-                  _filteredModels = _applyFilters(_modelSearchController.text);
-                });
-              },
+              label: option,
+              selected: option == selected,
+              onTap: () => onSelect(option),
             );
           },
         ),

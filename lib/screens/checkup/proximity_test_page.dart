@@ -7,6 +7,7 @@ import 'package:proximity_sensor/proximity_sensor.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
+import 'checkup_demo.dart';
 import 'checkup_test_shell.dart';
 
 /// Proximity sensor.
@@ -159,9 +160,7 @@ class _ProximityTestPageState extends State<ProximityTestPage>
   Widget build(BuildContext context) {
     return CheckupTestShell(
       title: 'Proximity',
-      child: result != null
-          ? CheckupVerdict(result: result!)
-          : _testView(),
+      child: result != null ? CheckupVerdict(result: result!) : _testView(),
     );
   }
 
@@ -170,6 +169,7 @@ class _ProximityTestPageState extends State<ProximityTestPage>
       padding: const EdgeInsets.all(16),
       children: [
         CheckupInstruction(
+          demo: CheckupDemoKind.proximityHand,
           icon: Icons.phonelink_ring_outlined,
           text: _screenBlanking
               ? 'Hold the phone to your ear as if taking a call, then move it '

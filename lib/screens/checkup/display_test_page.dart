@@ -57,11 +57,66 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
     super.initState();
     // Do not use immersiveSticky to avoid status bar black line artifact
     _updateStatusBarOverlay();
+    // Said once, up front, so that nothing has to be written over the
+    // colours afterwards. Without it the first screen is a bare red
+    // rectangle with no hint that tapping does anything — and the only other
+    // way out is the back button, which abandons the whole checkup.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _explain());
+  }
+
+  Future<void> _explain() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.card),
+        title: Text('Checking the screen', style: AppTextStyles.h3),
+        content: Text(
+          'Five colours will fill the screen, one at a time. On each one, '
+          'look for dots that stay black or stay coloured, patches of a '
+          'different shade, or lines across the panel.\n\n'
+          'Tap the screen when you have looked.',
+          style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _skipTest();
+            },
+            child: Text(
+              'Skip this test',
+              style:
+                  AppTextStyles.button.copyWith(color: AppColors.textTertiary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Start',
+              style: AppTextStyles.button.copyWith(color: AppColors.primary),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   void dispose() {
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
+    // Put back exactly what main() set, not SystemUiOverlayStyle.light.
+    //
+    // `light` means light *icons*, for a dark bar — correct while a black
+    // sweep frame is on screen, wrong everywhere else. Leaving it behind
+    // turned the status bar white-on-white for the rest of the session, so
+    // the clock and battery vanished on every screen after this test until
+    // the app was restarted.
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ));
     super.dispose();
   }
 
@@ -166,7 +221,8 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
       _lastDrag = position;
     });
 
-    final coverage = _totalCells == 0 ? 0.0 : _coveredCells.length / _totalCells;
+    final coverage =
+        _totalCells == 0 ? 0.0 : _coveredCells.length / _totalCells;
     if (coverage >= _targetCoverage && !_passedSwipe) {
       _passedSwipe = true;
       _markPass(
@@ -194,10 +250,11 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
     }
   }
 
-  double get _cellWidth => _totalCells == 0 ? 1 : (_canvasSize.width / _cellCols);
-  double get _cellHeight => _totalCells == 0 ? 1 : (_canvasSize.height / _cellRows);
-  int get _cellRows =>
-      _totalCells == 0 ? 1 : (_totalCells / _cellCols).round();
+  double get _cellWidth =>
+      _totalCells == 0 ? 1 : (_canvasSize.width / _cellCols);
+  double get _cellHeight =>
+      _totalCells == 0 ? 1 : (_canvasSize.height / _cellRows);
+  int get _cellRows => _totalCells == 0 ? 1 : (_totalCells / _cellCols).round();
 
   Size get _canvasSize => _lastCanvasSize;
 
@@ -213,112 +270,96 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
 
   Widget _sweepView() {
     final color = _sweepColors[_sweepIndex];
-    final dark = color.computeLuminance() < 0.5;
+
+    // Nothing on top of the colour. Not a progress row, not a caption, not a
+    // button — this screen is the instrument, and anything drawn over it hides
+    // the very pixels the test is looking for. A dead pixel under a label is
+    // a dead pixel nobody finds.
+    //
+    // Which leaves nothing on screen to explain itself, so the instruction is
+    // given before the colours start and the only gesture is a tap anywhere,
+    // which opens the question rather than answering it.
     return Scaffold(
       backgroundColor: color,
-      extendBody: true,
-      body: SafeArea(
-        top: true,
-        bottom: true,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Positioned(top: 12, left: 0, right: 0, child: _sweepProgress(dark)),
-            Positioned(left: 20, right: 20, bottom: 28, child: _sweepControls(dark)),
-          ],
-        ),
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _askAboutThisColour,
+        child: const SizedBox.expand(),
       ),
     );
   }
 
-  Widget _sweepProgress(bool dark) {
-    final fg = dark ? Colors.white : Colors.black;
-    return Column(
-      children: [
-        const SizedBox(height: 6),
-        Text('Colour sweep',
-            style: AppTextStyles.body.copyWith(color: fg, fontWeight: FontWeight.w700, fontSize: 12)),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (var i = 0; i < _sweepColors.length; i++)
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: i == _sweepIndex ? fg : fg.withValues(alpha: 0.35),
-                  shape: BoxShape.circle,
-                ),
-              ),
-          ],
+  /// Asked on a tap, over the colour rather than instead of it.
+  ///
+  /// Both answers are deliberately plain statements about what the screen
+  /// looks like. "Next" alone would let someone tap through five colours
+  /// without ever having been asked anything.
+  Future<void> _askAboutThisColour() async {
+    if (!mounted) return;
+
+    final last = _sweepIndex == _sweepColors.length - 1;
+    final answer = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.card),
+        title: Text('How does the screen look?', style: AppTextStyles.h3),
+        content: Text(
+          'Look for dots that stay black or stay coloured, patches that are '
+          'a different shade, or lines across the screen.',
+          style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
         ),
-      ],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('skip'),
+            child: Text(
+              'Skip',
+              style:
+                  AppTextStyles.button.copyWith(color: AppColors.textTertiary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('fail'),
+            child: Text(
+              'Issue found',
+              style: AppTextStyles.button.copyWith(color: AppColors.error),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('next'),
+            child: Text(
+              last ? 'Looks fine, finish' : 'Looks fine, next colour',
+              style: AppTextStyles.button.copyWith(color: AppColors.primary),
+            ),
+          ),
+        ],
+      ),
     );
+
+    // Dismissed without choosing — the colour stays up, which is the right
+    // outcome for someone who tapped by accident.
+    if (!mounted || answer == null) return;
+
+    switch (answer) {
+      case 'fail':
+        _markFailed(
+          'User reported a display fault on the '
+          '${_colourName(_sweepIndex)} screen',
+        );
+      case 'skip':
+        _skipTest();
+      default:
+        _sweepLooksGood();
+    }
   }
 
-  Widget _sweepControls(bool dark) {
-    final fg = dark ? Colors.white : Colors.black87;
-    return Column(
-      children: [
-        Text(
-          'Look for dead or stuck pixels on this screen.',
-          style: AppTextStyles.body.copyWith(color: fg, fontSize: 13),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: fg,
-                  side: BorderSide(color: fg.withValues(alpha: 0.6)),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onPressed: () => _markFailed('A display issue was reported'),
-                child: Text('Issue found',
-                    style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: dark ? Colors.white : AppColors.primary,
-                  foregroundColor: Colors.black,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onPressed: _sweepLooksGood,
-                child: Text(
-                  _sweepIndex < _sweepColors.length - 1
-                      ? 'Looks good — next colour'
-                      : 'Looks good — swipe test',
-                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w800),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: _skipTest,
-          child: Text(
-            'Skip display test',
-            style: AppTextStyles.body.copyWith(color: fg.withValues(alpha: 0.7), fontSize: 12),
-          ),
-        ),
-      ],
-    );
-  }
+  static String _colourName(int index) => switch (index) {
+        0 => 'red',
+        1 => 'green',
+        2 => 'blue',
+        3 => 'black',
+        _ => 'white',
+      };
 
   Widget _swipeView() {
     return Scaffold(
@@ -329,7 +370,8 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
           final size = Size(constraints.maxWidth, constraints.maxHeight);
           _lastCanvasSize = size;
           if (_totalCells == 0) {
-            _totalCells = _cellCols * (size.height / (size.width / _cellCols)).ceil();
+            _totalCells =
+                _cellCols * (size.height / (size.width / _cellCols)).ceil();
             _coveredCells.clear();
           }
           final coverage = _coveredCells.length / _totalCells;
@@ -374,7 +416,8 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
   Widget _swipeHeader(double coverage) {
     final pct = (coverage * 100).toStringAsFixed(0);
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 10 + MediaQuery.paddingOf(context).top, 16, 6),
+      padding: EdgeInsets.fromLTRB(
+          16, 10 + MediaQuery.paddingOf(context).top, 16, 6),
       child: Row(
         children: [
           Container(
@@ -419,7 +462,8 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
   Widget _swipeFooter(double coverage) {
     final pct = ((1 - coverage.clamp(0.0, 1.0)) * 100).toStringAsFixed(0);
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 6, 16, 16 + MediaQuery.paddingOf(context).bottom),
+      padding: EdgeInsets.fromLTRB(
+          16, 6, 16, 16 + MediaQuery.paddingOf(context).bottom),
       child: Row(
         children: [
           Expanded(
@@ -434,7 +478,8 @@ class _DisplayTestPageState extends State<DisplayTestPage> {
               ),
               onPressed: () => _markFailed('A display issue was reported'),
               child: Text('Issue found',
-                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
+                  style:
+                      AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
             ),
           ),
           const SizedBox(width: 12),

@@ -1,27 +1,33 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-/// Turns coordinates into a street address using OpenStreetMap's Nominatim.
+import '../config/google_maps_config.dart';
+
+/// Turns coordinates into a street address using Google's Geocoding API.
 ///
-/// Nominatim rather than a platform geocoder because it needs no API key and
-/// no billing account, and the address sheet was already calling it — this
-/// just puts the call in one place so the map picker and the "use my current
-/// location" button cannot drift apart.
+/// Previously OpenStreetMap's Nominatim, which needed no key but capped the
+/// app at one request per second and returned noticeably coarser results for
+/// Indian addresses — a pickup address that reads "Pudupalaiyam, Puducherry"
+/// instead of a house number and street is the difference between an agent
+/// finding the door and phoning the seller.
 ///
-/// Its usage policy asks for at most one request per second and a User-Agent
-/// that identifies the app, both of which are honoured here: callers are
-/// expected to debounce, and [minimumInterval] enforces a floor regardless.
+/// Every call costs money, so [minimumInterval] still throttles — no longer to
+/// obey a usage policy, but to stop a caller that forgets to debounce from
+/// quietly running up a bill while someone drags the map around.
 class ReverseGeocoder {
-  ReverseGeocoder({http.Client? client}) : _client = client ?? http.Client();
+  ReverseGeocoder({http.Client? client, String? apiKey})
+      : _client = client ?? http.Client(),
+        _apiKey = apiKey ?? googleGeocodingApiKey;
 
   final http.Client _client;
+  final String _apiKey;
 
-  /// Nominatim's published rate limit is one call per second.
-  static const Duration minimumInterval = Duration(milliseconds: 1100);
-
-  static const String _userAgent = 'french-mobiles-app/1.0';
+  /// A floor between calls. Google permits far more than this; the limit here
+  /// is about cost, not permission.
+  static const Duration minimumInterval = Duration(milliseconds: 300);
 
   DateTime? _lastCall;
 
@@ -33,26 +39,45 @@ class ReverseGeocoder {
   Future<String?> lookup(double latitude, double longitude) async {
     await _respectRateLimit();
 
-    final uri = Uri.parse(
-      'https://nominatim.openstreetmap.org/reverse'
-      '?format=jsonv2&lat=$latitude&lon=$longitude',
-    );
+    final uri = Uri.https('maps.googleapis.com', '/maps/api/geocode/json', {
+      'latlng': '$latitude,$longitude',
+      'language': 'en',
+      'key': _apiKey,
+    });
 
     try {
-      final response = await _client
-          .get(uri, headers: const {'User-Agent': _userAgent})
-          .timeout(const Duration(seconds: 8));
-
+      final response = await _client.get(uri).timeout(const Duration(seconds: 8));
       if (response.statusCode != 200) return null;
 
       final decoded = jsonDecode(response.body);
       if (decoded is! Map<String, dynamic>) return null;
 
-      final name = decoded['display_name'];
-      if (name is String && name.trim().isNotEmpty) return name.trim();
+      final status = decoded['status'];
+
+      // ZERO_RESULTS is an ordinary answer — a pin in the sea has no address.
+      // Anything else non-OK means the key, the quota or the request is wrong,
+      // and that must not vanish silently: addresses would just stop resolving
+      // app-wide with nothing to point at. It still degrades to coordinates.
+      if (status != 'OK') {
+        if (status != 'ZERO_RESULTS') {
+          debugPrint(
+            'Geocoding failed: $status ${decoded['error_message'] ?? ''}'.trim(),
+          );
+        }
+        return null;
+      }
+
+      final results = decoded['results'];
+      if (results is! List || results.isEmpty) return null;
+
+      final first = results.first;
+      if (first is! Map) return null;
+
+      final address = first['formatted_address'];
+      if (address is String && address.trim().isNotEmpty) return address.trim();
       return null;
     } catch (_) {
-      // Offline, rate limited, or a response shape we do not recognise.
+      // Offline, timed out, or a response shape we do not recognise.
       return null;
     }
   }

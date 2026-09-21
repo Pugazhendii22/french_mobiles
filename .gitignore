@@ -49,3 +49,6 @@ app.*.map.json
 
 # Local run logs
 nohup.out
+
+# Its own git repository, with its own history.
+admin-panel/

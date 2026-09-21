@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -11,6 +10,7 @@ import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
 import '../shared/widgets/widgets.dart';
+import '../firebase/second_hand_firebase.dart';
 
 class WishlistPage extends StatelessWidget {
   const WishlistPage({super.key});
@@ -26,7 +26,7 @@ class WishlistPage extends StatelessWidget {
     };
 
     try {
-      final doc = await FirebaseFirestore.instance
+      final doc = await secondHandFirestore
           .collection('second_hand_mobiles')
           .doc(item.productId)
           .get();

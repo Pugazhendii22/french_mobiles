@@ -7,6 +7,7 @@ import 'package:wifi_scan/wifi_scan.dart';
 import '../../models/checkup_result.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
+import 'checkup_demo.dart';
 import 'checkup_test_shell.dart';
 
 /// Test 4 — Wi-Fi.
@@ -25,6 +26,12 @@ class _WifiTestPageState extends State<WifiTestPage> {
   final List<WiFiAccessPoint> _networks = [];
   bool _scanning = false;
   bool _isPermanentlyDenied = false;
+
+  /// Location services were off and the user dismissed Android's dialog.
+  /// Unlike a permanently denied permission this is one tap from being fixed,
+  /// so the verdict offers the dialog again instead of ending the test.
+  bool _locationServicesOff = false;
+
   String _statusText = 'Preparing Wi-Fi scan…';
   CheckupResult? _result;
 
@@ -45,12 +52,15 @@ class _WifiTestPageState extends State<WifiTestPage> {
     if (!mounted) return;
     if (nearby.isPermanentlyDenied) {
       setState(() => _isPermanentlyDenied = true);
-      _setResult(const CheckupResult(
-        key: 'wifi',
-        title: 'Wi-Fi',
-        status: CheckupStatus.skipped,
-        detail: 'Nearby Wi-Fi permission is permanently denied. Open Settings to grant.',
-      ), hold: true);
+      _setResult(
+          const CheckupResult(
+            key: 'wifi',
+            title: 'Wi-Fi',
+            status: CheckupStatus.skipped,
+            detail:
+                'Nearby Wi-Fi permission is permanently denied. Open Settings to grant.',
+          ),
+          hold: true);
       return;
     }
     if (!nearby.isGranted) {
@@ -67,12 +77,15 @@ class _WifiTestPageState extends State<WifiTestPage> {
     if (!mounted) return;
     if (location.isPermanentlyDenied) {
       setState(() => _isPermanentlyDenied = true);
-      _setResult(const CheckupResult(
-        key: 'wifi',
-        title: 'Wi-Fi',
-        status: CheckupStatus.skipped,
-        detail: 'Location permission is permanently denied. Open Settings to grant.',
-      ), hold: true);
+      _setResult(
+          const CheckupResult(
+            key: 'wifi',
+            title: 'Wi-Fi',
+            status: CheckupStatus.skipped,
+            detail:
+                'Location permission is permanently denied. Open Settings to grant.',
+          ),
+          hold: true);
       return;
     }
     if (!location.isGranted) {
@@ -80,7 +93,8 @@ class _WifiTestPageState extends State<WifiTestPage> {
         key: 'wifi',
         title: 'Wi-Fi',
         status: CheckupStatus.skipped,
-        detail: 'Location permission needed for Wi-Fi scanning was not granted.',
+        detail:
+            'Location permission needed for Wi-Fi scanning was not granted.',
       ));
       return;
     }
@@ -90,14 +104,17 @@ class _WifiTestPageState extends State<WifiTestPage> {
 
     if (!await Geolocator.isLocationServiceEnabled()) {
       if (!mounted) return;
-      _setResult(const CheckupResult(
-        key: 'wifi',
-        title: 'Wi-Fi',
-        status: CheckupStatus.skipped,
-        detail:
-            'Location services are switched off — Android requires them to '
-            'scan for Wi-Fi.',
-      ));
+      setState(() => _locationServicesOff = true);
+      _setResult(
+          const CheckupResult(
+            key: 'wifi',
+            title: 'Wi-Fi',
+            status: CheckupStatus.skipped,
+            detail:
+                'Location services are switched off — Android requires them to '
+                'scan for Wi-Fi.',
+          ),
+          hold: true);
       return;
     }
 
@@ -155,7 +172,8 @@ class _WifiTestPageState extends State<WifiTestPage> {
           key: 'wifi',
           title: 'Wi-Fi',
           status: CheckupStatus.skipped,
-          detail: 'Location permission needed for Wi-Fi scanning was not granted.',
+          detail:
+              'Location permission needed for Wi-Fi scanning was not granted.',
         ));
         return;
       case CanStartScan.notSupported:
@@ -267,9 +285,7 @@ class _WifiTestPageState extends State<WifiTestPage> {
 
     if (!mounted) return;
     if (_networks.isNotEmpty) {
-      final strongest = _networks
-          .where((n) => n.ssid.isNotEmpty)
-          .toList()
+      final strongest = _networks.where((n) => n.ssid.isNotEmpty).toList()
         ..sort((a, b) => b.level.compareTo(a.level));
       final name = strongest.isNotEmpty ? strongest.first.ssid : null;
       _setResult(CheckupResult(
@@ -329,6 +345,7 @@ class _WifiTestPageState extends State<WifiTestPage> {
       padding: const EdgeInsets.all(16),
       children: [
         CheckupInstruction(
+          demo: CheckupDemoKind.wifiScan,
           icon: Icons.wifi,
           busy: _scanning,
           text: _statusText,
@@ -346,8 +363,8 @@ class _WifiTestPageState extends State<WifiTestPage> {
               ),
               trailing: Text(
                 '${network.level} dBm',
-                style: AppTextStyles.body.copyWith(
-                    color: AppColors.textTertiary, fontSize: 12),
+                style: AppTextStyles.body
+                    .copyWith(color: AppColors.textTertiary, fontSize: 12),
               ),
             ),
         ],
@@ -360,14 +377,33 @@ class _WifiTestPageState extends State<WifiTestPage> {
   Widget _verdictView() {
     return CheckupVerdict(
       result: _result!,
-      // Only a permanently denied permission leaves the user something to do
-      // here; every other verdict is read-only and pops on its own.
+      // Two verdicts leave the user something to do; every other one is
+      // read-only and pops on its own.
       action: _isPermanentlyDenied
           ? CheckupPermissionAction(
               onOpenSettings: openAppSettings,
               onContinue: () => Navigator.of(context).pop(_result),
             )
-          : null,
+          : _locationServicesOff
+              ? CheckupPermissionAction(
+                  onOpenSettings: _retryWithLocation,
+                  onContinue: () => Navigator.of(context).pop(_result),
+                  openLabel: 'Turn on location & retry',
+                  openIcon: Icons.my_location_rounded,
+                )
+              : null,
     );
+  }
+
+  /// Clears the verdict and runs the test again, which raises Android's
+  /// location dialog a second time.
+  void _retryWithLocation() {
+    setState(() {
+      _locationServicesOff = false;
+      _result = null;
+      _networks.clear();
+      _statusText = 'Preparing Wi-Fi scan…';
+    });
+    _run();
   }
 }

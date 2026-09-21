@@ -72,6 +72,7 @@ Future<void> _pump(
 
   await t.pumpWidget(MaterialApp(
     home: MainShell(
+      showMascot: false,
       pageBuilder: (tab) => _Stand(tab: tab),
       repository: _Repo(signedIn: signedIn),
     ),
@@ -193,6 +194,7 @@ void main() {
 
     await t.pumpWidget(MaterialApp(
       home: MainShell(
+        showMascot: false,
         initialTab: HomeNavTab.profile,
         pageBuilder: (tab) => _Stand(tab: tab),
         repository: const _Repo(signedIn: true),

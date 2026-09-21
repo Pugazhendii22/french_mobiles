@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:french_mobiles/firebase/catalog_firebase.dart';
 
 import 'home_models.dart';
+import '../../../firebase/second_hand_firebase.dart';
 
 /// Every Firebase read the home screen performs, in one place.
 ///
@@ -12,10 +13,11 @@ import 'home_models.dart';
 /// deliberate and must not be "tidied up":
 ///
 ///  * [watchAvailableMobiles] and [loadAvailableMobiles] use
-///    `FirebaseFirestore.instance` — the **default** app — whereas everything
-///    else uses `catalogFirestore`, the `catalogApp` secondary. Both are
-///    configured from the same options today, but they are distinct
-///    [FirebaseApp] instances and switching one would be a behaviour change.
+///    `secondHandFirestore`, whereas everything else uses `catalogFirestore`.
+///    These are now genuinely **different Firebase projects**: the stock
+///    listings belong to the owner's separate web product, and orders, users
+///    and brands belong to this app's own project. Pointing either at the
+///    other's instance would read an empty collection, not a slower one.
 ///  * Address ordering is `createdAt` descending, with the default address
 ///    picked out in Dart rather than by a `where` clause, because documents
 ///    written before the `isDefault` field existed do not carry it.
@@ -106,7 +108,7 @@ class HomeRepository {
   ///
   /// Uses the **default** Firestore app; see the class doc.
   Future<List<HomeProduct>> loadAvailableMobiles() async {
-    final snapshot = await FirebaseFirestore.instance
+    final snapshot = await secondHandFirestore
         .collection('second_hand_mobiles')
         .where('status', isEqualTo: 'available')
         .get();

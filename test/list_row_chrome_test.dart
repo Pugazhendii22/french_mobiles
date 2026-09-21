@@ -27,7 +27,8 @@ import 'package:french_mobiles/shared/widgets/widgets.dart';
 /// content — the same exception the home product card makes.
 List<BoxDecoration> _decorationsIn(WidgetTester t, Finder of) {
   final insideImage = find
-      .descendant(of: find.byType(AppNetworkImage), matching: find.byType(DecoratedBox))
+      .descendant(
+          of: find.byType(AppNetworkImage), matching: find.byType(DecoratedBox))
       .evaluate()
       .toSet();
 

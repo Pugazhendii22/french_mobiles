@@ -120,9 +120,9 @@ void main() {
     await _boot(
       t,
       MainShell(
+        showMascot: false,
         repository: const _Repo(),
-        pageBuilder: (tab) =>
-            _Searchable(label: tab.name),
+        pageBuilder: (tab) => _Searchable(label: tab.name),
       ),
     );
 

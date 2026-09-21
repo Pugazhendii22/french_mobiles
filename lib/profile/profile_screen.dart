@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:french_mobiles/features/shell/main_shell.dart';
 
 import '../firebase/catalog_firebase.dart';
+import '../shared/services/order_notifications.dart';
 import '../screens/edit_profile_page.dart';
 import '../screens/login_page.dart';
 import '../shared/motion/motion.dart';
@@ -56,6 +57,11 @@ class _ProfilePageState extends State<ProfilePage> {
               // Captured before the await: the dialog can be dismissed while
               // sign-out is in flight, and its context would then be dead.
               final navigator = Navigator.of(context);
+              // Before signing out, while the uid still exists: the push
+              // token belongs to the handset, not the account, so leaving it
+              // behind would send this seller's order updates to whoever
+              // signs in on this phone next.
+              await OrderNotifications.stop();
               await catalogAuth.signOut();
               navigator.pop();
               MainShell.goHome();

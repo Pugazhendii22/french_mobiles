@@ -1,26 +1,44 @@
 {
   "project_info": {
-    "project_number": "530574210824",
-    "project_id": "fren-75087",
-    "storage_bucket": "fren-75087.firebasestorage.app"
+    "project_number": "1086357315686",
+    "project_id": "french-mobiles-marketplace",
+    "storage_bucket": "french-mobiles-marketplace.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:530574210824:android:98160269e3fe051fb89ebd",
+        "mobilesdk_app_id": "1:1086357315686:android:1f43282812dc89095c4da7",
         "android_client_info": {
           "package_name": "com.example.french_mobiles"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1086357315686-mdrlnjb8i50pac8pn1s93rkpptd6rrh4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.french_mobiles",
+            "certificate_hash": "d093205d02e9e8f2ab4918e68c825eae2fbedb48"
+          }
+        },
+        {
+          "client_id": "1086357315686-gd3cjbuqqll9umc7peffkd04laiq6hmt.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyDvw7e_CddKBj3edgx4_PV_rBvKy9vBn6U"
+          "current_key": "AIzaSyCV6pjsYpstL1sKCcPgemIEt6iAjZw-dBg"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1086357315686-gd3cjbuqqll9umc7peffkd04laiq6hmt.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

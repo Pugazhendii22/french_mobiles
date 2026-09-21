@@ -1,0 +1,4 @@
+node_modules/
+*.log
+# Never commit a service account key. It belongs in Secret Manager.
+*service-account*.json

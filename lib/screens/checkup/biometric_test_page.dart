@@ -5,6 +5,7 @@ import '../../models/checkup_result.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
+import 'checkup_demo.dart';
 import 'checkup_test_shell.dart';
 
 enum _BiometricPhase { checking, prompt, selfReport, verdict }
@@ -145,6 +146,7 @@ class _BiometricTestPageState extends State<BiometricTestPage> {
       padding: const EdgeInsets.all(16),
       children: [
         const CheckupInstruction(
+          demo: CheckupDemoKind.fingerprint,
           icon: Icons.fingerprint_rounded,
           text: 'We couldn\'t verify automatically — this can happen on some '
               'phones even when the sensor works fine. Try unlocking with your '
@@ -190,7 +192,8 @@ class _BiometricTestPageState extends State<BiometricTestPage> {
     );
   }
 
-  Widget _reportButton(String label, IconData icon, Color color, VoidCallback onPressed) {
+  Widget _reportButton(
+      String label, IconData icon, Color color, VoidCallback onPressed) {
     return OutlinedButton(
       style: OutlinedButton.styleFrom(
         foregroundColor: color,
@@ -204,10 +207,10 @@ class _BiometricTestPageState extends State<BiometricTestPage> {
         children: [
           Icon(icon, size: 20),
           const SizedBox(width: 8),
-          Text(label, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
+          Text(label,
+              style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
         ],
       ),
     );
   }
-
 }

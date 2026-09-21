@@ -10,10 +10,65 @@ import '../../shared/widgets/widgets.dart';
 
 /// Final screen — lists every test with pass / fail / skip / N/A and an overall
 /// verdict.
-class CheckupSummaryPage extends StatelessWidget {
+///
+/// Anything that did not pass can be run again from here. A hardware test can
+/// fail for reasons that are nothing to do with the hardware — a beep missed
+/// because someone walked past, a permission dialog dismissed by reflex, a SIM
+/// that was not in the phone yet — and without this the only remedy was to run
+/// all nineteen tests again. The re-run replaces that test's row in place
+/// rather than appending a second one.
+class CheckupSummaryPage extends StatefulWidget {
   final List<CheckupResult> results;
 
-  const CheckupSummaryPage({super.key, required this.results});
+  /// Runs one test again and returns its new result, or null if the user
+  /// backed out. Null callback hides the retry affordance entirely, which is
+  /// what a summary opened without an orchestrator behind it wants.
+  final Future<CheckupResult?> Function(String key)? onRetest;
+
+  /// Replaces the default "back to the home screen" behaviour of Done.
+  ///
+  /// The sell flow sets this so finishing the checkup returns to the sell
+  /// flow with the results, rather than dropping the seller on the home
+  /// screen half way through selling a phone.
+  final VoidCallback? onDone;
+
+  const CheckupSummaryPage({
+    super.key,
+    required this.results,
+    this.onRetest,
+    this.onDone,
+  });
+
+  @override
+  State<CheckupSummaryPage> createState() => _CheckupSummaryPageState();
+}
+
+class _CheckupSummaryPageState extends State<CheckupSummaryPage> {
+  late List<CheckupResult> results = List.of(widget.results);
+
+  /// The test being re-run, so its row can show progress and the rest can be
+  /// held still — two retests at once would race for the same hardware.
+  String? _retesting;
+
+  Future<void> _retest(CheckupResult result) async {
+    final onRetest = widget.onRetest;
+    if (onRetest == null || _retesting != null) return;
+
+    setState(() => _retesting = result.key);
+    final updated = await onRetest(result.key);
+    if (!mounted) return;
+
+    setState(() {
+      _retesting = null;
+      if (updated == null) return;
+      final index = results.indexWhere((r) => r.key == updated.key);
+      if (index >= 0) {
+        results[index] = updated;
+      } else {
+        results.add(updated);
+      }
+    });
+  }
 
   int _count(CheckupStatus status) =>
       results.where((r) => r.status == status).length;
@@ -26,7 +81,11 @@ class CheckupSummaryPage extends StatelessWidget {
   /// passed one — so "all passed" has to mean every test actually ran.
   (IconData, Color, String) get _headline {
     if (results.isEmpty) {
-      return (Icons.rule_rounded, AppColors.textSecondary, 'Nothing tested yet');
+      return (
+        Icons.rule_rounded,
+        AppColors.textSecondary,
+        'Nothing tested yet'
+      );
     }
     if (_fails > 0) {
       return (
@@ -108,7 +167,8 @@ class CheckupSummaryPage extends StatelessWidget {
             Icon(icon, color: colour, size: 28),
             const SizedBox(width: AppSpacing.md),
             Expanded(
-              child: Text(label, style: AppTextStyles.h3.copyWith(color: colour)),
+              child:
+                  Text(label, style: AppTextStyles.h3.copyWith(color: colour)),
             ),
           ],
         ),
@@ -145,7 +205,8 @@ class CheckupSummaryPage extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Icon(result.status.icon, color: result.status.color, size: 20),
+            child:
+                Icon(result.status.icon, color: result.status.color, size: 20),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
@@ -167,8 +228,59 @@ class CheckupSummaryPage extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          AppBadge(label: result.status.label, tone: result.status.badgeTone),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppBadge(
+                  label: result.status.label, tone: result.status.badgeTone),
+              if (_canRetest(result)) ...[
+                const SizedBox(height: AppSpacing.xs),
+                _retestButton(result),
+              ],
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  /// Every row can be run again, passes included — a pass can be a fluke as
+  /// easily as a fail can be bad luck, and someone who wants to satisfy
+  /// themselves about a result should not have to re-run the whole checkup.
+  bool _canRetest(CheckupResult result) => widget.onRetest != null;
+
+  Widget _retestButton(CheckupResult result) {
+    final busy = _retesting == result.key;
+    final blocked = _retesting != null && !busy;
+
+    return TextButton.icon(
+      onPressed: blocked ? null : () => _retest(result),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: 2,
+        ),
+        minimumSize: const Size(0, 32),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        foregroundColor: AppColors.primary,
+      ),
+      icon: busy
+          ? const SizedBox(
+              height: 13,
+              width: 13,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.primary,
+              ),
+            )
+          : const Icon(Icons.refresh_rounded, size: 15),
+      label: Text(
+        busy ? 'Running' : 'Retry',
+        style: AppTextStyles.caption.copyWith(
+          color: blocked ? AppColors.textTertiary : AppColors.primary,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -186,11 +298,12 @@ class CheckupSummaryPage extends StatelessWidget {
         AppSpacing.md + MediaQuery.paddingOf(context).bottom,
       ),
       child: AppPrimaryButton(
-        label: 'Done',
-        onPressed: () {
-          MainShell.goHome();
-          Navigator.of(context).popUntil((route) => route.isFirst);
-        },
+        label: widget.onDone == null ? 'Done' : 'Use these results',
+        onPressed: widget.onDone ??
+            () {
+              MainShell.goHome();
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
       ),
     );
   }

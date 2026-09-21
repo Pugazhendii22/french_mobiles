@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 
 import '../../models/model_detail.dart';
 import 'catalog_cache.dart';
+import 'model_series.dart';
 
 /// Every model in the catalogue, for the sell page's search.
 ///
@@ -37,6 +38,13 @@ class ModelSearch {
       if (brand == null) continue;
 
       final data = doc.data();
+
+      // Hidden models are kept out of search too. Without this a model the
+      // admin had hidden would still be reachable by typing its name, which
+      // is the one route into the sell flow that does not go via the brand
+      // list. Only an explicit `hidden: true` hides it — see BrandDetailPage.
+      if (data['hidden'] == true) continue;
+
       final name = (data['model'] ?? '').toString().trim();
       if (name.isEmpty) continue;
 
@@ -46,6 +54,7 @@ class ModelSearch {
         brand: brand,
         name: name,
         category: (data['release_year'] ?? '').toString(),
+        series: deriveSeries(name, brand),
         maxPrice: _price(data['base_price']),
         imageUrl: imageUrl.isEmpty ? null : imageUrl,
         docId: doc.id,

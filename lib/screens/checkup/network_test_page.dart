@@ -8,6 +8,7 @@ import 'package:sim_data/sim_data.dart';
 import '../../models/checkup_result.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
+import 'checkup_demo.dart';
 import 'checkup_test_shell.dart';
 
 /// Test 7 — Mobile network.
@@ -23,7 +24,6 @@ class NetworkTestPage extends StatefulWidget {
 }
 
 class _NetworkTestPageState extends State<NetworkTestPage> {
-  bool _busy = true;
   bool _isPermanentlyDenied = false;
   String _statusText = 'Reading SIM state…';
   CheckupResult? _result;
@@ -39,12 +39,15 @@ class _NetworkTestPageState extends State<NetworkTestPage> {
     if (!mounted) return;
     if (phone.isPermanentlyDenied) {
       setState(() => _isPermanentlyDenied = true);
-      _setResult(const CheckupResult(
-        key: 'network',
-        title: 'Mobile network',
-        status: CheckupStatus.skipped,
-        detail: 'Phone state permission is permanently denied. Open Settings to grant.',
-      ), hold: true);
+      _setResult(
+          const CheckupResult(
+            key: 'network',
+            title: 'Mobile network',
+            status: CheckupStatus.skipped,
+            detail:
+                'Phone state permission is permanently denied. Open Settings to grant.',
+          ),
+          hold: true);
       return;
     }
     if (!phone.isGranted) {
@@ -64,7 +67,8 @@ class _NetworkTestPageState extends State<NetworkTestPage> {
       if (simData.cards.isNotEmpty) {
         hasSim = true;
         final card = simData.cards.first;
-        carrier = card.carrierName.isEmpty ? card.displayName : card.carrierName;
+        carrier =
+            card.carrierName.isEmpty ? card.displayName : card.carrierName;
       }
     } on PlatformException catch (e) {
       if (!mounted) return;
@@ -72,7 +76,8 @@ class _NetworkTestPageState extends State<NetworkTestPage> {
         key: 'network',
         title: 'Mobile network',
         status: CheckupStatus.skipped,
-        detail: 'Could not read SIM state (sim_data error: ${e.message ?? e.code})',
+        detail:
+            'Could not read SIM state (sim_data error: ${e.message ?? e.code})',
       ));
       return;
     } catch (e) {
@@ -101,8 +106,8 @@ class _NetworkTestPageState extends State<NetworkTestPage> {
 
     final connectivity = Connectivity();
     final types = await connectivity.checkConnectivity();
-    final hasNetwork = types.isNotEmpty &&
-        !types.every((t) => t == ConnectivityResult.none);
+    final hasNetwork =
+        types.isNotEmpty && !types.every((t) => t == ConnectivityResult.none);
 
     final routeWorks = await _probeInternet();
     if (!mounted) return;
@@ -162,7 +167,6 @@ class _NetworkTestPageState extends State<NetworkTestPage> {
   void _setResult(CheckupResult result, {bool hold = false}) {
     if (!mounted) return;
     setState(() {
-      _busy = false;
       _result = result;
     });
     if (hold) return;
@@ -199,11 +203,9 @@ class _NetworkTestPageState extends State<NetworkTestPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (_busy)
-              const CircularProgressIndicator(color: AppColors.primary)
-            else
-              const Icon(Icons.signal_cellular_alt,
-                  size: 56, color: AppColors.primary),
+            // Filling signal bars say "checking the mobile network" without
+            // relying on the status text below being readable.
+            const CheckupDemo(kind: CheckupDemoKind.signalBars, height: 116),
             const SizedBox(height: 20),
             Text(
               _statusText,

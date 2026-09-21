@@ -4,6 +4,7 @@ import 'package:vibration/vibration.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
+import 'checkup_demo.dart';
 import 'checkup_test_shell.dart';
 
 /// Vibration motor.
@@ -102,6 +103,7 @@ class _VibrationTestPageState extends State<VibrationTestPage>
       padding: const EdgeInsets.all(16),
       children: [
         const CheckupInstruction(
+          demo: CheckupDemoKind.vibration,
           icon: Icons.vibration_rounded,
           text: 'Hold the phone in your hand. It should buzz twice quickly, '
               'then once for longer.',
@@ -119,9 +121,8 @@ class _VibrationTestPageState extends State<VibrationTestPage>
               Icon(
                 Icons.vibration_rounded,
                 size: 48,
-                color: _buzzing
-                    ? AppColors.onPrimarySoft
-                    : AppColors.textTertiary,
+                color:
+                    _buzzing ? AppColors.onPrimarySoft : AppColors.textTertiary,
               ),
               const SizedBox(height: 12),
               Text(

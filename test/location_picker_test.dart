@@ -56,10 +56,10 @@ void main() {
     expect(t.takeException(), isNull);
   });
 
-  testWidgets('credits OpenStreetMap, as its licence requires', (t) async {
-    await _open(t);
-    expect(find.textContaining('OpenStreetMap'), findsWidgets);
-  });
+  // The OpenStreetMap credit this used to assert is gone with the tiles.
+  // Google Maps draws its own attribution inside the native view, where no
+  // widget test can see it — and the licence is satisfied by the SDK itself
+  // rather than by anything this page builds.
 
   testWidgets('confirming returns the point the pin is on', (t) async {
     final picked = await _openAndConfirm(t);
@@ -69,8 +69,7 @@ void main() {
     expect(picked.longitude, closeTo(77.5946, 0.0001));
   });
 
-  testWidgets('falls back to coordinates when no address resolves',
-      (t) async {
+  testWidgets('falls back to coordinates when no address resolves', (t) async {
     final picked = await _openAndConfirm(t);
 
     expect(picked!.address, contains('12.97160'),

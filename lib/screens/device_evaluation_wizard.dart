@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import '../models/checkup_result.dart';
+import '../models/device_question.dart';
 import '../models/quote_breakdown.dart';
 import '../shared/widgets/quote_breakdown_view.dart';
 
@@ -9,6 +11,8 @@ import '../shared/motion/motion.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
+import '../shared/services/battery_band.dart';
+import '../shared/widgets/condition_icon.dart';
 import '../shared/widgets/widgets.dart';
 import 'pickup_checkout_page.dart';
 
@@ -20,6 +24,17 @@ class DeviceEvaluationWizard extends StatefulWidget {
   final int basePrice;
   final String storage;
 
+  /// What the seller said in the questions stage. These carry their own
+  /// deductions, which is why the wizard no longer asks about functional
+  /// faults itself.
+  final List<DeviceAnswer> answers;
+
+  /// What the automatic checkup found, or empty when it was skipped.
+  ///
+  /// Recorded and passed on to the order; deliberately *not* priced. The
+  /// seller's answers decide the quote — see AutoCheckupOfferPage.
+  final List<CheckupResult> checkupResults;
+
   const DeviceEvaluationWizard({
     super.key,
     required this.brandName,
@@ -28,6 +43,8 @@ class DeviceEvaluationWizard extends StatefulWidget {
     this.imageUrl,
     required this.basePrice,
     required this.storage,
+    this.answers = const [],
+    this.checkupResults = const [],
   });
 
   @override
@@ -39,7 +56,6 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
     'Screen condition',
     'Body & frame',
     'Battery health',
-    'Functionality faults',
     'Accessories',
     'Lock status & payout',
   ];
@@ -49,13 +65,11 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
   int _selectedScreenIndex = 0;
   int _selectedBodyIndex = 0;
   int _selectedBatteryIndex = 0;
-  final Set<int> _selectedFaults = {};
   int _selectedAccessoryIndex = 0;
   int _selectedLockIndex = 0;
   List<Map<String, dynamic>> _screenOptions = [];
   List<Map<String, dynamic>> _bodyOptions = [];
   List<Map<String, dynamic>> _batteryOptions = [];
-  List<Map<String, dynamic>> _faultOptions = [];
   List<Map<String, dynamic>> _accessoryOptions = [];
   List<Map<String, dynamic>> _lockOptions = [];
 
@@ -68,6 +82,32 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
   void initState() {
     super.initState();
     _loadDeductionRules();
+  }
+
+  /// The charge cycle count the battery test read, if the phone reported one.
+  ///
+  /// Only Android 14 and later report it; on anything older this stays null
+  /// and the seller chooses unaided, as before.
+  int? get _measuredCycles {
+    for (final result in widget.checkupResults) {
+      if (result.key != 'battery') continue;
+      final cycles = result.data?['cycleCount'];
+      if (cycles is num && cycles > 0) return cycles.round();
+    }
+    return null;
+  }
+
+  void _applyMeasuredBattery() {
+    final cycles = _measuredCycles;
+    if (cycles == null) return;
+    final index = batteryBandFor(
+      estimatedHealthFromCycles(cycles),
+      [for (final o in _batteryOptions) (o['title'] ?? '').toString()],
+    );
+    // No match means the estimate fell in a gap between the bands. Left
+    // alone rather than rounded into a neighbour — rounding would move money
+    // on arithmetic nobody asked for.
+    if (index != null) _selectedBatteryIndex = index;
   }
 
   /// The fraction of the base price a given option costs.
@@ -95,8 +135,8 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
     return QuoteLine(
       category: category,
       choice: (list[index]['title'] ?? '').toString(),
-      percent: (list[index]['percent'] as num?)?.round() ??
-          (fraction * 100).round(),
+      percent:
+          (list[index]['percent'] as num?)?.round() ?? (fraction * 100).round(),
       amount: (widget.basePrice * fraction).round(),
     );
   }
@@ -114,8 +154,14 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
     add(_lineFor('Screen condition', _screenOptions, _selectedScreenIndex));
     add(_lineFor('Body & frame', _bodyOptions, _selectedBodyIndex));
     add(_lineFor('Battery health', _batteryOptions, _selectedBatteryIndex));
-    for (final faultIndex in _selectedFaults) {
-      add(_lineFor('Functionality fault', _faultOptions, faultIndex));
+    for (final answer in widget.answers) {
+      if (!answer.isFault) continue;
+      add(QuoteLine(
+        category: 'Functionality fault',
+        choice: answer.question.label,
+        percent: answer.question.percent,
+        amount: (widget.basePrice * answer.question.fraction).round(),
+      ));
     }
     add(_lineFor('Accessories', _accessoryOptions, _selectedAccessoryIndex));
     add(_lineFor('Lock status', _lockOptions, _selectedLockIndex));
@@ -125,8 +171,8 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
         _fractionAt(_batteryOptions, _selectedBatteryIndex) +
         _fractionAt(_accessoryOptions, _selectedAccessoryIndex) +
         _fractionAt(_lockOptions, _selectedLockIndex);
-    for (final faultIndex in _selectedFaults) {
-      totalFraction += _fractionAt(_faultOptions, faultIndex);
+    for (final answer in widget.answers) {
+      if (answer.isFault) totalFraction += answer.question.fraction;
     }
 
     return QuoteBreakdown.from(
@@ -139,7 +185,7 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
   int _calculateFinalValuation() => _buildQuote().finalPayout;
 
   void _nextStep() {
-    if (_currentStep < 5) {
+    if (_currentStep < 4) {
       setState(() => _currentStep++);
     }
   }
@@ -162,7 +208,6 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
         'screen_condition',
         'body_condition',
         'battery_health',
-        'functionality_faults',
         'accessories',
         'lock_status',
       ];
@@ -174,8 +219,9 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
         try {
           final doc = await col.doc(id).get();
           final data = doc.data();
-          final rawOptions =
-              (data != null && data['options'] is List) ? List.from(data['options']) : [];
+          final rawOptions = (data != null && data['options'] is List)
+              ? List.from(data['options'])
+              : [];
 
           final mapped = rawOptions.map<Map<String, dynamic>>((o) {
             final label = (o['label'] ?? '').toString();
@@ -209,9 +255,8 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
         _screenOptions = results.isNotEmpty ? results[0] : [];
         _bodyOptions = results.length > 1 ? results[1] : [];
         _batteryOptions = results.length > 2 ? results[2] : [];
-        _faultOptions = results.length > 3 ? results[3] : [];
-        _accessoryOptions = results.length > 4 ? results[4] : [];
-        _lockOptions = results.length > 5 ? results[5] : [];
+        _accessoryOptions = results.length > 3 ? results[3] : [];
+        _lockOptions = results.length > 4 ? results[4] : [];
 
         // clamp selected indices to available lengths
         _selectedScreenIndex = _selectedScreenIndex.clamp(
@@ -220,20 +265,21 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
             0, _bodyOptions.isEmpty ? 0 : _bodyOptions.length - 1);
         _selectedBatteryIndex = _selectedBatteryIndex.clamp(
             0, _batteryOptions.isEmpty ? 0 : _batteryOptions.length - 1);
+        // Applied once the options exist, since the band is chosen by
+        // matching the labels rather than by a fixed position.
+        _applyMeasuredBattery();
         _selectedAccessoryIndex = _selectedAccessoryIndex.clamp(
             0, _accessoryOptions.isEmpty ? 0 : _accessoryOptions.length - 1);
         _selectedLockIndex = _selectedLockIndex.clamp(
             0, _lockOptions.isEmpty ? 0 : _lockOptions.length - 1);
 
         // remove selected faults outside range
-        _selectedFaults.retainWhere((i) => i >= 0 && i < _faultOptions.length);
       });
     } catch (e) {
       setState(() {
         _screenOptions = [];
         _bodyOptions = [];
         _batteryOptions = [];
-        _faultOptions = [];
         _accessoryOptions = [];
         _lockOptions = [];
       });
@@ -248,22 +294,24 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
     // The quote is built once and carried, rather than recomputed at
     // checkout: two calculations of the same number is two chances for them
     // to differ, and the validity window has to start somewhere definite.
-    context.pushScreen(PickupCheckoutPage(
-          brandName: widget.brandName,
-          modelDocId: widget.modelDocId,
-          modelName: widget.modelName,
-          imageUrl: widget.imageUrl,
-          variant: widget.storage,
-          basePrice: widget.basePrice,
-          finalPayout: _calculateFinalValuation(),
-          quote: _buildQuote(),
+    context.pushScreen(
+      PickupCheckoutPage(
+        brandName: widget.brandName,
+        modelDocId: widget.modelDocId,
+        modelName: widget.modelName,
+        imageUrl: widget.imageUrl,
+        variant: widget.storage,
+        basePrice: widget.basePrice,
+        finalPayout: _calculateFinalValuation(),
+        quote: _buildQuote(),
+        checkupResults: widget.checkupResults,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isLastStep = _currentStep == 5;
+    final isLastStep = _currentStep == 4;
 
     return Theme(
       data: AppTheme.light,
@@ -284,14 +332,14 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
                   title: _stepTitles[_currentStep],
                   onBack: _prevStep,
                   trailing: AppBadge(
-                    label: 'STEP ${_currentStep + 1}/6',
+                    label: 'STEP ${_currentStep + 1}/5',
                     tone: AppBadgeTone.primary,
                   ),
                   content: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      AppStepProgress(total: 6, current: _currentStep),
+                      AppStepProgress(total: 5, current: _currentStep),
                       const SizedBox(height: AppSpacing.md),
                       Text(
                         isLastStep
@@ -386,28 +434,64 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
           _screenOptions,
           _selectedScreenIndex,
           (i) => setState(() => _selectedScreenIndex = i),
+          category: ConditionCategory.screen,
         );
       case 1:
         return _buildSingleSelectGrid(
           _bodyOptions,
           _selectedBodyIndex,
           (i) => setState(() => _selectedBodyIndex = i),
+          category: ConditionCategory.body,
         );
       case 2:
-        return _buildSingleSelectGrid(
+        final measured = _measuredCycles;
+        final grid = _buildSingleSelectGrid(
           _batteryOptions,
           _selectedBatteryIndex,
           (i) => setState(() => _selectedBatteryIndex = i),
+          category: ConditionCategory.battery,
+        );
+        if (measured == null) return grid;
+
+        // Says so when the choice was made for them. A dropdown that decides
+        // a third of the payout must never quietly move on its own — and the
+        // seller keeps the last word, so it is a starting point rather than
+        // a verdict.
+        return Column(
+          children: [
+            AppSurface(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  const Icon(Icons.verified_rounded,
+                      size: 18, color: AppColors.success),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      'This battery has done $measured charge cycles, which '
+                      'suggests about '
+                      '${estimatedHealthFromCycles(measured)}% capacity left. '
+                      'That band is picked below — it is an estimate from the '
+                      'cycle count, not a measurement, so change it if you '
+                      'know better.',
+                      style: AppTextStyles.caption,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Expanded(child: grid),
+          ],
         );
       case 3:
-        return _buildMultiSelectGrid();
-      case 4:
         return _buildSingleSelectGrid(
           _accessoryOptions,
           _selectedAccessoryIndex,
           (i) => setState(() => _selectedAccessoryIndex = i),
+          category: ConditionCategory.accessories,
         );
-      case 5:
+      case 4:
         return _buildFinalStep();
       default:
         return const SizedBox.shrink();
@@ -444,6 +528,7 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
           _lockOptions,
           _selectedLockIndex,
           (i) => setState(() => _selectedLockIndex = i),
+          category: ConditionCategory.lock,
           embedded: true,
         ),
         const SizedBox(height: AppSpacing.xxl),
@@ -491,6 +576,7 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
     List<Map<String, dynamic>> items,
     int selectedIndex,
     void Function(int) onSelect, {
+    required ConditionCategory category,
     bool embedded = false,
   }) {
     if (items.isEmpty) return _emptyOptions();
@@ -508,48 +594,18 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
                       : ''))
               .toString(),
           iconUrl: (item['icon_url'] ?? '').toString(),
+          art: ConditionIcon(
+            category: category,
+            label: (item['title'] ?? '').toString(),
+            selected: selectedIndex == index,
+          ),
           selected: selectedIndex == index,
           onTap: () => onSelect(index),
         );
       },
     );
   }
-
-  Widget _buildMultiSelectGrid() {
-    if (_faultOptions.isEmpty) return _emptyOptions();
-
-    return _grid(
-      itemCount: _faultOptions.length,
-      builder: (context, index) {
-        final item = _faultOptions[index];
-        final isSelected = _selectedFaults.contains(index);
-
-        return AppOptionCard(
-          title: (item['title'] ?? '').toString(),
-          subtitle: (item['subtitle'] ??
-                  (item['percent'] != null
-                      ? '${item['percent']}% Deduction'
-                      : ''))
-              .toString(),
-          iconUrl: (item['icon_url'] ?? '').toString(),
-          fallbackIcon: Icons.build_outlined,
-          selected: isSelected,
-          multiSelect: true,
-          onTap: () {
-            setState(() {
-              if (isSelected) {
-                _selectedFaults.remove(index);
-              } else {
-                _selectedFaults.add(index);
-              }
-            });
-          },
-        );
-      },
-    );
-  }
 }
-
 
 /// The shape of an [AppOptionCard] before the deduction rules arrive.
 ///

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
+import 'checkup_demo.dart';
 import 'checkup_test_shell.dart';
 
 enum _TorchStep { on, off }
@@ -144,6 +145,7 @@ class _FlashlightTestPageState extends State<FlashlightTestPage>
       padding: const EdgeInsets.all(16),
       children: [
         CheckupInstruction(
+          demo: CheckupDemoKind.torch,
           icon: Icons.flashlight_on_outlined,
           text: isOnStep
               ? 'The torch has been switched on. Look at the back of the '
@@ -163,9 +165,7 @@ class _FlashlightTestPageState extends State<FlashlightTestPage>
         const SizedBox(height: 16),
         CheckupActions(
           attempt: _attempt,
-          primary: _busy
-              ? null
-              : (isOnStep ? _confirmOn : _confirmOff),
+          primary: _busy ? null : (isOnStep ? _confirmOn : _confirmOff),
           primaryLabel: isOnStep ? 'Yes, it is lit' : 'Yes, it is off',
           retryLabel: 'Try again',
           onRetry: _busy ? null : _retry,

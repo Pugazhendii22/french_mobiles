@@ -8,6 +8,12 @@ class ModelDetail {
 
   final String name;
   final String category;
+
+  /// Which series this model belongs to — "A series", "Edge series".
+  ///
+  /// Worked out from the name by `deriveSeries`, not stored in Firestore.
+  final String series;
+
   final int maxPrice;
   final String? imageUrl;
   final String? docId;
@@ -16,6 +22,7 @@ class ModelDetail {
     this.brand = '',
     required this.name,
     required this.category,
+    this.series = 'Other',
     required this.maxPrice,
     this.imageUrl,
     this.docId,

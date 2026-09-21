@@ -84,7 +84,8 @@ class CheckupTone {
     data.setUint32(40, frames * 2, Endian.little);
 
     for (var i = 0; i < frames; i++) {
-      data.setInt16(44 + i * 2, (sample(i) * 0.6 * 32767).round(), Endian.little);
+      data.setInt16(
+          44 + i * 2, (sample(i) * 0.6 * 32767).round(), Endian.little);
     }
 
     return data.buffer.asUint8List();

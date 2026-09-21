@@ -100,7 +100,8 @@ class _Radio extends StatelessWidget {
         ),
       ),
       child: selected
-          ? const Icon(Icons.check_rounded, size: 13, color: AppColors.onPrimary)
+          ? const Icon(Icons.check_rounded,
+              size: 13, color: AppColors.onPrimary)
           : null,
     );
   }

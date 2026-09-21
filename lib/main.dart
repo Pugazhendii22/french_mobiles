@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'firebase/catalog_firebase.dart';
+import 'firebase/second_hand_firebase.dart';
+import 'shared/services/order_notifications.dart';
 import 'features/shell/main_shell.dart';
 import 'shared/theme/app_theme.dart';
 
@@ -31,11 +33,32 @@ Future<void> main() async {
     // Secondary app failed to init; fall back to the default app.
   }
   try {
+    await initializeSecondHandApp();
+  } catch (_) {
+    // The owner's stock project is unreachable; the home screen shows an
+    // empty listings row rather than failing the whole app.
+  }
+  try {
     await GoogleSignIn.instance.initialize(
       serverClientId: '1086357315686-gd3cjbuqqll9umc7peffkd04laiq6hmt.apps.googleusercontent.com',
     );
   } catch (_) {
     // Google Sign-In unavailable; app still renders.
+  }
+
+  // Registers this device for order updates whenever somebody signs in.
+  //
+  // Watched here rather than on a page, because it has to happen once for the
+  // whole app and must survive whichever screen the sign-in happened on.
+  // Signing *out* is handled at the sign-out button instead: by the time this
+  // listener sees a null user the uid is already gone, and the token is
+  // stored against the uid.
+  try {
+    catalogAuth.authStateChanges().listen((user) {
+      if (user != null) OrderNotifications.start();
+    });
+  } catch (_) {
+    // Auth unavailable; the app still renders and orders still update live.
   }
 
   runApp(const MyApp());

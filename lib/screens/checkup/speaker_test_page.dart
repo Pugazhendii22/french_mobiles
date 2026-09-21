@@ -1,10 +1,10 @@
-
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
+import 'checkup_demo.dart';
 import 'checkup_test_shell.dart';
 import 'checkup_tone.dart';
 
@@ -101,6 +101,7 @@ class _SpeakerTestPageState extends State<SpeakerTestPage>
       padding: const EdgeInsets.all(16),
       children: [
         const CheckupInstruction(
+          demo: CheckupDemoKind.speakerSound,
           icon: Icons.speaker_outlined,
           text: 'A test tone is playing through the loudspeaker. Hold the '
               'phone away from your ear and listen for a steady beep.',
@@ -155,9 +156,7 @@ class _SpeakerTestPageState extends State<SpeakerTestPage>
                 : 'Tone finished — did you hear it?',
             textAlign: TextAlign.center,
             style: AppTextStyles.bodyMedium.copyWith(
-              color: _playing
-                  ? AppColors.onPrimarySoft
-                  : AppColors.textPrimary,
+              color: _playing ? AppColors.onPrimarySoft : AppColors.textPrimary,
             ),
           ),
         ],

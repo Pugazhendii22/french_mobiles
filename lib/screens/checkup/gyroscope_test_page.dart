@@ -7,6 +7,7 @@ import '../../models/checkup_result.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
+import 'checkup_demo.dart';
 import 'checkup_test_shell.dart';
 
 /// Test 9 — Gyroscope.
@@ -153,10 +154,10 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
       padding: const EdgeInsets.all(16),
       children: [
         const CheckupInstruction(
+          demo: CheckupDemoKind.rotatePhone,
           icon: Icons.threed_rotation,
-          text:
-            'Rotate the phone — flip or turn it while watching the axis '
-            'indicators. The test records rotation in three dimensions.',
+          text: 'Rotate the phone — flip or turn it while watching the axis '
+              'indicators. The test records rotation in three dimensions.',
         ),
         const SizedBox(height: 16),
         _axisTile('X axis', 'pitch', _x),
@@ -175,12 +176,8 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
           child: Row(
             children: [
               Icon(
-                _noData
-                    ? Icons.error_outline
-                    : Icons.sensors_off_outlined,
-                color: _noData
-                    ? AppColors.warning
-                    : AppColors.textTertiary,
+                _noData ? Icons.error_outline : Icons.sensors_off_outlined,
+                color: _noData ? AppColors.warning : AppColors.textTertiary,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -238,7 +235,8 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
             child: Text(
               active ? 'Rotating' : 'Still',
               style: AppTextStyles.overline.copyWith(
-                color: active ? AppColors.onPrimarySoft : AppColors.textTertiary,
+                color:
+                    active ? AppColors.onPrimarySoft : AppColors.textTertiary,
               ),
             ),
           ),
