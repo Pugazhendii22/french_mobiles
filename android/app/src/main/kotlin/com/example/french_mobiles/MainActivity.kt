@@ -132,8 +132,108 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
 
+        // The real measurement, and the reason this app used to disagree with
+        // every other battery app on the same handset.
+        readCapacityHealth(out)
+
         out["sdkInt"] = Build.VERSION.SDK_INT
         return out
+    }
+
+    /**
+     * Battery health as a capacity ratio: what the cell holds now against what
+     * it held new.
+     *
+     * Android exposes no state-of-health API at any level (checked against the
+     * API 37 android.jar — BatteryManager has no such constant), so this reads
+     * the kernel's own power-supply nodes, which is what every battery app
+     * that shows a believable figure actually does. `charge_full` is the
+     * present full-charge capacity in µAh and `charge_full_design` is what the
+     * cell shipped with; their ratio is the health percentage.
+     *
+     * Vendors disagree about where those nodes live and some ship only one of
+     * the pair, so several paths are tried and each half is reported
+     * separately. When the design figure is missing, `PowerProfile` is asked
+     * for it by reflection — a private framework class, hence the broad catch:
+     * it is absent on some builds and must never take the rest of the reading
+     * down with it.
+     *
+     * Nothing here is guaranteed. If the nodes are unreadable the caller gets
+     * no health field at all, which is the honest answer, and the Dart side
+     * falls back to the cycle-count estimate clearly labelled as a guess.
+     */
+    private fun readCapacityHealth(out: HashMap<String, Any?>) {
+        val supplies = listOf("battery", "bms", "battery_ext", "Battery")
+        var fullMicroAmpHours: Long? = null
+        var designMicroAmpHours: Long? = null
+
+        for (supply in supplies) {
+            val base = "/sys/class/power_supply/$supply"
+            if (fullMicroAmpHours == null) {
+                fullMicroAmpHours = readLongFile("$base/charge_full")
+                    ?: readLongFile("$base/energy_full")
+            }
+            if (designMicroAmpHours == null) {
+                designMicroAmpHours = readLongFile("$base/charge_full_design")
+                    ?: readLongFile("$base/energy_full_design")
+            }
+            if (fullMicroAmpHours != null && designMicroAmpHours != null) break
+        }
+
+        // Last resort for the design figure: the framework's own power profile,
+        // which carries it in mAh.
+        if (designMicroAmpHours == null) {
+            designMicroAmpHours = designCapacityFromPowerProfile()
+        }
+
+        if (fullMicroAmpHours != null) {
+            out["fullChargeMicroAmpHours"] = fullMicroAmpHours
+        }
+        if (designMicroAmpHours != null) {
+            out["designMicroAmpHours"] = designMicroAmpHours
+        }
+
+        val full = fullMicroAmpHours ?: return
+        val design = designMicroAmpHours ?: return
+        if (design <= 0L || full <= 0L) return
+
+        val percent = (full.toDouble() / design.toDouble() * 100.0).toInt()
+        // A cell reading over 100% is new or the node is lying; either way it
+        // is not worn. Below 30% means the node is reporting something other
+        // than what we think, so it is dropped rather than shown.
+        if (percent in 30..120) {
+            out["capacityHealth"] = percent.coerceAtMost(100)
+        }
+    }
+
+    /** A single integer from a sysfs node, or null if it cannot be read. */
+    private fun readLongFile(path: String): Long? {
+        return try {
+            val file = java.io.File(path)
+            if (!file.canRead()) return null
+            val raw = file.readText().trim()
+            val value = raw.toLongOrNull() ?: return null
+            if (value <= 0L) return null
+            // Some kernels report these in mAh rather than µAh. A phone cell is
+            // never 50 µAh, so a small number means the units are different.
+            if (value < 100_000L) value * 1000L else value
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    /** Design capacity in µAh from the private PowerProfile class, or null. */
+    private fun designCapacityFromPowerProfile(): Long? {
+        return try {
+            val clazz = Class.forName("com.android.internal.os.PowerProfile")
+            val profile = clazz.getConstructor(Context::class.java)
+                .newInstance(this)
+            val mah = clazz.getMethod("getBatteryCapacity").invoke(profile)
+                as? Double ?: return null
+            if (mah <= 0.0) null else (mah * 1000.0).toLong()
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     private fun readThermal(): Map<String, Any?> {

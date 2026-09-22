@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:isolate';
 
 import 'package:flutter/material.dart';
@@ -64,7 +65,13 @@ class _CpuThrottleTestPageState extends State<CpuThrottleTestPage>
   String get testTitle => 'Processor under load';
 
   final List<ThroughputSample> _samples = [];
-  Isolate? _worker;
+  /// One worker per core.
+  ///
+  /// A single isolate is a single core, and a modern phone has eight — so the
+  /// old one-worker test loaded about an eighth of the processor, which the
+  /// scheduler was free to park on a little core. It never got the die warm
+  /// enough to throttle, so it never measured the thing it exists to measure.
+  final List<Isolate> _workers = [];
   ReceivePort? _port;
   Timer? _ticker;
   bool _running = false;
@@ -97,8 +104,10 @@ class _CpuThrottleTestPageState extends State<CpuThrottleTestPage>
     // Killing it matters: the loop below never returns on its own, so a
     // worker left running would keep a core pinned for the rest of the
     // session and quietly flatten the battery.
-    _worker?.kill(priority: Isolate.immediate);
-    _worker = null;
+    for (final worker in _workers) {
+      worker.kill(priority: Isolate.immediate);
+    }
+    _workers.clear();
   }
 
   Future<void> _start() async {
@@ -110,15 +119,32 @@ class _CpuThrottleTestPageState extends State<CpuThrottleTestPage>
 
     final port = ReceivePort();
     _port = port;
-    // Off the UI isolate, or the load would freeze the very screen that is
-    // meant to be showing progress.
-    _worker = await Isolate.spawn(_burn, port.sendPort);
 
+    // One short of the core count, so the UI isolate still has somewhere to
+    // run — a phone that cannot repaint looks like a crash, and a frozen
+    // screen is indistinguishable from a failed test. Always at least one.
+    final cores = Platform.numberOfProcessors;
+    final workers = (cores - 1).clamp(1, 16);
+
+    for (var i = 0; i < workers; i++) {
+      _workers.add(await Isolate.spawn(_burn, port.sendPort));
+    }
+
+    // Each worker reports once a second on its own clock, so their messages
+    // interleave rather than arrive together. Summing per worker and only
+    // then taking a sample keeps one slow worker from reading as a drop in
+    // total throughput.
+    final latest = <int, double>{};
     port.listen((message) {
-      if (!mounted || message is! double) return;
+      if (!mounted || message is! List || message.length != 2) return;
+      final id = message[0] as int;
+      latest[id] = message[1] as double;
+      if (latest.length < workers) return;
+      final total = latest.values.reduce((a, b) => a + b);
+      latest.clear();
       setState(() {
         _samples.add(
-          ThroughputSample(atSecond: _samples.length, opsPerSecond: message),
+          ThroughputSample(atSecond: _samples.length, opsPerSecond: total),
         );
       });
     });
@@ -174,17 +200,30 @@ class _CpuThrottleTestPageState extends State<CpuThrottleTestPage>
   /// so the compiler cannot hoist or vectorise it away and leave the test
   /// measuring nothing.
   static void _burn(SendPort send) {
+    final id = identityHashCode(send);
     var accumulator = 1;
+    var float = 1.0000001;
     while (true) {
       final watch = Stopwatch()..start();
       var rounds = 0;
       while (watch.elapsedMilliseconds < 1000) {
         for (var i = 0; i < 20000; i++) {
           accumulator = (accumulator * 1103515245 + 12345) & 0x3FFFFFFF;
+          // Floating-point work alongside the integer arithmetic, because the
+          // two use different silicon: an integer-only loop leaves the FPU
+          // idle and draws far less power than real use does.
+          float = float * 1.0000001 + 0.0000001;
+          if (float > 2.0) float = 1.0000001;
         }
         rounds++;
       }
-      send.send(rounds * 20000 / (watch.elapsedMicroseconds / 1e6));
+      // The float is folded into the result so nothing above can be optimised
+      // away as dead code.
+      final guard = float > 0 ? 1 : 0;
+      send.send([
+        id,
+        rounds * 20000 * guard / (watch.elapsedMicroseconds / 1e6),
+      ]);
     }
   }
 

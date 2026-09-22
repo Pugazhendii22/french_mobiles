@@ -122,4 +122,29 @@ void main() {
       expect(batteryBandFor(84, _live), isNull);
     });
   });
+  // Why a measured capacity must beat the cycle estimate.
+  //
+  // A real vivo handset reported ~1275 cycles while its own kernel measured
+  // the cell at 79%; the spec curve called the same battery 49%. Those sit in
+  // different payout bands, so trusting the curve underpays a seller by a
+  // whole band on a battery that is merely middle-aged.
+  group('the vivo disagreement', () {
+    const labels = [
+      '95-100% Battery Health',
+      '80-94% Battery Health',
+      '70-79% Battery Health',
+      'Below 70% Health',
+    ];
+
+    test('the cycle curve is far more pessimistic than the cell itself', () {
+      expect(estimatedHealthFromCycles(1275), lessThan(55));
+      expect(batteryBandFor(79, labels), 2, reason: '79% is the 70-79 band');
+      expect(batteryBandFor(estimatedHealthFromCycles(1275), labels), 3,
+          reason: 'the estimate drops it a whole band lower');
+    });
+
+    test('a healthy high-mileage cell bands on what it measures', () {
+      expect(batteryBandFor(88, labels), 1);
+    });
+  });
 }

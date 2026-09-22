@@ -87,8 +87,15 @@ class _BatteryTestPageState extends State<BatteryTestPage>
     final cycles = (reading['cycleCount'] as num?)?.round();
     final temperature = (reading['temperatureCelsius'] as num?)?.toDouble();
 
+    // The kernel's own capacity ratio, when the handset exposes it. This is a
+    // measurement of the cell, not a guess from its mileage, and it is what
+    // other battery apps show — so it wins over the cycle estimate whenever
+    // it is present.
+    final measured = (reading['capacityHealth'] as num?)?.round();
+
     final data = <String, dynamic>{
       if (cycles != null) 'cycleCount': cycles,
+      if (measured != null) 'capacityHealth': measured,
       if (temperature != null) 'temperatureCelsius': temperature,
       if (flag != null) 'healthFlag': flag,
     };
@@ -103,6 +110,25 @@ class _BatteryTestPageState extends State<BatteryTestPage>
         'replacing, which the quote should reflect.',
         data: data,
       );
+      return;
+    }
+
+    if (measured != null) {
+      final mileage =
+          cycles != null ? ' after $cycles charge cycles' : '';
+      // 80% is the industry's own end-of-life line for a lithium cell.
+      if (measured < 80) {
+        markFail(
+          'This battery holds $measured% of its original capacity$mileage. '
+          'Worn enough that a buyer will want it replaced.',
+          data: data,
+        );
+      } else {
+        markPass(
+          'This battery holds $measured% of its original capacity$mileage.',
+          data: data,
+        );
+      }
       return;
     }
 

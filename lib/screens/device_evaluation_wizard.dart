@@ -97,11 +97,36 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
     return null;
   }
 
-  void _applyMeasuredBattery() {
+  /// The cell's real capacity ratio, when the kernel exposed one.
+  int? get _measuredHealth {
+    for (final result in widget.checkupResults) {
+      if (result.key != 'battery') continue;
+      final health = result.data?['capacityHealth'];
+      if (health is num && health > 0) return health.round();
+    }
+    return null;
+  }
+
+  /// What the band is chosen from, and whether it was measured or guessed.
+  ///
+  /// A measured capacity beats an estimate from mileage every time: two cells
+  /// with the same cycle count can be in very different shape, and this figure
+  /// decides up to a third of what the seller is paid.
+  ({int health, bool measured})? get _batteryEstimate {
+    final health = _measuredHealth;
+    if (health != null) return (health: health, measured: true);
     final cycles = _measuredCycles;
-    if (cycles == null) return;
+    if (cycles != null) {
+      return (health: estimatedHealthFromCycles(cycles), measured: false);
+    }
+    return null;
+  }
+
+  void _applyMeasuredBattery() {
+    final estimate = _batteryEstimate;
+    if (estimate == null) return;
     final index = batteryBandFor(
-      estimatedHealthFromCycles(cycles),
+      estimate.health,
       [for (final o in _batteryOptions) (o['title'] ?? '').toString()],
     );
     // No match means the estimate fell in a gap between the bands. Left
@@ -445,13 +470,16 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
         );
       case 2:
         final measured = _measuredCycles;
+        final estimate = _batteryEstimate;
         final grid = _buildSingleSelectGrid(
           _batteryOptions,
           _selectedBatteryIndex,
           (i) => setState(() => _selectedBatteryIndex = i),
           category: ConditionCategory.battery,
         );
-        if (measured == null) return grid;
+        // Either a real capacity reading or a cycle count is enough to say
+        // something useful; without both there is nothing to announce.
+        if (estimate == null) return grid;
 
         // Says so when the choice was made for them. A dropdown that decides
         // a third of the payout must never quietly move on its own — and the
@@ -468,12 +496,16 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Text(
-                      'This battery has done $measured charge cycles, which '
-                      'suggests about '
-                      '${estimatedHealthFromCycles(measured)}% capacity left. '
-                      'That band is picked below — it is an estimate from the '
-                      'cycle count, not a measurement, so change it if you '
-                      'know better.',
+                      estimate.measured
+                          ? 'This battery holds ${estimate.health}% of its '
+                              'original capacity, read from the phone itself. '
+                              'That band is picked below — change it if you '
+                              'know better.'
+                          : 'This battery has done $measured charge cycles, '
+                              'which suggests about ${estimate.health}% '
+                              'capacity left. That band is picked below — it '
+                              'is an estimate from the cycle count, not a '
+                              'measurement, so change it if you know better.',
                       style: AppTextStyles.caption,
                     ),
                   ),
