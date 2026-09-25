@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Every collection in this app requires a signed-in user.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+
+// The rules that were live on fren-75087 as of 2026-09-24 14:56 UTC, kept
+// verbatim so the change beside this file can be undone exactly.
+//
+// To restore:
+//   cp ROLLBACK-original.rules firestore.rules
+//   firebase deploy --only firestore:rules --project fren-75087
+//
+// Restoring this WILL empty the French Mobiles home screen again, for the
+// reason explained in firestore.rules.

@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// Firestore rules for fren-75087 — the owner's second-hand stock project.
+//
+// NOT this app's backend. This file lives here only because the French Mobiles
+// app reads `second_hand_mobiles` from that project, and on 2026-09-24 a
+// catch-all `request.auth != null` rule was added there which silently emptied
+// this app's home screen.
+//
+// Why an auth check blocks the app rather than restricting it: Firebase auth is
+// per-project. This app's sellers sign in to french-mobiles-marketplace, so the
+// connection to fren-75087 (`secondHandApp` in second_hand_firebase.dart) has
+// no user attached at all and can never satisfy `request.auth != null`.
+//
+// Deploy from the fren-rules/ directory:
+//   firebase deploy --only firestore:rules --project fren-75087
+//
+// To roll back, see ROLLBACK-original.rules beside this file.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Public shop listings.
+    //
+    // Read is open because these are a shop window the website already shows
+    // to every visitor. Writes are unchanged and still require a signed-in
+    // user, so only the owner's site can add or edit stock.
+    match /second_hand_mobiles/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Everything else untouched: signed-in only, exactly as before.
+    //
+    // Firestore evaluates every matching path and grants access if any one of
+    // them allows it, so the block above only ADDS read on that single
+    // collection. No permission the website depends on is removed, which is
+    // why this cannot break the other site.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
