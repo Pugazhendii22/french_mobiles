@@ -72,9 +72,65 @@ function messageFor(status, order) {
   }
 }
 
+/**
+ * Every device this user has, oldest single-token field included.
+ *
+ * `fcmToken` was a single string before one account could have two handsets.
+ * Reading both means a user who has not reopened the app since the change is
+ * still reachable, and the app clears the old field the next time it writes.
+ */
+function tokensFor(user) {
+  const many = user.get("fcmTokens");
+  const one = user.get("fcmToken");
+  const all = [
+    ...(Array.isArray(many) ? many : []),
+    ...(typeof one === "string" && one ? [one] : []),
+  ];
+  return [...new Set(all.filter((t) => typeof t === "string" && t))];
+}
+
+/**
+ * Failures that will never succeed however often they are retried.
+ *
+ * "mismatched-credential" means the token was minted by a different Firebase
+ * project, which is true of every token saved before this app's default
+ * project changed.
+ */
+/** How long a failing notification is worth retrying. */
+const RETRY_WINDOW_MS = 30 * 60 * 1000;
+
+const PERMANENTLY_DEAD = new Set([
+  "messaging/registration-token-not-registered",
+  "messaging/invalid-registration-token",
+  "messaging/invalid-argument",
+  "messaging/mismatched-credential",
+]);
+
 exports.onOrderStatusChanged = onDocumentUpdated(
-  { document: "orders/{orderId}" },
+  {
+    document: "orders/{orderId}",
+    // Without this a transient failure — a Firestore hiccup, a cold-start
+    // timeout — loses the notification permanently, and nothing records that
+    // the seller was never told. Re-running is safe: `tag` below collapses
+    // repeats of an order into one notification on the handset, so the worst
+    // a retry can do is replace a notification with an identical one.
+    retry: true,
+  },
   async (event) => {
+    // Retries run for up to seven days. An order update is only worth
+    // announcing while it is still news: telling someone on Tuesday that an
+    // agent was assigned last Wednesday is worse than saying nothing, because
+    // they will act on it. Past the window we give up quietly — returning
+    // rather than throwing, so the platform stops retrying.
+    const age = Date.now() - Date.parse(event.time);
+    if (Number.isFinite(age) && age > RETRY_WINDOW_MS) {
+      logger.warn("Giving up: event too old to be worth sending", {
+        orderId: event.params.orderId,
+        ageMinutes: Math.round(age / 60000),
+      });
+      return;
+    }
+
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
     if (!before || !after) return;
@@ -98,60 +154,78 @@ exports.onOrderStatusChanged = onDocumentUpdated(
       return;
     }
 
+    const orderId = event.params.orderId;
+
+    // Deliberately unguarded: a failure to read the user must reach the
+    // platform so the retry policy above can run this again. Swallowing it
+    // here would turn a recoverable blip into a silently lost notification.
     const user = await admin.firestore().collection("users").doc(userId).get();
-    const token = user.get("fcmToken");
-    if (!token) {
+    const tokens = tokensFor(user);
+
+    if (tokens.length === 0) {
       // Perfectly ordinary: the seller has not opened the app since
       // notifications were added, or declined the permission.
       logger.info("No token for user; nothing to send", { userId });
       return;
     }
 
-    try {
-      await admin.messaging().send({
-        token,
-        notification: message,
-        data: {
-          orderId: event.params.orderId,
-          status: after.status,
-        },
-        android: {
-          priority: "high",
-          notification: {
-            channelId: "order_updates",
-            // Groups an order's updates into one thread rather than
-            // stacking four separate notifications over a few days.
-            tag: event.params.orderId,
+    const results = await Promise.allSettled(
+      tokens.map((token) =>
+        admin.messaging().send({
+          token,
+          notification: message,
+          data: { orderId, status: after.status },
+          android: {
+            priority: "high",
+            notification: {
+              channelId: "order_updates",
+              // Groups an order's updates into one thread rather than
+              // stacking four separate notifications over a few days.
+              tag: orderId,
+            },
           },
-        },
-      });
-      logger.info("Notified seller", {
-        orderId: event.params.orderId,
-        status: after.status,
-      });
-    } catch (error) {
-      // A token goes stale when the app is reinstalled or data cleared, and
-      // "mismatched-credential" means it was minted by a *different* Firebase
-      // project — which is true of every token saved before this app's
-      // default project changed. All three are permanently dead for us, and
-      // clearing the field makes the app mint a fresh one on next launch
-      // instead of every later order retrying the same corpse.
-      if (
-        error.code === "messaging/registration-token-not-registered" ||
-        error.code === "messaging/invalid-registration-token" ||
-        error.code === "messaging/mismatched-credential"
-      ) {
-        await user.ref.update({
-          fcmToken: admin.firestore.FieldValue.delete(),
-        });
-        logger.info("Dropped a stale token", { userId });
+        })
+      )
+    );
+
+    const dead = [];
+    let delivered = 0;
+    let failed = 0;
+
+    results.forEach((result, i) => {
+      if (result.status === "fulfilled") {
+        delivered++;
         return;
       }
-      logger.error("Could not notify seller", {
-        orderId: event.params.orderId,
-        code: error.code,
-        message: error.message,
+      const code = result.reason?.code;
+      if (PERMANENTLY_DEAD.has(code)) {
+        dead.push(tokens[i]);
+        return;
+      }
+      failed++;
+      logger.error("Could not notify a device", { orderId, code });
+    });
+
+    if (dead.length > 0) {
+      // Clearing them stops every later order retrying the same corpses, and
+      // makes the app register a fresh token on next launch.
+      await user.ref.update({
+        fcmTokens: admin.firestore.FieldValue.arrayRemove(...dead),
       });
+      logger.info("Dropped stale tokens", { userId, count: dead.length });
+    }
+
+    logger.info("Notified seller", {
+      orderId,
+      status: after.status,
+      delivered,
+      dropped: dead.length,
+    });
+
+    // One device failing for a reason that might pass is worth another go;
+    // every device having a dead token is not, and was handled above.
+    if (delivered === 0 && failed > 0) {
+      throw new Error(`No device could be reached for order ${orderId}`);
     }
   }
 );

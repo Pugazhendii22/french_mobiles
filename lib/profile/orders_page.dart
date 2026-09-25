@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../shared/services/order_reference.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -185,6 +187,7 @@ class _OrdersPageState extends State<OrdersPage> {
         imageUrl: (d['imageUrl'] as String?) ?? '',
         payout: payout,
         date: _formatDate(d['createdAt'] as Timestamp?),
+        reference: displayReference(doc.id, d['reference'] as String?),
         stage: OrderStage.fromStatus(d['status'] as String?),
         onTap: () => context.pushScreen(OrderTrackingPage(orderId: doc.id)),
       ),
@@ -279,6 +282,7 @@ class OrderRow extends StatelessWidget {
     required this.imageUrl,
     required this.payout,
     required this.date,
+    this.reference = '',
     required this.stage,
     required this.onTap,
   });
@@ -288,12 +292,22 @@ class OrderRow extends StatelessWidget {
   final String imageUrl;
   final int payout;
   final String date;
+
+  /// The speakable code, shown so a seller can quote it without opening
+  /// the order.
+  ///
+  /// Optional: it joins the subtitle through the same empty-string filter as
+  /// storage and date, so a row without one simply does not show it. Orders
+  /// placed before references existed are the reason.
+  final String reference;
   final OrderStage stage;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = [storage, date].where((s) => s.isNotEmpty).join(' · ');
+    final subtitle = [storage, date, reference]
+        .where((s) => s.isNotEmpty)
+        .join(' · ');
 
     // Deliberately the same shape as a Saved row: 64px photo, a quiet line
     // above, the name, then the figure. No card and no coloured edge — those

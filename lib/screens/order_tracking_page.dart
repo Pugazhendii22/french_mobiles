@@ -5,6 +5,7 @@ import 'package:french_mobiles/features/shell/main_shell.dart';
 
 import '../firebase/catalog_firebase.dart';
 import '../shared/motion/motion.dart';
+import '../shared/services/order_reference.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
@@ -183,7 +184,10 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
     final addressFull = (d['addressFullText'] as String?) ?? '';
 
     return [
-      AppReveal(index: 0, child: _buildConfirmation()),
+      AppReveal(
+        index: 0,
+        child: _buildConfirmation(d['reference'] as String?),
+      ),
       const SizedBox(height: AppSpacing.lg),
       AppReveal(index: 1, child: _buildTimeline(currentStep)),
       const SizedBox(height: AppSpacing.lg),
@@ -194,7 +198,7 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
     ];
   }
 
-  Widget _buildConfirmation() {
+  Widget _buildConfirmation(String? reference) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -229,7 +233,9 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Order ID: ${widget.orderId}',
+                  // The speakable reference, not the Firestore ID: this is
+                  // the number a seller reads out when they ring up.
+                  'Order ${displayReference(widget.orderId, reference)}',
                   style: AppTextStyles.caption,
                 ),
               ],

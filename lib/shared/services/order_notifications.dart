@@ -15,7 +15,11 @@ import '../../firebase/catalog_firebase.dart';
 /// SenderId mismatch. See lib/firebase/second_hand_firebase.dart for why the
 /// default is the way round it is.
 ///
-/// The token is stored on `users/{uid}`, where functions/index.js reads it.
+/// Tokens are stored as an **array** on `users/{uid}.fcmTokens`, where
+/// functions/index.js reads them. An array rather than a single field because
+/// a token identifies a *handset*, not an account: someone signed in on a
+/// phone and a tablet has two, and a single field meant whichever opened the
+/// app last silently stole the notifications from the other.
 class OrderNotifications {
   OrderNotifications._();
 
@@ -75,19 +79,23 @@ class OrderNotifications {
     }
   }
 
-  /// Forgets this device's token.
+  /// Forgets *this device's* token, leaving the user's other devices alone.
   ///
-  /// Called on sign-out, and it matters: the token belongs to the *phone*,
-  /// not the account. Left behind, the next person to sign in on this handset
-  /// would receive the previous seller's order updates.
+  /// Called on sign-out, and it matters: the token belongs to the phone, not
+  /// the account. Left behind, the next person to sign in on this handset
+  /// would receive the previous seller's order updates. Equally, removing the
+  /// whole array would silence their other devices, which never signed out.
   static Future<void> stop() async {
     final uid = catalogAuth.currentUser?.uid;
     if (uid == null) return;
     try {
-      await catalogFirestore
-          .collection('users')
-          .doc(uid)
-          .update({'fcmToken': FieldValue.delete()});
+      final token = await FirebaseMessaging.instance.getToken();
+      await catalogFirestore.collection('users').doc(uid).set({
+        if (token != null) 'fcmTokens': FieldValue.arrayRemove([token]),
+        // The old single-token field, cleared on the way past so a stale
+        // value cannot outlive the migration.
+        'fcmToken': FieldValue.delete(),
+      }, SetOptions(merge: true));
     } catch (error) {
       debugPrint('Could not clear the notification token: $error');
     }
@@ -102,10 +110,13 @@ class OrderNotifications {
     final uid = catalogAuth.currentUser?.uid;
     if (uid == null) return;
     try {
-      await catalogFirestore
-          .collection('users')
-          .doc(uid)
-          .set({'fcmToken': token}, SetOptions(merge: true));
+      // arrayUnion rather than a plain write: adding this handset must not
+      // disturb the user's other devices, and re-adding one already there is
+      // a no-op rather than a duplicate.
+      await catalogFirestore.collection('users').doc(uid).set({
+        'fcmTokens': FieldValue.arrayUnion([token]),
+        'fcmToken': FieldValue.delete(),
+      }, SetOptions(merge: true));
     } catch (error) {
       debugPrint('Could not store the notification token: $error');
     }

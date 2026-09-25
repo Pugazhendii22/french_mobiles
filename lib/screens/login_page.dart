@@ -1,9 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../firebase/catalog_firebase.dart';
+import '../shared/services/auth_errors.dart';
 import '../firebase/user_profile.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
@@ -27,8 +30,31 @@ class _LoginPageState extends State<LoginPage> {
 
   FirebaseAuth get _catalogAuth => catalogAuth;
 
+  /// Seconds left before the code can be asked for again.
+  ///
+  /// Firebase rate-limits SMS per number and then per project, and a seller
+  /// tapping resend four times in frustration is how a number gets locked out
+  /// for the rest of the day. The countdown makes the wait visible so it reads
+  /// as "not yet" rather than "broken".
+  int _resendIn = 0;
+  Timer? _resendTimer;
+
+  void _startResendCooldown() {
+    _resendTimer?.cancel();
+    setState(() => _resendIn = 30);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() => _resendIn--);
+      if (_resendIn <= 0) timer.cancel();
+    });
+  }
+
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _otpController.dispose();
     super.dispose();
   }
@@ -63,7 +89,7 @@ class _LoginPageState extends State<LoginPage> {
       if (e.code != GoogleSignInExceptionCode.canceled) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Google sign-in failed: ${e.description}')),
+            SnackBar(content: Text(authErrorMessage(e))),
           );
         }
       }
@@ -101,13 +127,14 @@ class _LoginPageState extends State<LoginPage> {
               if (mounted) Navigator.pop(context, true);
             }
           } catch (e) {
-            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Auto sign-in failed: $e')));
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(authErrorMessage(e))));
           }
         },
         verificationFailed: (e) {
-          if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Verification failed: ${e.message}')));
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(authErrorMessage(e))));
         },
         codeSent: (verificationId, resendToken) {
+          _startResendCooldown();
           setState(() {
             _verificationId = verificationId;
           });
@@ -119,7 +146,7 @@ class _LoginPageState extends State<LoginPage> {
         },
       );
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to send OTP: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(authErrorMessage(e))));
     } finally {
       if (mounted) setState(() => _isSendingOtp = false);
     }
@@ -143,9 +170,9 @@ class _LoginPageState extends State<LoginPage> {
         if (mounted) Navigator.pop(context, true);
       }
     } on FirebaseAuthException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('OTP verification failed: ${e.message}')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(authErrorMessage(e))));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('OTP verification failed: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(authErrorMessage(e))));
     } finally {
       if (mounted) setState(() => _isVerifyingOtp = false);
     }
@@ -298,10 +325,15 @@ class _LoginPageState extends State<LoginPage> {
       ),
       const SizedBox(height: AppSpacing.sm),
       TextButton(
-        onPressed: _isSendingOtp ? null : _sendOtp,
+        // Disabled during the cooldown as well as while a send is in flight:
+        // the countdown is the whole point, and a tappable button that does
+        // nothing is worse than one that plainly says to wait.
+        onPressed: (_isSendingOtp || _resendIn > 0) ? null : _sendOtp,
         child: Text(
-          'Resend code',
-          style: AppTextStyles.label.copyWith(color: AppColors.primary),
+          _resendIn > 0 ? 'Resend code in ${_resendIn}s' : 'Resend code',
+          style: AppTextStyles.label.copyWith(
+            color: _resendIn > 0 ? AppColors.textTertiary : AppColors.primary,
+          ),
         ),
       ),
     ];

@@ -10,6 +10,7 @@ import 'package:french_mobiles/features/shell/main_shell.dart';
 import '../firebase/catalog_firebase.dart';
 import '../profile/account_pages.dart';
 import '../shared/motion/motion.dart';
+import '../shared/services/order_reference.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
 import '../shared/theme/app_theme.dart';
@@ -216,7 +217,17 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      final ref = await catalogFirestore.collection('orders').add(orderData);
+      // A speakable reference, minted before the write so it lands with the
+      // order rather than in a second round trip. Null when one could not be
+      // reserved, which is not worth failing a sale over — the order then
+      // shows a slice of its document ID instead.
+      final orders = catalogFirestore.collection('orders');
+      final reference = await reserveOrderReference(orders);
+
+      final ref = await orders.add({
+        ...orderData,
+        if (reference != null) 'reference': reference,
+      });
       final orderId = ref.id;
 
       if (!mounted) return;
