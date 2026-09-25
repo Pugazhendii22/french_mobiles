@@ -16,7 +16,10 @@
  * Deploy with: firebase deploy --only functions
  */
 
-const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const {
+  onDocumentUpdated,
+  onDocumentCreated,
+} = require("firebase-functions/v2/firestore");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
@@ -106,6 +109,182 @@ const PERMANENTLY_DEAD = new Set([
   "messaging/mismatched-credential",
 ]);
 
+
+// ---------------------------------------------------------------------------
+// Staff notifications — admins and inspectors, on the web panel
+// ---------------------------------------------------------------------------
+
+/**
+ * Sends one message to every device belonging to a set of staff documents,
+ * and prunes the tokens that will never work again.
+ *
+ * Shared by the seller, admin and inspector paths because the awkward parts
+ * are identical: a person has several devices, some of those tokens are dead,
+ * and one dead token must not stop the others being tried.
+ *
+ * Returns how many actually went out, so the caller can decide whether a
+ * retry would achieve anything.
+ */
+async function notifyStaff(docs, notification, data) {
+  let delivered = 0;
+  let failed = 0;
+
+  await Promise.all(
+    docs.map(async (snap) => {
+      const tokens = tokensFor(snap);
+      if (tokens.length === 0) return;
+
+      const results = await Promise.allSettled(
+        tokens.map((token) =>
+          admin.messaging().send({
+            token,
+            notification,
+            data,
+            webpush: {
+              notification: {
+                ...notification,
+                icon: "/icons/icon-192.png",
+                badge: "/icons/icon-192.png",
+                tag: data.orderId,
+              },
+              fcmOptions: { link: "/index.html" },
+            },
+          })
+        )
+      );
+
+      const dead = [];
+      results.forEach((r, i) => {
+        if (r.status === "fulfilled") {
+          delivered++;
+        } else if (PERMANENTLY_DEAD.has(r.reason?.code)) {
+          dead.push(tokens[i]);
+        } else {
+          failed++;
+          logger.error("Staff notify failed", { code: r.reason?.code });
+        }
+      });
+
+      if (dead.length > 0) {
+        await snap.ref.update({
+          fcmTokens: admin.firestore.FieldValue.arrayRemove(...dead),
+        });
+      }
+    })
+  );
+
+  return { delivered, failed };
+}
+
+const money = (n) =>
+  typeof n === "number" && Number.isFinite(n)
+    ? `\u20b9${n.toLocaleString("en-IN")}`
+    : null;
+
+function deviceOf(order) {
+  return [order.brand, order.modelName].filter(Boolean).join(" ") || "a phone";
+}
+
+/**
+ * A new order has been placed — tell every admin.
+ *
+ * On create rather than update, because the seller pressing "place order" is
+ * the moment somebody needs to act. Admins are notified as a group: there is
+ * no assignment yet, and whoever sees it first picks it up.
+ */
+exports.onOrderPlaced = onDocumentCreated(
+  { document: "orders/{orderId}", retry: true },
+  async (event) => {
+    const age = Date.now() - Date.parse(event.time);
+    if (Number.isFinite(age) && age > RETRY_WINDOW_MS) {
+      logger.warn("Giving up: new-order event too old", {
+        orderId: event.params.orderId,
+      });
+      return;
+    }
+
+    const order = event.data?.data();
+    if (!order) return;
+
+    const admins = await admin.firestore().collection("admins").get();
+    if (admins.empty) {
+      logger.info("No admins to notify");
+      return;
+    }
+
+    const amount = money(order.finalPayout);
+    const { delivered, failed } = await notifyStaff(
+      admins.docs,
+      {
+        title: "New order placed",
+        body: amount
+          ? `${deviceOf(order)} for ${amount}. Assign an inspector.`
+          : `${deviceOf(order)}. Assign an inspector.`,
+      },
+      {
+        orderId: event.params.orderId,
+        reference: order.reference || "",
+        kind: "order_placed",
+      }
+    );
+
+    logger.info("Told the admins", {
+      orderId: event.params.orderId,
+      delivered,
+    });
+    if (delivered === 0 && failed > 0) {
+      throw new Error("No admin device could be reached");
+    }
+  }
+);
+
+/**
+ * Tells an inspector a pickup is now theirs.
+ *
+ * Deliberately does not throw on failure. It is called from the status
+ * trigger, and that function retries — so a failure here would re-run the
+ * whole thing and send the seller a second status notification for a problem
+ * that had nothing to do with them.
+ */
+async function notifyAssignedInspector(orderId, order) {
+  try {
+    const snap = await admin
+      .firestore()
+      .collection("inspectors")
+      .doc(order.inspectorId)
+      .get();
+    if (!snap.exists) {
+      logger.warn("Assigned to an inspector who does not exist", {
+        orderId,
+        inspectorId: order.inspectorId,
+      });
+      return;
+    }
+
+    const where = order.addressLabel || order.addressFullText || "";
+    const { delivered } = await notifyStaff(
+      [snap],
+      {
+        title: "A pickup is yours",
+        body: where
+          ? `${deviceOf(order)} — ${where}`
+          : `${deviceOf(order)} has been assigned to you.`,
+      },
+      {
+        orderId,
+        reference: order.reference || "",
+        kind: "assigned",
+      }
+    );
+    logger.info("Told the inspector", { orderId, delivered });
+  } catch (err) {
+    logger.error("Could not notify the inspector", {
+      orderId,
+      message: err.message,
+    });
+  }
+}
+
 exports.onOrderStatusChanged = onDocumentUpdated(
   {
     document: "orders/{orderId}",
@@ -134,6 +313,14 @@ exports.onOrderStatusChanged = onDocumentUpdated(
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
     if (!before || !after) return;
+
+    // An assignment is its own event, and independent of the status: an admin
+    // can hand a pickup to someone without moving the order along. Handled
+    // before the status check, which would otherwise return first and the
+    // inspector would never hear.
+    if (before.inspectorId !== after.inspectorId && after.inspectorId) {
+      await notifyAssignedInspector(event.params.orderId, after);
+    }
 
     // Every write to an order comes through here — a price correction, an
     // address edit, the app's own updatedAt bump. Only a genuine status
