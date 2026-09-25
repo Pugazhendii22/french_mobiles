@@ -52,3 +52,9 @@ nohup.out
 
 # Its own git repository, with its own history.
 admin-panel/
+
+# Plugin/agent local state — per-user, never committed.
+.claude/*.local.md
+.claude/*.local.json
+skill-observations/
+skill-updates/

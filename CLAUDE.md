@@ -1,0 +1,61 @@
+# french_mobiles
+
+Flutter phone trade-in app, plus a companion web admin panel in `admin-panel/`
+(its own git repository — ignored here).
+
+## Skills
+
+Invoke the `task-observer` skill before the first tool call of any session, and
+before writing or proposing a plan. Its own description says matching alone
+under-triggers, so this line is the activation layer that actually makes it
+fire.
+
+## Firebase: three apps, two projects
+
+Read `lib/firebase/second_hand_firebase.dart` before touching any Firestore
+call site. The short version:
+
+- **`french-mobiles-marketplace`** is the **default** app and this app's own
+  backend: `orders`, `users`, `brands`, `deduction_rules`. Also reachable as
+  the named `catalogApp` (`catalogFirestore` / `catalogAuth`).
+- **`fren-75087`** is the owner's *separate live product*, read-only here for
+  `second_hand_mobiles` via `secondHandFirestore`. **Never migrate its data** —
+  another product writes to it.
+
+The default is the marketplace because `firebase_messaging` on Android binds to
+the default app and cannot be pointed elsewhere; a token minted by one project
+cannot be sent to from another. Do not "tidy" `catalogApp` away either —
+`firebase_auth` persists a session per app *name*, so collapsing it would sign
+out everyone once.
+
+## Things that look like bugs and are not
+
+- `brand_detail_page`, `variant_selection_page` and `device_evaluation_wizard`
+  use `Firebase.app('catalogApp')`, which **throws** if the named app failed to
+  init, while `catalogFirestore` falls back to the default. Keep each call site
+  as it is.
+- Home's default address is picked **in Dart**, not with a `where` clause:
+  documents written before `isDefault` existed do not carry the field.
+- `estimatedHealthFromCycles` in `battery_band.dart` is deliberately unused.
+  Mileage is not condition — it once reported 49% for a cell the handset
+  measured at 79%, a whole payout band lower. Do not wire it back in.
+
+## Verification baseline
+
+```
+flutter analyze   # must stay at 0 issues under lib/ (third_party/ is vendored)
+flutter test      # 472 pass, 1 pre-existing failure:
+                  # widget_test.dart "Home screen loads with sell action"
+                  # (boots MyApp without Firebase — fails at baseline)
+flutter build apk --debug
+```
+
+New assets in `assets/logos/` need `flutter clean`, not just `flutter pub get`
+— the asset manifest is baked at build time.
+
+## Firestore rules
+
+`firestore.rules` is **temporary and wide open**, expiring 2026-10-25. The
+previous copy expired unnoticed and took the whole app down: every client read
+returned `PERMISSION_DENIED`. Replace it with per-collection rules before real
+sellers use this.
