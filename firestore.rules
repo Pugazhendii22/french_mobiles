@@ -1,0 +1,18 @@
+rules_version = '2';
+
+// TEMPORARY. Open to anyone who knows the project ID.
+//
+// The previous default rules expired on 2026-09-24 and took the whole app
+// down: every read returned PERMISSION_DENIED. This restores service while
+// real rules are written, and expires again so it cannot be forgotten twice.
+//
+// What "open" means here: anyone who can find the project ID can read and
+// write every order, user record and address in the database. Replace this
+// before the app is in anyone else's hands.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.time < timestamp.date(2026, 10, 25);
+    }
+  }
+}

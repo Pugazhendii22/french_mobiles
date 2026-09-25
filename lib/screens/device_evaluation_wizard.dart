@@ -107,26 +107,20 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
     return null;
   }
 
-  /// What the band is chosen from, and whether it was measured or guessed.
+  /// Only ever a real capacity reading — never a guess from the cycle count.
   ///
-  /// A measured capacity beats an estimate from mileage every time: two cells
-  /// with the same cycle count can be in very different shape, and this figure
-  /// decides up to a third of what the seller is paid.
-  ({int health, bool measured})? get _batteryEstimate {
-    final health = _measuredHealth;
-    if (health != null) return (health: health, measured: true);
-    final cycles = _measuredCycles;
-    if (cycles != null) {
-      return (health: estimatedHealthFromCycles(cycles), measured: false);
-    }
-    return null;
-  }
+  /// Converting mileage into a percentage is what made this screen underpay:
+  /// the textbook curve called a cell 49% that its own handset measured at
+  /// 79%, a whole band lower. Two batteries with identical cycle counts can be
+  /// in completely different shape, so when nothing measured the cell, the
+  /// seller chooses and the app says nothing.
+  int? get _batteryEstimate => _measuredHealth;
 
   void _applyMeasuredBattery() {
-    final estimate = _batteryEstimate;
-    if (estimate == null) return;
+    final health = _batteryEstimate;
+    if (health == null) return;
     final index = batteryBandFor(
-      estimate.health,
+      health,
       [for (final o in _batteryOptions) (o['title'] ?? '').toString()],
     );
     // No match means the estimate fell in a gap between the bands. Left
@@ -470,16 +464,16 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
         );
       case 2:
         final measured = _measuredCycles;
-        final estimate = _batteryEstimate;
+        final health = _batteryEstimate;
         final grid = _buildSingleSelectGrid(
           _batteryOptions,
           _selectedBatteryIndex,
           (i) => setState(() => _selectedBatteryIndex = i),
           category: ConditionCategory.battery,
         );
-        // Either a real capacity reading or a cycle count is enough to say
-        // something useful; without both there is nothing to announce.
-        if (estimate == null) return grid;
+        // A cycle count alone is still worth showing — it is a real fact
+        // about the phone — but it no longer picks the band.
+        if (health == null && measured == null) return grid;
 
         // Says so when the choice was made for them. A dropdown that decides
         // a third of the payout must never quietly move on its own — and the
@@ -496,16 +490,15 @@ class _DeviceEvaluationWizardState extends State<DeviceEvaluationWizard> {
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Text(
-                      estimate.measured
-                          ? 'This battery holds ${estimate.health}% of its '
-                              'original capacity, read from the phone itself. '
-                              'That band is picked below — change it if you '
+                      health != null
+                          ? 'This battery holds $health% of its original '
+                              'capacity, read from the phone itself'
+                              '${measured != null ? ', after $measured charge cycles' : ''}'
+                              '. That band is picked below — change it if you '
                               'know better.'
-                          : 'This battery has done $measured charge cycles, '
-                              'which suggests about ${estimate.health}% '
-                              'capacity left. That band is picked below — it '
-                              'is an estimate from the cycle count, not a '
-                              'measurement, so change it if you know better.',
+                          : 'This phone reports $measured charge cycles. '
+                              'That is mileage, not condition, so the band '
+                              'below is left for you to choose.',
                       style: AppTextStyles.caption,
                     ),
                   ),

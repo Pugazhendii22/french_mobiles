@@ -44,6 +44,13 @@ int? batteryBandFor(int health, List<String> labels) {
 
 /// A rough capacity estimate from the charge cycle count.
 ///
+/// **No longer used for pricing, and must not be.** It is kept because the
+/// test beside it records why: on a real handset reporting ~1275 cycles this
+/// curve returned 49% where the phone's own kernel measured 79% — a whole
+/// payout band lower, on a battery that had merely aged well. Mileage is not
+/// condition. If nothing measured the cell, the app now says so and lets the
+/// seller choose, rather than inventing a number that costs them money.
+///
 /// Android exposes no state-of-health figure at any API level, but from
 /// Android 14 it does report cycles — and cycles are what actually wear a
 /// cell out. Lithium-ion cells are specified by their manufacturers to retain

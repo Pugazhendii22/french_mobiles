@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../shared/services/battery_band.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
@@ -132,34 +131,28 @@ class _BatteryTestPageState extends State<BatteryTestPage>
       return;
     }
 
+    // A cycle count is a real, measured fact, so it is reported — but it is
+    // mileage, not condition. A cell cycled gently 800 times can be in better
+    // shape than one fast-charged hot 300 times, so no percentage is invented
+    // from it and no payout band is chosen on it.
     if (cycles != null) {
-      final estimate = estimatedHealthFromCycles(cycles);
-      // 500 cycles is the line manufacturers themselves quote for 80%
-      // retention, so it is a reasonable place to call a battery worn.
-      if (cycles > 500) {
-        markFail(
-          'This battery has done $cycles charge cycles — roughly $estimate% '
-          'of its original capacity. Worn enough that a buyer will want it '
-          'replaced.',
-          data: data,
-        );
-      } else {
-        markPass(
-          'This battery has done $cycles charge cycles, suggesting about '
-          '$estimate% capacity left.',
-          data: data,
-        );
-      }
+      markNotAvailable(
+        'This phone reports $cycles charge cycles, but no battery health '
+        'figure — Android has no such reading, and this handset does not '
+        'expose one. Cycles are how far it has travelled, not what condition '
+        'it is in, so choose the health band yourself in the next step.',
+        data: data,
+      );
       return;
     }
 
-    // No cycle count. Android below 14 reports none, and there is no health
-    // figure to fall back on because the platform has never had one.
+    // Nothing measured at all.
     markNotAvailable(
-      'This phone does not report charge cycles — only Android 14 and later '
-      'do, and Android has no battery health reading at all. What it did '
-      'report: ${_summary(reading)}. Choose the health band yourself in the '
-      'next step.',
+      'This phone does not report battery health or charge cycles. Android '
+      'has no battery health reading of its own, and the figure some phones '
+      'show in Settings comes from the manufacturer, which apps cannot get '
+      'at. What it did report: ${_summary(reading)}. Choose the health band '
+      'yourself in the next step.',
       data: data,
     );
   }
@@ -231,12 +224,14 @@ class _BatteryTestPageState extends State<BatteryTestPage>
   Widget _readings(Map<String, dynamic> reading) {
     final rows = <(String, String)>[];
 
+    // Health only when the cell was actually measured. Nothing is derived
+    // from the cycle count: that guess is what reported 49% for a battery
+    // its own handset put at 79%.
+    final health = (reading['capacityHealth'] as num?)?.round();
+    if (health != null) rows.add(('Battery health', '$health%'));
+
     final cycles = (reading['cycleCount'] as num?)?.round();
     rows.add(('Charge cycles', cycles == null ? 'Not reported' : '$cycles'));
-    if (cycles != null) {
-      rows.add(
-          ('Capacity, estimated', '~${estimatedHealthFromCycles(cycles)}%'));
-    }
 
     final capacityLevel = reading['capacityLevel'] as String?;
     if (capacityLevel != null) rows.add(('Capacity level', capacityLevel));
