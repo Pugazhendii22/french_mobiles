@@ -41,6 +41,22 @@ admin.initializeApp();
  * the list the app itself understands; anything not in here is not announced
  * rather than announced badly.
  */
+/**
+ * What the seller is actually getting.
+ *
+ * `finalPayout` is the quote they accepted; `inspection.confirmedPayout` is
+ * what the agent settled on at the door, and it wins where it exists. Getting
+ * this the wrong way round told somebody they were being paid the quoted amount
+ * when the inspector had already reduced it — a notification that overstates
+ * money is worse than none at all.
+ */
+function payableOf(order) {
+  const settled = order.inspection?.confirmedPayout;
+  if (typeof settled === "number" && Number.isFinite(settled)) return settled;
+  const quoted = order.finalPayout;
+  return typeof quoted === "number" && Number.isFinite(quoted) ? quoted : null;
+}
+
 function messageFor(status, order) {
   const device = [order.brand, order.modelName].filter(Boolean).join(" ") ||
     "your phone";
@@ -57,13 +73,16 @@ function messageFor(status, order) {
         body: `The agent is inspecting ${device} now. The final amount is ` +
           `confirmed once that is done.`,
       };
-    case "paid":
+    case "paid": {
+      // The settled figure, not the quote — see payableOf.
+      const payable = payableOf(order);
       return {
         title: "Payment sent",
-        body: order.finalPayout
-          ? `₹${order.finalPayout} is on its way for ${device}. Thank you.`
+        body: payable !== null
+          ? `₹${payable.toLocaleString("en-IN")} is on its way for ${device}. Thank you.`
           : `Payment for ${device} is on its way. Thank you.`,
       };
+    }
     case "placed":
       return {
         title: "Your order has been reopened",

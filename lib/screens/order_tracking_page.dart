@@ -5,6 +5,7 @@ import 'package:french_mobiles/features/shell/main_shell.dart';
 
 import '../firebase/catalog_firebase.dart';
 import '../shared/motion/motion.dart';
+import '../shared/services/order_payout.dart';
 import '../shared/services/order_reference.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_text_styles.dart';
@@ -178,9 +179,9 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
 
     final modelName = (d['modelName'] as String?) ?? '';
     final storage = (d['storage'] as String?) ?? '';
-    final finalPayout = (d['finalPayout'] is num)
-        ? (d['finalPayout'] as num).toInt()
-        : int.tryParse('${d['finalPayout']}') ?? 0;
+    // The quote. The settled figure, when an agent has been, is shown by
+    // _buildInspection below and is what actually gets paid.
+    final finalPayout = payoutOf(d).quoted;
     final addressFull = (d['addressFullText'] as String?) ?? '';
 
     return [

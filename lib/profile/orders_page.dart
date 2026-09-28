@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../shared/services/order_payout.dart';
 import '../shared/services/order_reference.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -175,9 +176,9 @@ class _OrdersPageState extends State<OrdersPage> {
   ) {
     final d = doc.data();
 
-    final payout = (d['finalPayout'] is num)
-        ? (d['finalPayout'] as num).toInt()
-        : int.tryParse('${d['finalPayout']}') ?? 0;
+    // The settled amount when an agent has been, not the quote — see
+    // order_payout.dart.
+    final payout = payoutOf(d).amount;
 
     return AppReveal(
       index: index,
