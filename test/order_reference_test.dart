@@ -1,9 +1,8 @@
-// The short code a seller reads out over the phone.
+// How an order is named when somebody has to say it out loud.
 //
-// Its whole job is surviving being spoken and handwritten, so the tests here
-// are mostly about what the alphabet must never contain: a character that
-// turns into a different one when someone says it aloud sends an agent to the
-// wrong order.
+// Generation moved to the server (see order_reference.dart), so what is left
+// to protect is the fallback: an order whose reference has not arrived yet
+// must still be referable, and by something distinctive enough to be quoted.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:french_mobiles/shared/services/order_reference.dart';
 

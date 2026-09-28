@@ -185,6 +185,50 @@ function deviceOf(order) {
   return [order.brand, order.modelName].filter(Boolean).join(" ") || "a phone";
 }
 
+// A short, speakable reference, minted here rather than in the app.
+//
+// The app used to generate one and check it was free with a query on `orders`.
+// Proper security rules deny that query outright — a seller may read their own
+// orders, not search everyone's — so it moved to the server, which can both
+// check and write without the client being allowed to look.
+//
+// Crockford's base32 minus I, L, O and U: no character turns into another when
+// read down a phone, which is the entire purpose.
+const REF_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+function referenceCandidate() {
+  let out = "FM-";
+  for (let i = 0; i < 6; i++) {
+    out += REF_ALPHABET[Math.floor(Math.random() * REF_ALPHABET.length)];
+  }
+  return out;
+}
+
+/**
+ * Gives an order a reference nothing else is using.
+ *
+ * Six characters collide sooner than the raw billion suggests, so each
+ * candidate is checked. Gives up after a few tries rather than looping: an
+ * order without a cosmetic identifier is a great deal better than an order
+ * stuck in a retry.
+ */
+async function assignReference(orderId) {
+  const orders = admin.firestore().collection("orders");
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = referenceCandidate();
+    const taken = await orders
+      .where("reference", "==", candidate)
+      .limit(1)
+      .get();
+    if (taken.empty) {
+      await orders.doc(orderId).update({ reference: candidate });
+      return candidate;
+    }
+  }
+  logger.warn("Could not mint a reference", { orderId });
+  return null;
+}
+
 /**
  * A new order has been placed — tell every admin.
  *
@@ -206,6 +250,10 @@ exports.onOrderPlaced = onDocumentCreated(
     const order = event.data?.data();
     if (!order) return;
 
+    // Before notifying, so the admin's notification can carry it.
+    const reference =
+      order.reference || (await assignReference(event.params.orderId));
+
     const admins = await admin.firestore().collection("admins").get();
     if (admins.empty) {
       logger.info("No admins to notify");
@@ -223,7 +271,7 @@ exports.onOrderPlaced = onDocumentCreated(
       },
       {
         orderId: event.params.orderId,
-        reference: order.reference || "",
+        reference: reference || "",
         kind: "order_placed",
       }
     );

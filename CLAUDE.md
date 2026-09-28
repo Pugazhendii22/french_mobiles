@@ -55,7 +55,31 @@ New assets in `assets/logos/` need `flutter clean`, not just `flutter pub get`
 
 ## Firestore rules
 
-`firestore.rules` is **temporary and wide open**, expiring 2026-10-25. The
-previous copy expired unnoticed and took the whole app down: every client read
-returned `PERMISSION_DENIED`. Replace it with per-collection rules before real
-sellers use this.
+`firestore.rules` is now per-collection and has no expiry. The shape is dictated
+by one fact: **the app browses before anyone signs in** — `main.dart` opens onto
+MainShell, not a login screen — so `brands`, `models`, `variants` and
+`deduction_rules` must stay publicly readable. Requiring auth on those does not
+restrict the catalogue, it empties the home screen. That is exactly what
+happened to the second-hand listings when the other project added a blanket
+`request.auth != null` on 2026-09-24.
+
+Verified after deploy (unauthenticated, via the REST API):
+
+```
+brands / deduction_rules / models  -> 200   (browsing must work)
+orders / users / admins / inspectors -> 403 (was wide open)
+```
+
+Two things to know before editing them:
+
+- Order reads use `resource.data.inspectorId == request.auth.uid`, **not**
+  `.get('inspectorId', '')`. Firestore must prove a *query* is allowed from its
+  constraints alone and only recognises the direct form; the `.get()` variant
+  makes the inspector's listener fail silently.
+- An assigned inspector may update **only** `status` and `updatedAt`, pinned
+  with `hasOnly`. Without that they could rewrite `finalPayout` on the way to
+  marking a pickup collected.
+
+An order's reference (`FM-XXXXXX`) is minted by `onOrderPlaced`, not the app.
+Checking a candidate was free meant querying every order, which these rules
+correctly refuse.
