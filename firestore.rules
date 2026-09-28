@@ -90,7 +90,17 @@ service cloud.firestore {
     // security model undone.
     match /admins/{uid} {
       allow read: if isOwner(uid) || isAdmin();
-      allow write: if false;
+
+      // Membership is never granted from a browser — being in here IS the
+      // gate, so a client that could add itself would undo the whole model.
+      allow create, delete: if false;
+
+      // The one exception: an admin registering this browser for web push,
+      // and only that field. Without it the panel cannot receive the
+      // new-order notification it exists to show.
+      allow update: if isOwner(uid) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['fcmTokens']);
     }
 
     // An inspector may update only their own push tokens; everything else
