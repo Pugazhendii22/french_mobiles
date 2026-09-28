@@ -419,6 +419,143 @@ describe("staff", () => {
   });
 });
 
+
+describe("what an inspector found at the door", () => {
+  // The app tells sellers "the final amount is confirmed when the agent
+  // inspects the phone at pickup". These assertions are what makes that
+  // promise keepable without letting staff quietly rewrite an agreed price.
+  beforeEachReset();
+
+  const finding = (extra = {}) => ({
+    inspection: {
+      confirmedPayout: 20000,
+      quotedPayout: 20000,
+      inspectorId: INSPECTOR,
+      at: serverTimestamp(),
+      ...extra,
+    },
+    status: "inspection",
+    updatedAt: serverTimestamp(),
+  });
+
+  it("confirming the quoted amount needs no explanation", async () => {
+    await assertSucceeds(
+      updateDoc(doc(as(INSPECTOR), "orders", "order-assigned"), finding())
+    );
+  });
+
+  it("lowering it requires a reason", async () => {
+    await assertFails(
+      updateDoc(
+        doc(as(INSPECTOR), "orders", "order-assigned"),
+        finding({ confirmedPayout: 12000 })
+      )
+    );
+  });
+
+  it("a real reason is accepted", async () => {
+    await assertSucceeds(
+      updateDoc(
+        doc(as(INSPECTOR), "orders", "order-assigned"),
+        finding({
+          confirmedPayout: 12000,
+          reason: "Screen scratch is deeper than declared",
+        })
+      )
+    );
+  });
+
+  it("a token reason is not", async () => {
+    // Ten characters is a low bar, and still stops "ok" and ".".
+    await assertFails(
+      updateDoc(
+        doc(as(INSPECTOR), "orders", "order-assigned"),
+        finding({ confirmedPayout: 12000, reason: "bad" })
+      )
+    );
+  });
+
+  it("the quote itself cannot be rewritten", async () => {
+    // The distinction the whole design rests on: an inspector disputes the
+    // agreed figure, they do not edit it.
+    await assertFails(
+      updateDoc(doc(as(INSPECTOR), "orders", "order-assigned"), {
+        finalPayout: 1,
+      })
+    );
+  });
+
+  it("a finding cannot be filed under a colleague's name", async () => {
+    await assertFails(
+      updateDoc(
+        doc(as(INSPECTOR), "orders", "order-assigned"),
+        finding({ inspectorId: "someone-else" })
+      )
+    );
+  });
+
+  it("the timestamp cannot be backdated", async () => {
+    await assertFails(
+      updateDoc(doc(as(INSPECTOR), "orders", "order-assigned"), {
+        inspection: {
+          confirmedPayout: 20000,
+          inspectorId: INSPECTOR,
+          at: new Date("2020-01-01"),
+        },
+        updatedAt: serverTimestamp(),
+      })
+    );
+  });
+
+  it("the quoted figure recorded must be the real one", async () => {
+    // Otherwise a finding could claim the quote was lower than it was, making
+    // a reduction look like a confirmation.
+    await assertFails(
+      updateDoc(
+        doc(as(INSPECTOR), "orders", "order-assigned"),
+        finding({ confirmedPayout: 5000, quotedPayout: 5000, reason: "Looks much worse in person" })
+      )
+    );
+  });
+
+  it("no extra fields can ride along inside the finding", async () => {
+    await assertFails(
+      updateDoc(
+        doc(as(INSPECTOR), "orders", "order-assigned"),
+        finding({ adminOverride: true })
+      )
+    );
+  });
+
+  it("an unassigned inspector cannot record anything", async () => {
+    await assertFails(
+      updateDoc(doc(as(INSPECTOR), "orders", "order-1"), finding())
+    );
+  });
+
+  it("a seller cannot record a finding on their own order", async () => {
+    await assertFails(
+      updateDoc(doc(as(SELLER), "orders", "order-1"), {
+        inspection: {
+          confirmedPayout: 99999,
+          inspectorId: SELLER,
+          at: serverTimestamp(),
+        },
+      })
+    );
+  });
+
+  it("an admin can record one without the same ceremony", async () => {
+    // Admins are trusted by every other rule here; pretending otherwise would
+    // be theatre, and they are the ones who resolve a dispute.
+    await assertSucceeds(
+      updateDoc(doc(as(ADMIN), "orders", "order-assigned"), {
+        inspection: { confirmedPayout: 15000, reason: "Agreed by phone" },
+      })
+    );
+  });
+});
+
 describe("the wishlist", () => {
   beforeEachReset();
 

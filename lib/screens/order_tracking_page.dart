@@ -191,11 +191,83 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
       const SizedBox(height: AppSpacing.lg),
       AppReveal(index: 1, child: _buildTimeline(currentStep)),
       const SizedBox(height: AppSpacing.lg),
+      if (_inspectionOf(d) case final inspection?) ...[
+        AppReveal(index: 2, child: _buildInspection(inspection, finalPayout)),
+        const SizedBox(height: AppSpacing.lg),
+      ],
       AppReveal(
         index: 2,
         child: _buildDetails(modelName, storage, finalPayout, addressFull),
       ),
     ];
+  }
+
+  /// What the agent settled on at pickup, when they have been.
+  ///
+  /// The quote said this figure would be confirmed on inspection, so the
+  /// confirmation has to be visible here — a push notification that leads to a
+  /// screen still showing the old number is worse than no notification.
+  ({int confirmed, String? reason})? _inspectionOf(Map<String, dynamic> d) {
+    final raw = d['inspection'];
+    if (raw is! Map) return null;
+    final confirmed = (raw['confirmedPayout'] as num?)?.round();
+    if (confirmed == null) return null;
+    final reason = (raw['reason'] as String?)?.trim();
+    return (
+      confirmed: confirmed,
+      reason: (reason == null || reason.isEmpty) ? null : reason,
+    );
+  }
+
+  Widget _buildInspection(
+    ({int confirmed, String? reason}) inspection,
+    int quoted,
+  ) {
+    final lowered = inspection.confirmed < quoted;
+    return AppSurface(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(
+                lowered
+                    ? Icons.info_outline_rounded
+                    : Icons.verified_rounded,
+                size: 20,
+                color: lowered ? AppColors.warning : AppColors.success,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  lowered ? 'Amount changed at pickup' : 'Amount confirmed',
+                  style: AppTextStyles.h3,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text('₹${inspection.confirmed}', style: AppTextStyles.h2),
+          if (lowered)
+            Text(
+              'Quoted ₹$quoted',
+              style: AppTextStyles.caption.copyWith(
+                decoration: TextDecoration.lineThrough,
+              ),
+            ),
+          if (inspection.reason != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              inspection.reason!,
+              style: AppTextStyles.body
+                  .copyWith(color: AppColors.textSecondary),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _buildConfirmation(String? reference) {

@@ -116,6 +116,35 @@ service cloud.firestore {
 
     // --- orders ----------------------------------------------------------
 
+    // What an inspector is allowed to record about a phone.
+    //
+    // Checked in rules rather than trusted to the panel, because the panel is
+    // a browser: anyone who can sign in as an inspector can send whatever
+    // fields they like straight to Firestore. The audit trail is only worth
+    // having if it cannot be forged, so the inspector's own id and a server
+    // timestamp are required and pinned to the caller.
+    function inspectionIsHonest() {
+      let i = request.resource.data.inspection;
+      return i.keys().hasOnly(
+               ['confirmedPayout', 'quotedPayout', 'reason', 'inspectorId', 'at']
+             )
+        && i.keys().hasAll(['confirmedPayout', 'inspectorId', 'at'])
+        && i.confirmedPayout is int
+        && i.confirmedPayout >= 0
+        // Someone cannot record a finding under a colleague's name.
+        && i.inspectorId == request.auth.uid
+        && i.at == request.time
+        // The quote as it stood, so a later edit cannot rewrite what was
+        // disputed. Must match the order's own figure, not an invented one.
+        && (!i.keys().hasAny(['quotedPayout'])
+            || i.quotedPayout == resource.data.finalPayout)
+        // A reason is required whenever the amount changes. Reducing somebody's
+        // payout silently is the behaviour this whole record exists to prevent.
+        && (i.confirmedPayout == resource.data.finalPayout
+            || (i.keys().hasAny(['reason']) && i.reason is string
+                && i.reason.size() >= 10));
+    }
+
     match /orders/{orderId} {
 
       // Three readers, and no fourth: the seller it belongs to, the inspector
@@ -135,14 +164,28 @@ service cloud.firestore {
         && request.resource.data.status == 'placed'
         && !request.resource.data.keys().hasAny(['inspectorId', 'inspectorName']);
 
-      // An assigned inspector moves the order along and nothing else. Pinning
-      // the field list matters: without it they could rewrite `finalPayout`
-      // on the way to marking a pickup collected.
+      // An assigned inspector moves the order along and records what they
+      // found, and nothing else.
+      //
+      // `finalPayout` is deliberately NOT in this list. It is the quote the
+      // seller accepted, and it must stay what it was — an inspector who could
+      // edit it could quietly rewrite the agreement rather than dispute it.
+      // What they *can* write is `inspection`, a separate record of what the
+      // phone turned out to be worth, which carries who said so and when. The
+      // two numbers then disagree in the open instead of one overwriting the
+      // other.
       allow update: if isAdmin()
         || (signedIn()
             && resource.data.inspectorId == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['status', 'updatedAt']));
+                 .hasOnly(['status', 'updatedAt', 'inspection'])
+            // Only checked when a finding is actually being written. Requiring
+            // it unconditionally blocked a plain status change, which has no
+            // `inspection` field to validate — caught by the test that asserts
+            // an inspector can move an order along.
+            && (!request.resource.data.diff(resource.data).affectedKeys()
+                  .hasAny(['inspection'])
+                || inspectionIsHonest()));
 
       // Nothing is ever deleted from a browser. An order is a financial
       // record, and a seller changing their mind is a status, not an erasure.

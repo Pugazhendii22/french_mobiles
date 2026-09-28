@@ -294,6 +294,67 @@ exports.onOrderPlaced = onDocumentCreated(
  * whole thing and send the seller a second status notification for a problem
  * that had nothing to do with them.
  */
+/**
+ * Tells the seller what the inspector settled on.
+ *
+ * Says the number plainly, and the reason when it went down. A quiet reduction
+ * is the single thing most likely to make somebody refuse a pickup at the door,
+ * and finding out later is worse than being told now.
+ *
+ * Swallows its own failures: it runs inside the retrying status trigger, so
+ * throwing would re-send whatever else that invocation had already delivered.
+ */
+async function notifySellerOfInspection(orderId, order) {
+  try {
+    const confirmed = order.inspection?.confirmedPayout;
+    if (typeof confirmed !== "number") return;
+
+    const quoted = order.finalPayout;
+    const device = deviceOf(order);
+    const amount = money(confirmed);
+    const lowered = typeof quoted === "number" && confirmed < quoted;
+
+    const body = lowered
+      ? `${amount} for ${device}, instead of the quoted ${money(quoted)}.` +
+        (order.inspection.reason ? ` ${order.inspection.reason}` : "")
+      : `${amount} for ${device}, as quoted.`;
+
+    const user = await admin.firestore().collection("users").doc(order.userId).get();
+    const tokens = tokensFor(user);
+    if (tokens.length === 0) {
+      logger.info("Inspection settled but seller has no token", { orderId });
+      return;
+    }
+
+    await Promise.allSettled(
+      tokens.map((token) =>
+        admin.messaging().send({
+          token,
+          notification: {
+            title: lowered ? "Your amount has changed" : "Amount confirmed",
+            body,
+          },
+          data: { orderId, kind: "inspection", status: order.status || "" },
+          android: {
+            priority: "high",
+            notification: { channelId: "order_updates", tag: orderId },
+          },
+        })
+      )
+    );
+    logger.info("Told the seller the settled amount", {
+      orderId,
+      confirmed,
+      lowered,
+    });
+  } catch (err) {
+    logger.error("Could not tell the seller about the inspection", {
+      orderId,
+      message: err.message,
+    });
+  }
+}
+
 async function notifyAssignedInspector(orderId, order) {
   try {
     const snap = await admin
@@ -368,6 +429,18 @@ exports.onOrderStatusChanged = onDocumentUpdated(
     // inspector would never hear.
     if (before.inspectorId !== after.inspectorId && after.inspectorId) {
       await notifyAssignedInspector(event.params.orderId, after);
+    }
+
+    // The inspector has said what the phone is actually worth. This is the one
+    // the seller cares about most — the app promised them the final figure is
+    // settled at pickup — and it is independent of the status, which may not
+    // move at all when an amount is merely confirmed.
+    const inspectedNow =
+      !before.inspection && after.inspection;
+    const amountChanged =
+      before.inspection?.confirmedPayout !== after.inspection?.confirmedPayout;
+    if (after.inspection && (inspectedNow || amountChanged)) {
+      await notifySellerOfInspection(event.params.orderId, after);
     }
 
     // Every write to an order comes through here — a price correction, an
