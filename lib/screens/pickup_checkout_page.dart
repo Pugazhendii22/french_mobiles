@@ -188,6 +188,15 @@ class _PickupCheckoutPageState extends State<PickupCheckoutPage> {
         'imageUrl': widget.imageUrl,
         'basePrice': widget.basePrice,
         'finalPayout': widget.finalPayout,
+        // Who to expect at the door, copied onto the order rather than looked
+        // up from `users/{uid}` later. The inspector's screen would otherwise
+        // need one read per job to show a name, every time it opened — and a
+        // seller who renames themselves afterwards should not retroactively
+        // change who an already-collected order was from.
+        if (user.displayName?.trim().isNotEmpty ?? false)
+          'customerName': user.displayName!.trim(),
+        if (user.phoneNumber?.trim().isNotEmpty ?? false)
+          'customerPhone': user.phoneNumber!.trim(),
         'addressLabel': _selectedAddressLabel,
         'addressFullText': _selectedAddressFullText,
         'addressLatitude': _selectedAddressLat,
