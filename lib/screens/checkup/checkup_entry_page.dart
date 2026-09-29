@@ -386,47 +386,51 @@ class _CheckupEntryPageState extends State<CheckupEntryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.screenGutter,
-                AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
-            child: AppScreenHeader(
-              title: 'Device Auto Checkup',
-              content: _intro(),
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.screenGutter,
-                0,
-                AppSpacing.screenGutter,
-                AppSpacing.xxxl,
+      // Same reason as CheckupTestShell: the app draws edge to edge, so
+      // without this the title sits under the status bar.
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.screenGutter,
+                  AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
+              child: AppScreenHeader(
+                title: 'Device Auto Checkup',
+                content: _intro(),
               ),
-              children: [
-                // One enclosure around the whole list rather than sixteen
-                // separate cards: these are steps in one procedure, not
-                // sixteen unrelated things.
-                AppGroup(
-                  children: [
-                    for (var i = 0; i < specs.length; i++)
-                      AppReveal(
-                        index: i,
-                        child: _TestRow(
-                          index: i + 1,
-                          spec: specs[i],
-                          result: _results[specs[i].key],
-                          active: _currentKey == specs[i].key,
-                          onTap: _running ? null : () => _runOne(specs[i]),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
             ),
-          ),
-        ],
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenGutter,
+                  0,
+                  AppSpacing.screenGutter,
+                  AppSpacing.xxxl,
+                ),
+                children: [
+                  // One enclosure around the whole list rather than sixteen
+                  // separate cards: these are steps in one procedure, not
+                  // sixteen unrelated things.
+                  AppGroup(
+                    children: [
+                      for (var i = 0; i < specs.length; i++)
+                        AppReveal(
+                          index: i,
+                          child: _TestRow(
+                            index: i + 1,
+                            spec: specs[i],
+                            result: _results[specs[i].key],
+                            active: _currentKey == specs[i].key,
+                            onTap: _running ? null : () => _runOne(specs[i]),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: _startBar(),
     );

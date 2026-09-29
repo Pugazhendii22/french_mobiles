@@ -25,6 +25,26 @@ import 'checkup_test_shell.dart';
 /// distinction matters: tilt comes from the accelerometer, so a tilt-driven
 /// game would happily pass a handset whose gyroscope is broken. Here, no
 /// gyroscope means no movement, and no movement means no pass.
+/// How close to the centre counts as being in the ring, 0 to 1.
+///
+/// Shared by the physics and the painter so the hit test and the drawn target
+/// can never disagree — a ring you are inside but which does not look like it
+/// is the kind of thing people give up on.
+const double kGyroRingRadius = 0.18;
+
+/// Where the ball starts: a random direction, out near the edge.
+///
+/// Extracted so it can be asserted directly. The first version of this test
+/// spawned the ball at the centre of the target and passed itself a second
+/// later without the phone being touched, and a timing-based test does not
+/// reliably catch that — a single large pump skips the physics entirely.
+@visibleForTesting
+({double x, double y}) initialBallPosition([math.Random? random]) {
+  final angle = (random ?? math.Random()).nextDouble() * 2 * math.pi;
+  const distance = 0.78;
+  return (x: math.cos(angle) * distance, y: math.sin(angle) * distance);
+}
+
 class GyroscopeTestPage extends StatefulWidget {
   const GyroscopeTestPage({super.key});
 
@@ -43,12 +63,14 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage>
   /// Radians of rotation to cross the play area, roughly a quarter turn.
   static const _travel = 1.6;
 
-  /// Bleeds off integration drift.
+  /// Rotation slower than this is treated as noise, in rad/s.
   ///
-  /// Integrating a rate always wanders, and a ball that creeps on its own is
-  /// maddening to steer. This pulls it gently back so a still phone means a
-  /// still ball, without fighting a seller who is actively moving it.
-  static const _decay = 0.94;
+  /// Every gyroscope reports a small non-zero rate when perfectly still, and
+  /// integrating that bias makes the ball creep on its own. A deadzone is the
+  /// right tool for it — the obvious alternative, decaying the *position*
+  /// toward zero, quietly pulls the ball into the target and hands out a pass
+  /// to a phone sitting on a table.
+  static const _noiseFloor = 0.04;
 
   StreamSubscription<GyroscopeEvent>? _subscription;
   Ticker? _ticker;
@@ -58,7 +80,12 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage>
   double _rateX = 0;
   double _rateY = 0;
 
-  /// Ball position, -1 to 1 on each axis, 0 being the centre.
+  /// Ball position, -1 to 1 on each axis, 0 being the centre of the ring.
+  ///
+  /// Never starts at the centre. It did once, which meant the ball spawned
+  /// already inside the target and the test passed itself a second later
+  /// without anyone touching the phone — the thing it exists to prove never
+  /// happened.
   double _x = 0;
   double _y = 0;
 
@@ -70,9 +97,20 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage>
   Timer? _silenceTimer;
   CheckupResult? _result;
 
+  /// Drops the ball somewhere out near the edge, in a random direction.
+  ///
+  /// Random so it cannot be learned as one fixed motion, and out near the edge
+  /// so reaching the ring always takes real steering on both axes.
+  void _placeBall() {
+    final start = initialBallPosition();
+    _x = start.x;
+    _y = start.y;
+  }
+
   @override
   void initState() {
     super.initState();
+    _placeBall();
     _listen();
     _ticker = Ticker(_onTick)..start();
 
@@ -128,11 +166,17 @@ class _GyroscopeTestPageState extends State<GyroscopeTestPage>
     // which would fling the ball off the board.
     if (dt <= 0 || dt > 0.1) return;
 
-    setState(() {
-      _x = ((_x + _rateY * dt / _travel) * _decay).clamp(-1.0, 1.0);
-      _y = ((_y + _rateX * dt / _travel) * _decay).clamp(-1.0, 1.0);
+    // Nothing here may move the ball on its own: every term is driven by a
+    // reading above the noise floor, so a still phone leaves it exactly where
+    // it is.
+    final rateX = _rateX.abs() < _noiseFloor ? 0.0 : _rateX;
+    final rateY = _rateY.abs() < _noiseFloor ? 0.0 : _rateY;
 
-      if (math.sqrt(_x * _x + _y * _y) < 0.18) {
+    setState(() {
+      _x = (_x + rateY * dt / _travel).clamp(-1.0, 1.0);
+      _y = (_y + rateX * dt / _travel).clamp(-1.0, 1.0);
+
+      if (math.sqrt(_x * _x + _y * _y) < kGyroRingRadius) {
         _inside += Duration(microseconds: (dt * 1e6).round());
         if (_inside >= _holdFor) {
           _finish(
@@ -336,7 +380,7 @@ class _BoardPainter extends CustomPainter {
         ..color = AppColors.border,
     );
 
-    final inside = math.sqrt(x * x + y * y) < 0.18;
+    final inside = math.sqrt(x * x + y * y) < kGyroRingRadius;
     final ringColour = dimmed
         ? AppColors.textTertiary
         : inside
@@ -372,8 +416,7 @@ class _BoardPainter extends CustomPainter {
     canvas.drawCircle(
       ball,
       ballRadius,
-      Paint()
-        ..color = dimmed ? AppColors.textTertiary : AppColors.textPrimary,
+      Paint()..color = dimmed ? AppColors.textTertiary : AppColors.textPrimary,
     );
   }
 

@@ -28,15 +28,22 @@ class CheckupTestShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.screenGutter,
-                AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
-            child: AppScreenHeader(title: 'Checkup · $title'),
-          ),
-          Expanded(child: child),
-        ],
+      // The app draws edge to edge, so without this the header sits under the
+      // status bar and the buttons at the foot of a test sit under the gesture
+      // bar. Every checkup page goes through this shell, which is why the
+      // misalignment was on all of them at once and why one SafeArea fixes
+      // all of them.
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.screenGutter,
+                  AppSpacing.lg, AppSpacing.screenGutter, AppSpacing.lg),
+              child: AppScreenHeader(title: 'Checkup · $title'),
+            ),
+            Expanded(child: child),
+          ],
+        ),
       ),
     );
   }
