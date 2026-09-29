@@ -44,7 +44,7 @@ out everyone once.
 
 ```
 flutter analyze   # must stay at 0 issues under lib/ (third_party/ is vendored)
-flutter test      # 494 pass, 0 failures. The suite is green — a red one is
+flutter test      # 491 pass, 0 failures. The suite is green — a red one is
                   # a regression, not the baseline. (widget_test.dart was the
                   # long-standing exception; it asserted text deleted in the
                   # redesign and booted the shell without Firebase. Rewritten.)
