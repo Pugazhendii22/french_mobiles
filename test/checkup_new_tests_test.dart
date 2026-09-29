@@ -33,7 +33,6 @@ void main() {
         'proximity',
         'vibration',
         'internet_stability',
-        'battery',
         'cpu_throttle',
       ]) {
         expect(keys.where((k) => k == key).length, 1,
@@ -57,9 +56,19 @@ void main() {
       }
 
       // Grew by one when the Internet test was added, again for the
-      // stability watch that follows it, and again for battery and the
-      // processor load test.
-      expect(keys.length, 20);
+      // stability watch that follows it, and again for the processor load
+      // test. Battery came and went: Android exposes no health figure, so the
+      // test could only report a cycle count or nothing at all, which is not
+      // worth a step in a queue somebody is working through.
+      expect(keys.length, 19);
+    });
+
+    test('battery is no longer one of the steps', () {
+      // Removed deliberately: Android has no battery health API, so the page
+      // could only ever show a cycle count or nothing. Asserted rather than
+      // simply deleted, so re-adding it is a decision somebody makes on
+      // purpose.
+      expect(CheckupEntryPage.specs.map((s) => s.key), isNot(contains('battery')));
     });
 
     test('grouping keeps related hardware adjacent', () {

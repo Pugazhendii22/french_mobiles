@@ -1,19 +1,30 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 import '../../models/checkup_result.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
-import '../../shared/theme/app_theme.dart';
-import 'checkup_demo.dart';
 import 'checkup_test_shell.dart';
 
 /// Test 9 — Gyroscope.
 ///
-/// Streams gyroscope readings while the user physically rotates the phone.
-/// Passes as soon as rotation is detected. Auto-advances verdict.
+/// A ball the seller steers into a ring by turning the phone.
+///
+/// The previous version passed the moment it saw any rotation at all, which a
+/// phone picked up off a table produces — so it confirmed almost nothing, and
+/// a partly broken sensor sailed through. This cannot be passed by accident:
+/// reaching the ring needs controlled movement on **both** axes, held steady,
+/// which a sensor that is dead, stuck on one axis, or wildly noisy cannot
+/// deliver.
+///
+/// The ball is driven by the gyroscope itself rather than by tilt. That
+/// distinction matters: tilt comes from the accelerometer, so a tilt-driven
+/// game would happily pass a handset whose gyroscope is broken. Here, no
+/// gyroscope means no movement, and no movement means no pass.
 class GyroscopeTestPage extends StatefulWidget {
   const GyroscopeTestPage({super.key});
 
@@ -21,229 +32,355 @@ class GyroscopeTestPage extends StatefulWidget {
   State<GyroscopeTestPage> createState() => _GyroscopeTestPageState();
 }
 
-class _GyroscopeTestPageState extends State<GyroscopeTestPage> {
-  static const _threshold = 0.5;
+class _GyroscopeTestPageState extends State<GyroscopeTestPage>
+    with SingleTickerProviderStateMixin {
+  /// How long the ball must stay inside the ring.
+  ///
+  /// Long enough that passing through by chance does not count, short enough
+  /// not to be a test of patience while somebody stands in a shop.
+  static const _holdFor = Duration(milliseconds: 1200);
 
-  StreamSubscription<GyroscopeEvent>? _gyroSubscription;
+  /// Radians of rotation to cross the play area, roughly a quarter turn.
+  static const _travel = 1.6;
+
+  /// Bleeds off integration drift.
+  ///
+  /// Integrating a rate always wanders, and a ball that creeps on its own is
+  /// maddening to steer. This pulls it gently back so a still phone means a
+  /// still ball, without fighting a seller who is actively moving it.
+  static const _decay = 0.94;
+
+  StreamSubscription<GyroscopeEvent>? _subscription;
+  Ticker? _ticker;
+  Duration _lastTick = Duration.zero;
+
+  /// Current rotation rate, rad/s, straight from the sensor.
+  double _rateX = 0;
+  double _rateY = 0;
+
+  /// Ball position, -1 to 1 on each axis, 0 being the centre.
   double _x = 0;
   double _y = 0;
-  double _z = 0;
-  bool _noData = true;
+
+  /// How long the ball has been inside the ring.
+  Duration _inside = Duration.zero;
+
+  bool _sawAnyReading = false;
+  bool _sensorMissing = false;
+  Timer? _silenceTimer;
   CheckupResult? _result;
 
   @override
   void initState() {
     super.initState();
     _listen();
+    _ticker = Ticker(_onTick)..start();
+
+    // A phone with no gyroscope produces no events and no error either — the
+    // stream simply stays quiet. Without this the page would wait for ever
+    // looking like it was working.
+    _silenceTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted || _sawAnyReading || _result != null) return;
+      setState(() => _sensorMissing = true);
+    });
   }
 
   @override
   void dispose() {
-    _gyroSubscription?.cancel();
+    _silenceTimer?.cancel();
+    _ticker?.dispose();
+    _subscription?.cancel();
     super.dispose();
   }
 
-  Future<void> _listen() async {
+  void _listen() {
     try {
-      _gyroSubscription = gyroscopeEventStream(
-        samplingPeriod: SensorInterval.uiInterval,
+      _subscription = gyroscopeEventStream(
+        samplingPeriod: SensorInterval.gameInterval,
       ).listen(
-        _onReading,
+        (event) {
+          if (!mounted || _result != null) return;
+          _sawAnyReading = true;
+          // Turning the phone about its X axis moves the ball up and down;
+          // about its Y axis, left and right. Signs chosen so the ball follows
+          // the direction of the turn rather than opposing it.
+          _rateX = event.y;
+          _rateY = event.x;
+        },
         onError: (Object e) {
           if (!mounted || _result != null) return;
-          _markFailed('Gyroscope stream failed: $e');
+          _finish(CheckupStatus.fail, 'The gyroscope reported an error: $e');
         },
+        cancelOnError: true,
       );
     } catch (e) {
-      if (!mounted) return;
-      _markFailed('Could not open the gyroscope: $e');
+      _finish(CheckupStatus.fail, 'Could not open the gyroscope: $e');
     }
   }
 
-  void _onReading(GyroscopeEvent event) {
-    if (!mounted || _result != null) return;
+  void _onTick(Duration elapsed) {
+    if (_result != null) return;
+    final dt = _lastTick == Duration.zero
+        ? 1 / 60
+        : (elapsed - _lastTick).inMicroseconds / 1e6;
+    _lastTick = elapsed;
+    // A frame that arrives after the app was backgrounded carries a huge dt,
+    // which would fling the ball off the board.
+    if (dt <= 0 || dt > 0.1) return;
 
-    _x = event.x;
-    _y = event.y;
-    _z = event.z;
+    setState(() {
+      _x = ((_x + _rateY * dt / _travel) * _decay).clamp(-1.0, 1.0);
+      _y = ((_y + _rateX * dt / _travel) * _decay).clamp(-1.0, 1.0);
 
-    var activeAxes = 0;
-    if (_x.abs() > _threshold) activeAxes++;
-    if (_y.abs() > _threshold) activeAxes++;
-    if (_z.abs() > _threshold) activeAxes++;
-
-    if (activeAxes >= 2) {
-      // Stop the stream right away so the sensor doesn't keep firing rebuilds
-      // after the test has already concluded.
-      _gyroSubscription?.cancel();
-      _gyroSubscription = null;
-      _markPass(
-        'Rotation detected on $activeAxes axes '
-        '(x: ${_x.toStringAsFixed(1)}, y: ${_y.toStringAsFixed(1)}, z: ${_z.toStringAsFixed(1)} rad/s)',
-      );
-      return;
-    }
-
-    // Raw readings stream in dozens of times per second; only rebuild when a
-    // piece of visible state actually transitions (first sample received).
-    if (_noData) {
-      setState(() => _noData = false);
-    }
-  }
-
-  void _setResult(CheckupResult result) {
-    _gyroSubscription?.cancel();
-    if (!mounted) return;
-    setState(() => _result = result);
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted) {
-        Navigator.of(context).pop(_result);
+      if (math.sqrt(_x * _x + _y * _y) < 0.18) {
+        _inside += Duration(microseconds: (dt * 1e6).round());
+        if (_inside >= _holdFor) {
+          _finish(
+            CheckupStatus.pass,
+            'The ball was steered into the ring and held there, so rotation '
+            'is being reported on both axes.',
+          );
+        }
+      } else {
+        _inside = Duration.zero;
       }
     });
   }
 
-  void _markPass(String detail) {
-    _setResult(CheckupResult(
+  void _finish(CheckupStatus status, String detail) {
+    if (_result != null) return;
+    _subscription?.cancel();
+    _ticker?.stop();
+    final result = CheckupResult(
       key: 'gyroscope',
       title: 'Gyroscope',
-      status: CheckupStatus.pass,
+      status: status,
       detail: detail,
-    ));
-  }
-
-  void _markFailed(String detail) {
-    _setResult(CheckupResult(
-      key: 'gyroscope',
-      title: 'Gyroscope',
-      status: CheckupStatus.fail,
-      detail: detail,
-    ));
-  }
-
-  void _markIssue() {
-    _setResult(const CheckupResult(
-      key: 'gyroscope',
-      title: 'Gyroscope',
-      status: CheckupStatus.fail,
-      detail: 'No rotation was detected while the phone was rotated',
-    ));
-  }
-
-  void _skipTest() {
-    _gyroSubscription?.cancel();
-    Navigator.of(context).pop(
-      const CheckupResult(
-        key: 'gyroscope',
-        title: 'Gyroscope',
-        status: CheckupStatus.skipped,
-        detail: 'Skipped by user',
-      ),
     );
+    setState(() => _result = result);
+
+    if (status == CheckupStatus.skipped) {
+      Navigator.of(context).pop(result);
+      return;
+    }
+    Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) Navigator.of(context).pop(result);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return CheckupTestShell(
       title: 'Gyroscope',
-      child: _result != null ? _verdictView() : _testView(),
+      child: _result != null ? _verdict() : _game(),
     );
   }
 
-  Widget _testView() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
+  Widget _game() {
+    final progress =
+        (_inside.inMilliseconds / _holdFor.inMilliseconds).clamp(0.0, 1.0);
+
+    return Column(
       children: [
-        const CheckupInstruction(
-          demo: CheckupDemoKind.rotatePhone,
-          icon: Icons.threed_rotation,
-          text: 'Rotate the phone — flip or turn it while watching the axis '
-              'indicators. The test records rotation in three dimensions.',
-        ),
-        const SizedBox(height: 16),
-        _axisTile('X axis', 'pitch', _x),
-        const SizedBox(height: 12),
-        _axisTile('Y axis', 'yaw', _y),
-        const SizedBox(height: 12),
-        _axisTile('Z axis', 'roll', _z),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: _noData ? AppColors.warningSoft : Colors.white,
-            borderRadius: AppRadius.card,
-            boxShadow: AppShadows.card,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Text(
+            _sensorMissing
+                ? 'This phone is not reporting any rotation.'
+                : 'Turn the phone to roll the ball into the ring, and hold it '
+                    'there.',
+            style: AppTextStyles.body,
+            textAlign: TextAlign.center,
           ),
-          child: Row(
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Square, so a turn of the phone moves the ball the same
+                // distance whichever way it goes.
+                final side = math.min(
+                  constraints.maxWidth,
+                  constraints.maxHeight,
+                );
+                return Center(
+                  child: SizedBox(
+                    width: side,
+                    height: side,
+                    child: CustomPaint(
+                      painter: _BoardPainter(
+                        x: _x,
+                        y: _y,
+                        progress: progress,
+                        dimmed: _sensorMissing,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          child: Column(
             children: [
-              Icon(
-                _noData ? Icons.error_outline : Icons.sensors_off_outlined,
-                color: _noData ? AppColors.warning : AppColors.textTertiary,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  _noData
-                      ? 'No rotation detected yet — keep rotating the phone.'
-                      : 'Hold still to see readings settle near zero.',
-                  style: AppTextStyles.body
-                      .copyWith(color: AppColors.textSecondary),
+              if (_sensorMissing)
+                Text(
+                  'Nothing has come from the gyroscope for a few seconds. On '
+                  'most phones that means it is missing or faulty.',
+                  style: AppTextStyles.caption,
+                  textAlign: TextAlign.center,
                 ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => _finish(
+                        CheckupStatus.skipped,
+                        'Skipped by user',
+                      ),
+                      child: const Text('Skip this test'),
+                    ),
+                  ),
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => _finish(
+                        CheckupStatus.fail,
+                        'The ball could not be steered into the ring',
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                      ),
+                      child: const Text('Cannot do it'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        CheckupActions(onIssue: _markIssue, onSkip: _skipTest),
       ],
     );
   }
 
-  Widget _axisTile(String label, String plane, double value) {
-    final active = value.abs() > _threshold;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: AppRadius.card,
-        boxShadow: AppShadows.card,
-      ),
-      child: Row(
+  Widget _verdict() {
+    final passed = _result!.status == CheckupStatus.pass;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: AppTextStyles.bodyMedium),
-                const SizedBox(height: 2),
-                Text(plane, style: AppTextStyles.caption),
-              ],
-            ),
+          Icon(
+            passed ? Icons.check_circle_rounded : Icons.cancel_rounded,
+            size: 64,
+            color: passed ? AppColors.success : AppColors.error,
           ),
+          const SizedBox(height: 16),
           Text(
-            '${(value / (3.141592653589793 / 180)).toStringAsFixed(0)}°/s',
-            style: AppTextStyles.bodySmall,
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: active
-                  ? AppColors.primary.withValues(alpha: 0.15)
-                  : AppColors.border,
-              borderRadius: BorderRadius.circular(AppRadius.full),
+            passed ? 'PASS' : 'FAIL',
+            style: AppTextStyles.h2.copyWith(
+              color: passed ? AppColors.success : AppColors.error,
             ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
-              active ? 'Rotating' : 'Still',
-              style: AppTextStyles.overline.copyWith(
-                color:
-                    active ? AppColors.onPrimarySoft : AppColors.textTertiary,
-              ),
+              _result!.detail ?? '',
+              style: AppTextStyles.caption,
+              textAlign: TextAlign.center,
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _verdictView() => CheckupVerdict(result: _result!);
+/// The play area: a target ring, and the ball being steered into it.
+class _BoardPainter extends CustomPainter {
+  const _BoardPainter({
+    required this.x,
+    required this.y,
+    required this.progress,
+    required this.dimmed,
+  });
+
+  /// Ball position, -1 to 1 on each axis.
+  final double x;
+  final double y;
+
+  /// How much of the hold has been completed, 0 to 1.
+  final double progress;
+
+  /// True when no sensor readings are arriving.
+  final bool dimmed;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centre = Offset(size.width / 2, size.height / 2);
+    final half = size.width / 2;
+    final ringRadius = half * 0.22;
+    final ballRadius = half * 0.09;
+    // Kept inside the board however far the ball is pushed.
+    final reach = half - ballRadius - 2;
+
+    canvas.drawCircle(
+      centre,
+      half - 1,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = AppColors.border,
+    );
+
+    final inside = math.sqrt(x * x + y * y) < 0.18;
+    final ringColour = dimmed
+        ? AppColors.textTertiary
+        : inside
+            ? AppColors.success
+            : AppColors.primary;
+
+    canvas.drawCircle(
+      centre,
+      ringRadius,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = ringColour,
+    );
+
+    // The hold, drawn as an arc closing around the ring — the seller can see
+    // how much longer to keep still rather than guessing.
+    if (progress > 0) {
+      canvas.drawArc(
+        Rect.fromCircle(center: centre, radius: ringRadius + 8),
+        -math.pi / 2,
+        2 * math.pi * progress,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4
+          ..strokeCap = StrokeCap.round
+          ..color = AppColors.success,
+      );
+    }
+
+    final ball = centre + Offset(x * reach, y * reach);
+    canvas.drawCircle(
+      ball,
+      ballRadius,
+      Paint()
+        ..color = dimmed ? AppColors.textTertiary : AppColors.textPrimary,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_BoardPainter old) =>
+      old.x != x ||
+      old.y != y ||
+      old.progress != progress ||
+      old.dimmed != dimmed;
 }

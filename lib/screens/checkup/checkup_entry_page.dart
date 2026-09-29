@@ -6,7 +6,6 @@ import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_text_styles.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/widgets.dart';
-import 'battery_test_page.dart';
 import 'biometric_test_page.dart';
 import 'bluetooth_test_page.dart';
 import 'buttons_test_page.dart';
@@ -189,13 +188,6 @@ class CheckupEntryPage extends StatefulWidget {
       pageBuilder: _internetStability,
     ),
     const CheckupTestSpec(
-      key: 'battery',
-      title: 'Battery',
-      description: 'Reads health, cycles and temperature',
-      icon: Icons.battery_full_rounded,
-      pageBuilder: _battery,
-    ),
-    const CheckupTestSpec(
       key: 'location',
       title: 'Location (GPS)',
       description: 'Acquires a GPS satellite fix',
@@ -235,7 +227,6 @@ class CheckupEntryPage extends StatefulWidget {
   static Widget _proximity(BuildContext context) => const ProximityTestPage();
   static Widget _vibration(BuildContext context) => const VibrationTestPage();
   static Widget _internet(BuildContext context) => const InternetTestPage();
-  static Widget _battery(BuildContext context) => const BatteryTestPage();
   static Widget _cpuThrottle(BuildContext context) =>
       const CpuThrottleTestPage();
   static Widget _internetStability(BuildContext context) =>
