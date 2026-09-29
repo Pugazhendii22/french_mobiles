@@ -44,9 +44,10 @@ out everyone once.
 
 ```
 flutter analyze   # must stay at 0 issues under lib/ (third_party/ is vendored)
-flutter test      # 472 pass, 1 pre-existing failure:
-                  # widget_test.dart "Home screen loads with sell action"
-                  # (boots MyApp without Firebase — fails at baseline)
+flutter test      # 487 pass, 0 failures. The suite is green — a red one is
+                  # a regression, not the baseline. (widget_test.dart was the
+                  # long-standing exception; it asserted text deleted in the
+                  # redesign and booted the shell without Firebase. Rewritten.)
 flutter build apk --debug
 ```
 
@@ -76,10 +77,33 @@ Two things to know before editing them:
   `.get('inspectorId', '')`. Firestore must prove a *query* is allowed from its
   constraints alone and only recognises the direct form; the `.get()` variant
   makes the inspector's listener fail silently.
-- An assigned inspector may update **only** `status` and `updatedAt`, pinned
-  with `hasOnly`. Without that they could rewrite `finalPayout` on the way to
-  marking a pickup collected.
+- An assigned inspector may update **only** `status`, `updatedAt` and
+  `inspection`, pinned with `hasOnly`. `finalPayout` is deliberately out of
+  reach: it is the quote the seller accepted, and an inspector who could edit it
+  could rewrite the agreement rather than dispute it. Their finding sits beside
+  it instead, carrying their own uid and a server timestamp, both enforced.
+- The finding is only validated when it is actually being written. Requiring it
+  unconditionally broke a plain status change, which has no finding to check —
+  caught by `rules-test/` before it shipped.
+
+## Security rules are tested
+
+```
+cd rules-test && npm test     # 54 assertions, needs Java 21+ (see its README)
+```
+
+Run this before touching `firestore.rules`. Two bugs reached production in one
+afternoon from rules deployed without it: inspector creation reporting failure,
+and admins unable to save their own push token.
 
 An order's reference (`FM-XXXXXX`) is minted by `onOrderPlaced`, not the app.
 Checking a candidate was free meant querying every order, which these rules
 correctly refuse.
+
+## Two figures for one order
+
+`finalPayout` is the quote the seller accepted. `inspection.confirmedPayout` is
+what the agent settled on at the door. **The settled one is what gets paid** —
+read it through `payoutOf()` in `shared/services/order_payout.dart` rather than
+reaching for `finalPayout` directly, which is how three screens once told
+sellers they were getting more money than they were.
