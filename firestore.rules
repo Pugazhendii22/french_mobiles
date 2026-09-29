@@ -145,6 +145,30 @@ service cloud.firestore {
                 && i.reason.size() >= 10));
     }
 
+    // A seller answering a revised offer.
+    //
+    // Only allowed once there is something to answer: an inspection must
+    // already be recorded, or a seller could pre-emptively "decline" an order
+    // nobody has looked at. Only once, because reversing a decision after an
+    // agent has left is a conversation, not a button. And only their own
+    // decision — the timestamp is pinned to the server so the record of when
+    // they answered cannot be dressed up afterwards.
+    function sellerResponseIsHonest() {
+      let r = request.resource.data.sellerResponse;
+      let status = request.resource.data.status;
+      return resource.data.keys().hasAny(['inspection'])
+        && !resource.data.keys().hasAny(['sellerResponse'])
+        && r.keys().hasOnly(['decision', 'at'])
+        && r.keys().hasAll(['decision', 'at'])
+        && (r.decision == 'accepted' || r.decision == 'declined')
+        && r.at == request.time
+        // The status has to agree with the answer. Declining while leaving the
+        // order marked for payment is the one combination that would quietly
+        // cost somebody a phone.
+        && ((r.decision == 'declined' && status == 'declined')
+            || (r.decision == 'accepted' && status == resource.data.status));
+    }
+
     match /orders/{orderId} {
 
       // Three readers, and no fourth: the seller it belongs to, the inspector
@@ -186,6 +210,14 @@ service cloud.firestore {
             && (!request.resource.data.diff(resource.data).affectedKeys()
                   .hasAny(['inspection'])
                 || inspectionIsHonest()));
+
+      // A seller answers the revised amount, and that is the only write they
+      // ever make to an order after placing it. Everything else about it
+      // belongs to staff.
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['sellerResponse', 'status', 'updatedAt'])
+        && sellerResponseIsHonest();
 
       // Nothing is ever deleted from a browser. An order is a financial
       // record, and a seller changing their mind is a status, not an erasure.

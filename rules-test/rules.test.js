@@ -556,6 +556,143 @@ describe("what an inspector found at the door", () => {
   });
 });
 
+
+describe("a seller answering a revised offer", () => {
+  // The other half of the inspection feature. Showing somebody a reason they
+  // cannot act on is not a choice, and an order that proceeds to payment over
+  // a seller's objection is how a trade-in business gets a reputation.
+  beforeEachReset();
+
+  // An order that has been inspected and reduced, which is the only situation
+  // where any of this applies.
+  async function seedInspected() {
+    await seed(async (db) => {
+      await setDoc(
+        doc(db, "orders", "order-assigned"),
+        {
+          userId: SELLER,
+          status: "inspection",
+          inspectorId: INSPECTOR,
+          finalPayout: 20000,
+          inspection: {
+            confirmedPayout: 12000,
+            reason: "Screen scratch is deeper than declared",
+            inspectorId: INSPECTOR,
+          },
+        },
+        { merge: false }
+      );
+    });
+  }
+
+  it("the seller accepts", async () => {
+    await seedInspected();
+    await assertSucceeds(
+      updateDoc(doc(as(SELLER), "orders", "order-assigned"), {
+        sellerResponse: { decision: "accepted", at: serverTimestamp() },
+        updatedAt: serverTimestamp(),
+      })
+    );
+  });
+
+  it("the seller declines, and the order stops", async () => {
+    await seedInspected();
+    await assertSucceeds(
+      updateDoc(doc(as(SELLER), "orders", "order-assigned"), {
+        sellerResponse: { decision: "declined", at: serverTimestamp() },
+        status: "declined",
+        updatedAt: serverTimestamp(),
+      })
+    );
+  });
+
+  it("declining while leaving the order payable is refused", async () => {
+    // The one combination that would quietly cost somebody their phone.
+    await seedInspected();
+    await assertFails(
+      updateDoc(doc(as(SELLER), "orders", "order-assigned"), {
+        sellerResponse: { decision: "declined", at: serverTimestamp() },
+        status: "paid",
+      })
+    );
+  });
+
+  it("a seller cannot answer before anyone has inspected", async () => {
+    await assertFails(
+      updateDoc(doc(as(SELLER), "orders", "order-1"), {
+        sellerResponse: { decision: "declined", at: serverTimestamp() },
+        status: "declined",
+      })
+    );
+  });
+
+  it("a seller cannot answer twice", async () => {
+    // Changing your mind after the agent has left is a conversation, not a
+    // button.
+    await seedInspected();
+    await assertSucceeds(
+      updateDoc(doc(as(SELLER), "orders", "order-assigned"), {
+        sellerResponse: { decision: "accepted", at: serverTimestamp() },
+        updatedAt: serverTimestamp(),
+      })
+    );
+    await assertFails(
+      updateDoc(doc(as(SELLER), "orders", "order-assigned"), {
+        sellerResponse: { decision: "declined", at: serverTimestamp() },
+        status: "declined",
+      })
+    );
+  });
+
+  it("a made-up decision is refused", async () => {
+    await seedInspected();
+    await assertFails(
+      updateDoc(doc(as(SELLER), "orders", "order-assigned"), {
+        sellerResponse: { decision: "maybe", at: serverTimestamp() },
+      })
+    );
+  });
+
+  it("a seller cannot backdate their answer", async () => {
+    await seedInspected();
+    await assertFails(
+      updateDoc(doc(as(SELLER), "orders", "order-assigned"), {
+        sellerResponse: { decision: "accepted", at: new Date("2020-01-01") },
+      })
+    );
+  });
+
+  it("a seller cannot raise their own payout while answering", async () => {
+    await seedInspected();
+    await assertFails(
+      updateDoc(doc(as(SELLER), "orders", "order-assigned"), {
+        sellerResponse: { decision: "accepted", at: serverTimestamp() },
+        finalPayout: 99999,
+      })
+    );
+  });
+
+  it("someone else cannot answer for them", async () => {
+    await seedInspected();
+    await assertFails(
+      updateDoc(doc(as(OTHER), "orders", "order-assigned"), {
+        sellerResponse: { decision: "declined", at: serverTimestamp() },
+        status: "declined",
+      })
+    );
+  });
+
+  it("an inspector cannot answer on the seller's behalf", async () => {
+    // They are standing right there, which is exactly why this matters.
+    await seedInspected();
+    await assertFails(
+      updateDoc(doc(as(INSPECTOR), "orders", "order-assigned"), {
+        sellerResponse: { decision: "accepted", at: serverTimestamp() },
+      })
+    );
+  });
+});
+
 describe("the wishlist", () => {
   beforeEachReset();
 

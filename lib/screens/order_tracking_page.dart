@@ -35,6 +35,11 @@ class OrderTrackingPage extends StatefulWidget {
 }
 
 class _OrderTrackingPageState extends State<OrderTrackingPage> {
+  /// True while the seller's answer is in flight, so the buttons cannot be
+  /// pressed twice — the rules refuse a second answer, and a refusal the
+  /// seller did not cause would read as the app being broken.
+  bool _answering = false;
+
   /// Subscribed once for the page's lifetime.
   ///
   /// This one mattered most: the tracker rebuilds on every status change, and
@@ -193,7 +198,10 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
       AppReveal(index: 1, child: _buildTimeline(currentStep)),
       const SizedBox(height: AppSpacing.lg),
       if (_inspectionOf(d) case final inspection?) ...[
-        AppReveal(index: 2, child: _buildInspection(inspection, finalPayout)),
+        AppReveal(
+          index: 2,
+          child: _buildInspection(inspection, finalPayout, d),
+        ),
         const SizedBox(height: AppSpacing.lg),
       ],
       AppReveal(
@@ -220,11 +228,79 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
     );
   }
 
+  /// Whether the seller has already answered, and what they said.
+  String? _responseOf(Map<String, dynamic> d) {
+    final raw = d['sellerResponse'];
+    if (raw is! Map) return null;
+    final decision = raw['decision'];
+    return decision is String ? decision : null;
+  }
+
+  /// Records the seller's answer to a revised amount.
+  ///
+  /// The status moves to `declined` on a refusal, which is what actually stops
+  /// the order — the response on its own is a note, and a note does not
+  /// prevent anybody being paid the wrong thing.
+  Future<void> _answer(String decision) async {
+    setState(() => _answering = true);
+    try {
+      await catalogFirestore.collection('orders').doc(widget.orderId).update({
+        'sellerResponse': {
+          'decision': decision,
+          'at': FieldValue.serverTimestamp(),
+        },
+        if (decision == 'declined') 'status': 'declined',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not send your answer. Check your connection '
+              'and try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _answering = false);
+    }
+  }
+
+  Future<void> _confirmDecline() async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Decline this amount?'),
+        // Said plainly, because it is the end of the order and the agent may
+        // be standing in front of them.
+        content: const Text(
+          'Your phone will not be collected and you will not be paid. '
+          'You can place a new order later if you change your mind.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep the order'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Decline',
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (sure == true) await _answer('declined');
+  }
+
   Widget _buildInspection(
     ({int confirmed, String? reason}) inspection,
     int quoted,
+    Map<String, dynamic> d,
   ) {
     final lowered = inspection.confirmed < quoted;
+    final answered = _responseOf(d);
     return AppSurface(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -264,6 +340,51 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
               inspection.reason!,
               style: AppTextStyles.body
                   .copyWith(color: AppColors.textSecondary),
+            ),
+          ],
+
+          // Only when the amount actually went down. Asking somebody to
+          // approve the number they already agreed to is a pointless
+          // interruption.
+          if (lowered && answered == null) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'Do you accept this amount?',
+              style: AppTextStyles.bodyMedium,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Expanded(
+                  child: AppPrimaryButton(
+                    label: 'Accept',
+                    loading: _answering,
+                    onPressed: _answering ? null : () => _answer('accepted'),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _answering ? null : _confirmDecline,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error),
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    child: const Text('Decline'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          if (answered != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              answered == 'declined'
+                  ? 'You declined this amount. The phone was not collected.'
+                  : 'You accepted this amount.',
+              style: AppTextStyles.caption,
             ),
           ],
         ],

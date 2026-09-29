@@ -83,6 +83,10 @@ function messageFor(status, order) {
           : `Payment for ${device} is on its way. Thank you.`,
       };
     }
+    case "declined":
+      // The seller declined it themselves; telling them so is noise. Staff
+      // hear about it through notifyStaffOfSellerResponse instead.
+      return null;
     case "placed":
       return {
         title: "Your order has been reopened",
@@ -323,6 +327,74 @@ exports.onOrderPlaced = onDocumentCreated(
  * Swallows its own failures: it runs inside the retrying status trigger, so
  * throwing would re-send whatever else that invocation had already delivered.
  */
+/**
+ * Tells the assigned inspector, and the admins, what the seller decided.
+ *
+ * The inspector first and always: they may be standing in the doorway waiting
+ * for an answer, and a phone buzzing is faster than the seller explaining.
+ * Admins too on a refusal, because a declined pickup is a job that needs
+ * following up rather than one that quietly disappears.
+ *
+ * Swallows its own failures — it runs inside the retrying status trigger, so
+ * throwing would re-send whatever that invocation had already delivered.
+ */
+async function notifyStaffOfSellerResponse(orderId, order) {
+  try {
+    const declined = order.sellerResponse?.decision === "declined";
+    const device = deviceOf(order);
+    const settled = order.inspection?.confirmedPayout;
+
+    const notification = declined
+      ? {
+          title: "Seller declined",
+          body: `${device} — the amount was refused. Do not collect.`,
+        }
+      : {
+          title: "Seller accepted",
+          body: `${device} — ${
+            typeof settled === "number" ? money(settled) : "the amount"
+          } agreed. Go ahead.`,
+        };
+
+    const data = {
+      orderId,
+      reference: order.reference || "",
+      kind: declined ? "seller_declined" : "seller_accepted",
+    };
+
+    const db = admin.firestore();
+    const targets = [];
+
+    if (order.inspectorId) {
+      const snap = await db.collection("inspectors").doc(order.inspectorId).get();
+      if (snap.exists) targets.push(snap);
+    }
+    // Admins only on a refusal: an acceptance is the expected path and does
+    // not need everyone's phone going off.
+    if (declined) {
+      const admins = await db.collection("admins").get();
+      targets.push(...admins.docs);
+    }
+
+    if (targets.length === 0) {
+      logger.info("Nobody to tell about the seller's answer", { orderId });
+      return;
+    }
+
+    const { delivered } = await notifyStaff(targets, notification, data);
+    logger.info("Told staff the seller's answer", {
+      orderId,
+      declined,
+      delivered,
+    });
+  } catch (err) {
+    logger.error("Could not pass on the seller's answer", {
+      orderId,
+      message: err.message,
+    });
+  }
+}
+
 async function notifySellerOfInspection(orderId, order) {
   try {
     const confirmed = order.inspection?.confirmedPayout;
@@ -460,6 +532,13 @@ exports.onOrderStatusChanged = onDocumentUpdated(
       before.inspection?.confirmedPayout !== after.inspection?.confirmedPayout;
     if (after.inspection && (inspectedNow || amountChanged)) {
       await notifySellerOfInspection(event.params.orderId, after);
+    }
+
+    // The seller has answered a revised offer. Told to staff rather than the
+    // seller, who already knows what they just pressed — and told urgently on
+    // a refusal, because the agent may still be standing at the door.
+    if (!before.sellerResponse && after.sellerResponse) {
+      await notifyStaffOfSellerResponse(event.params.orderId, after);
     }
 
     // Every write to an order comes through here — a price correction, an
