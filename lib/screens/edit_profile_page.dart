@@ -7,7 +7,10 @@ import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../firebase/catalog_firebase.dart';
-import '../widgets/app_back_button.dart';
+import '../shared/theme/app_colors.dart';
+import '../shared/theme/app_text_styles.dart';
+import '../shared/theme/app_theme.dart';
+import '../shared/widgets/widgets.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -97,58 +100,110 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF00B69B),
-        elevation: 0,
-        leading: const AppBackButton.dark(),
-        title: const Text('Edit Profile', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            GestureDetector(
-              onTap: _pickImage,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  CircleAvatar(
-                    radius: 52,
-                    backgroundColor: const Color(0xFFF3F4F6),
-                    child: _loading
-                        ? const SizedBox(width: 40, height: 40, child: CircularProgressIndicator())
-                        : (_photoUrl != null && _photoUrl!.isNotEmpty
-                            ? ClipOval(child: Image.network(_photoUrl!, width: 100, height: 100, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.person, size: 48)))
-                            : const Icon(Icons.person, size: 48)),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                      child: const Icon(Icons.edit, color: Color(0xFF00B69B), size: 18),
-                    ),
-                  ),
-                ],
+    return Theme(
+      data: AppTheme.light,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          bottom: false,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenGutter,
+                AppSpacing.lg,
+                AppSpacing.screenGutter,
+                AppSpacing.xxl,
               ),
+              children: [
+                const AppScreenHeader(title: 'Edit profile'),
+                const SizedBox(height: AppSpacing.xxl),
+                Center(child: _buildAvatar()),
+                const SizedBox(height: AppSpacing.xxl),
+                Text('Name', style: AppTextStyles.label),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: _nameCtrl,
+                  style: AppTextStyles.body,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    hintText: 'Your name',
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Name'),
+          ),
+        ),
+        bottomNavigationBar: AppBottomBar(
+          child: AppPrimaryButton(
+            label: 'Save changes',
+            loading: _saving,
+            onPressed: _saving || _loading ? null : _save,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar() {
+    final hasPhoto = _photoUrl != null && _photoUrl!.isNotEmpty;
+
+    return Semantics(
+      button: true,
+      label: 'Change profile photo',
+      child: InkWell(
+        onTap: _loading ? null : _pickImage,
+        customBorder: const CircleBorder(),
+        child: Stack(
+          children: [
+            Container(
+              height: 104,
+              width: 104,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceMuted,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.border),
+              ),
+              clipBehavior: Clip.antiAlias,
+              alignment: Alignment.center,
+              child: _loading
+                  ? const CircularProgressIndicator(strokeWidth: 2)
+                  : hasPhoto
+                      ? AppNetworkImage(
+                          url: _photoUrl!,
+                          height: 104,
+                          width: 104,
+                          fit: BoxFit.cover,
+                          borderRadius: BorderRadius.zero,
+                          placeholderIcon: Icons.person_outline_rounded,
+                        )
+                      : const Icon(
+                          Icons.person_outline_rounded,
+                          size: 44,
+                          color: AppColors.textTertiary,
+                        ),
             ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _save,
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00B69B), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: _saving ? const CircularProgressIndicator(color: Colors.white) : const Text('Save', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                height: 32,
+                width: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.surface, width: 2),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.photo_camera_rounded,
+                  size: 15,
+                  color: AppColors.onPrimary,
+                ),
               ),
             ),
           ],

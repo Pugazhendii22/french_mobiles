@@ -3,7 +3,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import '../models/model_detail.dart';
-import '../widgets/app_back_button.dart';
+import '../shared/motion/motion.dart';
+import '../shared/services/catalog_cache.dart';
+import '../shared/services/model_series.dart';
+import '../shared/theme/app_colors.dart';
+import '../shared/theme/app_text_styles.dart';
+import '../shared/theme/app_theme.dart';
+import '../shared/widgets/widgets.dart';
 import 'variant_selection_page.dart';
 
 class BrandDetailPage extends StatefulWidget {
@@ -22,7 +28,7 @@ class BrandDetailPage extends StatefulWidget {
 
 class _BrandDetailPageState extends State<BrandDetailPage> {
   final TextEditingController _modelSearchController = TextEditingController();
-  String _selectedCategory = 'All';
+  String _selectedSeries = 'All';
   List<ModelDetail> _allBrandModels = [];
   List<ModelDetail> _filteredModels = [];
   bool _isLoadingModels = true;
@@ -36,6 +42,12 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
     _loadModels();
   }
 
+  @override
+  void dispose() {
+    _modelSearchController.dispose();
+    super.dispose();
+  }
+
   int _parsePrice(dynamic value) {
     if (value is num) {
       return value.toInt();
@@ -47,6 +59,20 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
   }
 
   Future<void> _loadModels() async {
+    // Served from the cache when this brand has already been read. The
+    // headline price shown here never becomes a quote — the real price is
+    // read from the variants the moment a model is tapped — so there is
+    // nothing to go stale that matters.
+    final cached = CatalogCache.models(widget.brandName);
+    if (cached != null) {
+      setState(() {
+        _allBrandModels = cached;
+        _filteredModels = _applyFilters(_modelSearchController.text);
+        _isLoadingModels = false;
+      });
+      return;
+    }
+
     setState(() {
       _isLoadingModels = true;
       _filteredModels = [];
@@ -61,36 +87,65 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
 
       final models = <ModelDetail>[];
 
-      final variantResults = await Future.wait(
-        querySnapshot.docs.map((doc) async {
-          final modelData = doc.data();
-          final variantsSnapshot = await _catalogFirestore
-              .collection('brands')
-              .doc(widget.brandName.toLowerCase())
-              .collection('models')
-              .doc(doc.id)
-              .collection('variants')
-              .get();
+      // Models the admin has hidden never reach the list. Filtering here, and
+      // not further down, is what makes it cheap: a hidden model skips the
+      // variants query below entirely rather than being fetched and discarded.
+      //
+      // Only an explicit `hidden: true` hides a model. A missing field means
+      // visible, which is deliberate — an equality query on `hidden` would
+      // have needed the flag backfilled onto every document in the catalogue,
+      // and any document that missed the backfill would have disappeared from
+      // the app with nothing to show why.
+      final visibleDocs = querySnapshot.docs
+          .where((doc) => doc.data()['hidden'] != true)
+          .toList();
 
+      final variantResults = await Future.wait(
+        visibleDocs.map((doc) async {
+          final modelData = doc.data();
+
+          // The list only needs a headline price. When the model document
+          // already carries one, the variants are not read at all.
+          //
+          // This used to fetch every model's variants just to find the
+          // highest — one query per model, so a brand with thirty models
+          // cost thirty-one round trips on every visit, and the variants
+          // were then read a second time when one was tapped.
+          //
+          // The proper fix is a max_base_price field maintained on the model
+          // document, which would remove the fallback below entirely. That
+          // is a change to the data, not to this app.
+          final declared = _parsePrice(modelData['base_price']);
           int highestBasePrice = 0;
-          for (final variantDoc in variantsSnapshot.docs) {
-            final variantData = variantDoc.data();
-            final variantPrice = _parsePrice(variantData['base_price']);
-            if (variantPrice > highestBasePrice) {
-              highestBasePrice = variantPrice;
+
+          if (declared == 0) {
+            final variantsSnapshot = await _catalogFirestore
+                .collection('brands')
+                .doc(widget.brandName.toLowerCase())
+                .collection('models')
+                .doc(doc.id)
+                .collection('variants')
+                .get();
+
+            for (final variantDoc in variantsSnapshot.docs) {
+              final variantPrice = _parsePrice(variantDoc.data()['base_price']);
+              if (variantPrice > highestBasePrice) {
+                highestBasePrice = variantPrice;
+              }
             }
           }
 
-          final modelName = (modelData['model'] ?? 'Unknown Model')
-              .toString();
+          final modelName = (modelData['model'] ?? 'Unknown Model').toString();
           final imageUrl = (modelData['image_url'] ?? '').toString().trim();
           final releaseYear = modelData['release_year'];
-          final category = releaseYear == null ? 'Unknown' : releaseYear.toString();
+          final category =
+              releaseYear == null ? 'Unknown' : releaseYear.toString();
 
           return ModelDetail(
             name: modelName,
             category: category,
-            maxPrice: highestBasePrice == 0 ? _parsePrice(modelData['base_price']) : highestBasePrice,
+            series: deriveSeries(modelName, widget.brandName),
+            maxPrice: highestBasePrice == 0 ? declared : highestBasePrice,
             imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
             docId: doc.id,
           );
@@ -98,6 +153,7 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
       );
 
       models.addAll(variantResults);
+      CatalogCache.storeModels(widget.brandName, models);
 
       setState(() {
         _allBrandModels = models;
@@ -119,8 +175,9 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
     final searchQuery = query.toLowerCase();
     return _allBrandModels.where((model) {
       final matchesQuery = model.name.toLowerCase().contains(searchQuery);
-      final matchesCategory = _selectedCategory == 'All' || model.category == _selectedCategory;
-      return matchesQuery && matchesCategory;
+      final matchesSeries =
+          _selectedSeries == 'All' || model.series == _selectedSeries;
+      return matchesQuery && matchesSeries;
     }).toList();
   }
 
@@ -130,337 +187,315 @@ class _BrandDetailPageState extends State<BrandDetailPage> {
     });
   }
 
-  void _showModelDetailsBottomSheet(ModelDetail item) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Color(0xFFFAF8FF),
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(28),
-              topRight: Radius.circular(28),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                item.name,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Maximum estimated value: ₹${item.maxPrice}',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF16A34A),
-                ),
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'Next steps: Evaluate basic device condition to get exact valuation.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF64748B),
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 24),
-                  SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => VariantSelectionPage(
-                          brandName: widget.brandName,
-                          modelDocId: item.docId!,
-                          modelName: item.name,
-                          imageUrl: item.imageUrl,
-                        ),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00B69B),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: const Text(
-                    'Evaluate Device Condition',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
-          ),
-        );
-      },
+  Future<void> _openModel(ModelDetail item) async {
+    await context.pushScreen(VariantSelectionPage(
+          brandName: widget.brandName,
+          modelDocId: item.docId!,
+          modelName: item.name,
+          imageUrl: item.imageUrl),
     );
-  }
+    if (!mounted) return;
 
-  @override
-  void dispose() {
-    _modelSearchController.dispose();
-    super.dispose();
+    // The variant page reads the real prices. If they disagreed with the
+    // headline shown here, it corrected the cache — so pick the correction
+    // up rather than continuing to show a number already known to be wrong.
+    final refreshed = CatalogCache.models(widget.brandName);
+    if (refreshed == null) return;
+    setState(() {
+      _allBrandModels = refreshed;
+      _filteredModels = _applyFilters(_modelSearchController.text);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final allModels = _allBrandModels;
-    final categories = ['All', ...{for (var m in allModels) m.category}];
+    // Sorted so the row does not reshuffle between visits; the models arrive
+    // from Firestore in no particular order.
+    final seriesOptions = [
+      'All',
+      ...{for (final m in _allBrandModels) m.series}.toList()..sort(),
+    ];
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: const AppBackButton.light(),
-        title: Text(
-          'Select ${widget.brandName} Model',
-          style: const TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+    return Theme(
+      data: AppTheme.light,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusScope.of(context).unfocus(),
             child: Column(
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(12),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenGutter,
+                    AppSpacing.lg,
+                    AppSpacing.screenGutter,
+                    AppSpacing.lg,
                   ),
-                  child: TextField(
-                    controller: _modelSearchController,
-                    onChanged: _filterModels,
-                    decoration: InputDecoration(
-                      hintText: 'Search ${widget.brandName} model...',
-                      hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                      prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8)),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  child: AppScreenHeader(
+                    title: widget.brandName,
+                    content: AppSearchField(
+                      controller: _modelSearchController,
+                      hintText: 'Search ${widget.brandName} models',
+                      onChanged: _filterModels,
                     ),
                   ),
                 ),
-                if (categories.length > 2) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 36,
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.only(right: 32),
-                            itemCount: categories.length,
-                            itemBuilder: (context, index) {
-                              final cat = categories[index];
-                              final isSelected = cat == _selectedCategory;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 8.0),
-                                child: ChoiceChip(
-                                  label: Text(cat),
-                                  selected: isSelected,
-                                  checkmarkColor: const Color(0xFF1E9B1E),
-                                  selectedColor: const Color(
-                                      0xFF32CD32).withValues(alpha: 0.15),
-                                  backgroundColor: Colors.white,
-                                  side: BorderSide(
-                                    width: isSelected ? 1.2 : 1,
-                                    color: isSelected
-                                        ? const Color(
-                                            0xFF32CD32).withValues(alpha: 0.6)
-                                        : const Color(0xFFE2E8F0),
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  labelStyle: TextStyle(
-                                    color: isSelected
-                                        ? const Color(0xFF1E9B1E)
-                                        : const Color(0xFF64748B),
-                                    fontWeight: isSelected
-                                        ? FontWeight.bold
-                                        : FontWeight.w500,
-                                    fontSize: 13,
-                                  ),
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      _selectedCategory = cat;
-                                      _filterModels(
-                                          _modelSearchController.text);
-                                    });
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          bottom: 0,
-                          width: 28,
-                          child: IgnorePointer(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.centerRight,
-                                  end: Alignment.centerLeft,
-                                  colors: [
-                                    Colors.white,
-                                    Colors.white.withValues(alpha: 0),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                if (seriesOptions.length > 2)
+                  _buildChipRow(
+                    seriesOptions,
+                    _selectedSeries,
+                    (value) => setState(() {
+                      _selectedSeries = value;
+                      _filteredModels =
+                          _applyFilters(_modelSearchController.text);
+                    }),
                   ),
-                ],
+                Expanded(child: _buildBody()),
               ],
             ),
           ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: _isLoadingModels
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00B69B)),
-                    ),
-                  )
-                : _filteredModels.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No models found matching your search.',
-                          style: TextStyle(color: Color(0xFF94A3B8)),
-                        ),
-                      )
-                    : GridView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _filteredModels.length,
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 0.82,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                        ),
-                        itemBuilder: (context, index) {
-                          final item = _filteredModels[index];
-                          return GestureDetector(
-                            onTap: () => _showModelDetailsBottomSheet(item),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Container(
-                                      width: double.infinity,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF1F5F9),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: (item.imageUrl != null && item.imageUrl!.isNotEmpty)
-                                          ? Image.network(
-                                              item.imageUrl!,
-                                              fit: BoxFit.cover,
-                                              width: double.infinity,
-                                              height: double.infinity,
-                                              loadingBuilder: (context, child, loadingProgress) {
-                                                if (loadingProgress == null) {
-                                                  return child;
-                                                }
-                                                return const Center(
-                                                  child: SizedBox(
-                                                    width: 20,
-                                                    height: 20,
-                                                    child: CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                                        Color(0xFF00B69B),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                              errorBuilder: (context, error, stackTrace) {
-                                                return Icon(
-                                                  Icons.smartphone,
-                                                  size: 48,
-                                                  color: Colors.blueGrey.shade300,
-                                                );
-                                              },
-                                            )
-                                          : Icon(
-                                              Icons.smartphone,
-                                              size: 48,
-                                              color: Colors.blueGrey.shade300,
-                                            ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    item.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: Color(0xFF1E293B),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Get up to ₹${item.maxPrice}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF16A34A),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChipRow(
+    List<String> options,
+    String selected,
+    ValueChanged<String> onSelect,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+      child: SizedBox(
+        height: 36,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.screenGutter,
+          ),
+          itemCount: options.length,
+          separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.sm),
+          itemBuilder: (context, index) {
+            final option = options[index];
+            return AppFilterChip(
+              label: option,
+              selected: option == selected,
+              onTap: () => onSelect(option),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoadingModels) {
+      return GridView.builder(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.screenGutter,
+          0,
+          AppSpacing.screenGutter,
+          AppSpacing.xxl,
+        ),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: AppSpacing.md,
+          mainAxisSpacing: AppSpacing.md,
+          childAspectRatio: 0.74,
+        ),
+        itemCount: 4,
+        itemBuilder: (_, __) => const ModelCardSkeleton(),
+      );
+    }
+
+    if (_filteredModels.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(AppSpacing.screenGutter),
+        child: AppEmptyState(
+          title: _allBrandModels.isEmpty
+              ? 'No models available'
+              : 'No matching models',
+          message: _allBrandModels.isEmpty
+              ? 'We could not load ${widget.brandName} models right now.'
+              : 'Try a different search or category.',
+          icon: _allBrandModels.isEmpty
+              ? Icons.smartphone_outlined
+              : Icons.search_off_rounded,
+          onRetry: _allBrandModels.isEmpty ? _loadModels : null,
+        ),
+      );
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenGutter,
+        0,
+        AppSpacing.screenGutter,
+        AppSpacing.xxl,
+      ),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: AppSpacing.md,
+        mainAxisSpacing: AppSpacing.md,
+        childAspectRatio: 0.74,
+      ),
+      itemCount: _filteredModels.length,
+      itemBuilder: (context, index) {
+        final model = _filteredModels[index];
+        return AppReveal(
+          index: index,
+          slots: 6,
+          child: _ModelCard(model: model, onTap: () => _openModel(model)),
+        );
+      },
+    );
+  }
+}
+
+/// A model tile: image, name, release year and the best price on offer.
+/// The shape of a [_ModelCard] before its data arrives.
+///
+/// Public so its fit inside a grid cell can be tested: the heights here are
+/// fixed while the cell's height comes from an aspect ratio, so a narrow
+/// screen is where the two disagree.
+///
+/// Mirrors the card rather than filling the cell with one grey block: a
+/// skeleton's whole job is to show what is coming, so that the page does not
+/// jump when it lands. A solid rectangle promises a shape it then fails to
+/// deliver, which is worse than showing nothing.
+@visibleForTesting
+class ModelCardSkeleton extends StatelessWidget {
+  const ModelCardSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // The photo panel.
+          const Expanded(
+            child: Padding(
+              padding: EdgeInsets.all(AppSpacing.md),
+              child: AppShimmer(width: double.infinity, height: 1000),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Two lines of model name, matching the 40px the card
+                // reserves for it.
+                AppShimmer(
+                  width: double.infinity,
+                  height: 13,
+                  borderRadius: AppRadius.pill,
+                ),
+                const SizedBox(height: 6),
+                AppShimmer(
+                  width: 70,
+                  height: 13,
+                  borderRadius: AppRadius.pill,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                AppShimmer(
+                  width: 36,
+                  height: 10,
+                  borderRadius: AppRadius.pill,
+                ),
+                const SizedBox(height: 6),
+                AppShimmer(
+                  width: 84,
+                  height: 18,
+                  borderRadius: AppRadius.pill,
+                ),
+              ],
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ModelCard extends StatelessWidget {
+  const _ModelCard({required this.model, required this.onTap});
+
+  final ModelDetail model;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: model.name,
+      child: AppPressable(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: AppRadius.card,
+            border: Border.all(color: AppColors.border),
+            boxShadow: AppShadows.card,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: const BoxDecoration(
+                    color: AppColors.surfaceMuted,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(AppRadius.lg),
+                    ),
+                  ),
+                  child: AppNetworkImage(
+                    url: model.imageUrl ?? '',
+                    fit: BoxFit.contain,
+                    borderRadius: BorderRadius.zero,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      height: 40,
+                      child: Text(
+                        model.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.bodyMedium,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text('Up to', style: AppTextStyles.caption),
+                    Text(
+                      '₹ ${model.maxPrice}',
+                      style: AppTextStyles.price.copyWith(
+                        color: AppColors.onPrimarySoft,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

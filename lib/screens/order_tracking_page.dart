@@ -1,239 +1,438 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+
+import 'package:french_mobiles/features/shell/main_shell.dart';
+
 import '../firebase/catalog_firebase.dart';
-import '../widgets/app_back_button.dart';
+import '../shared/motion/motion.dart';
+import '../shared/services/order_payout.dart';
+import '../shared/services/order_reference.dart';
+import '../shared/theme/app_colors.dart';
+import '../shared/theme/app_text_styles.dart';
+import '../shared/theme/app_theme.dart';
+import '../shared/widgets/widgets.dart';
 
 class OrderTrackingPage extends StatefulWidget {
   final String orderId;
 
-  const OrderTrackingPage({super.key, required this.orderId});
+  /// True when this screen is the confirmation shown immediately after an
+  /// order is placed, rather than an order opened from the orders list.
+  ///
+  /// In that case the checkout stack has already been cleared by the caller,
+  /// the header hides its back affordance, a Go to home action is shown, and
+  /// a system back gesture is routed to home. Browsing an existing order from
+  /// the list keeps ordinary back behaviour.
+  final bool isConfirmation;
+
+  const OrderTrackingPage({
+    super.key,
+    required this.orderId,
+    this.isConfirmation = false,
+  });
 
   @override
   State<OrderTrackingPage> createState() => _OrderTrackingPageState();
 }
 
 class _OrderTrackingPageState extends State<OrderTrackingPage> {
+  /// True while the seller's answer is in flight, so the buttons cannot be
+  /// pressed twice — the rules refuse a second answer, and a refusal the
+  /// seller did not cause would read as the app being broken.
+  bool _answering = false;
+
+  /// Subscribed once for the page's lifetime.
+  ///
+  /// This one mattered most: the tracker rebuilds on every status change, and
+  /// a stream created inside build would re-listen — and re-read — each time
+  /// it did.
+  late final Stream<DocumentSnapshot<Map<String, dynamic>>> _orderStream =
+      catalogFirestore.collection('orders').doc(widget.orderId).snapshots();
+
+  /// Pickup milestones, in order. Index + 1 matches the `currentStep` the
+  /// order's `status` field maps to.
+  static const List<(IconData, String, String)> _steps = [
+    (
+      Icons.receipt_long_outlined,
+      'Order placed',
+      'We have your request and are assigning an agent.',
+    ),
+    (
+      Icons.person_pin_circle_outlined,
+      'Agent assigned',
+      'A pickup partner is on the way to your address.',
+    ),
+    (
+      Icons.fact_check_outlined,
+      'Inspection',
+      'Your device is being verified against its grading.',
+    ),
+    (
+      Icons.payments_outlined,
+      'Paid',
+      'Payment has been released to you.',
+    ),
+  ];
+
+  /// Returns to the first route in the stack, which is HomePage.
+  void _goHome() {
+    MainShell.goHome();
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F8),
-      appBar: AppBar(
-        title: const Text(
-          'Track Sell Order',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
+    // Belt and braces. The caller already cleared the checkout stack, so the
+    // only route beneath this one is home — but intercepting the pop makes
+    // the destination explicit rather than incidental, and covers the
+    // predictive-back gesture as well as the hardware button.
+    return PopScope(
+      canPop: !widget.isConfirmation,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _goHome();
+      },
+      child: _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
+    return Theme(
+      data: AppTheme.light,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+            stream: _orderStream,
+            builder: (context, snapshot) {
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenGutter,
+                  AppSpacing.lg,
+                  AppSpacing.screenGutter,
+                  AppSpacing.xxl,
+                ),
+                children: [
+                  AppScreenHeader(
+                    title: widget.isConfirmation
+                        ? 'Order confirmed'
+                        : 'Track sell order',
+                    // Nothing to go back to from a confirmation: the flow
+                    // that led here no longer exists on the stack.
+                    showBack: !widget.isConfirmation,
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  ..._buildContent(snapshot),
+                ],
+              );
+            },
+          ),
         ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: const AppBackButton.light(),
-      ),
-      body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        stream: catalogFirestore.collection('orders').doc(widget.orderId).snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (!snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(child: Text('Order not found'));
-          }
-
-          final d = snapshot.data!.data()!;
-
-          String? status = d['status'] as String?;
-          int currentStep = 1;
-          switch (status) {
-            case 'placed':
-              currentStep = 1;
-              break;
-            case 'agent_assigned':
-              currentStep = 2;
-              break;
-            case 'inspection':
-              currentStep = 3;
-              break;
-            case 'paid':
-              currentStep = 4;
-              break;
-            default:
-              currentStep = 1;
-          }
-
-          final modelName = (d['modelName'] as String?) ?? '';
-          final storage = (d['storage'] as String?) ?? '';
-          final finalPayout = (d['finalPayout'] is num) ? (d['finalPayout'] as num).toInt() : int.tryParse('${d['finalPayout']}') ?? 0;
-          final addressFull = (d['addressFullText'] as String?) ?? '';
-
-          return Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE6F4EA),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 36),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Order Placed Successfully!',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                      color: Color(0xFF16A34A),
-                                    ),
-                                  ),
-                                  Text(
-                                    'Order ID: ${widget.orderId}',
-                                    style: const TextStyle(fontSize: 12, color: Colors.black54),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Order Progress',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                            const SizedBox(height: 20),
-                            Row(
-                              children: [
-                                _buildStepCircle(1, Icons.check, 'Order\nPlaced', currentStep),
-                                _buildLine(1, currentStep),
-                                _buildStepCircle(2, Icons.person_outline, 'Agent\nAssigned', currentStep),
-                                _buildLine(2, currentStep),
-                                _buildStepCircle(3, Icons.search, 'Doorstep\nInspection', currentStep),
-                                _buildLine(3, currentStep),
-                                _buildStepCircle(4, Icons.payments_outlined, 'Instant\nPayout', currentStep),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Pickup Overview',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                            const SizedBox(height: 12),
-                            _buildDetailRow(Icons.phone_android, 'Device', '$modelName ($storage)'),
-                            const SizedBox(height: 8),
-                            _buildDetailRow(Icons.location_on_outlined, 'Pickup Address', addressFull),
-                            const SizedBox(height: 8),
-                            _buildDetailRow(Icons.account_balance_wallet_outlined, 'Final Amount', '₹$finalPayout'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+        bottomNavigationBar: widget.isConfirmation
+            ? AppBottomBar(
+                child: AppPrimaryButton(
+                  label: 'Go to home',
+                  icon: Icons.home_rounded,
+                  onPressed: _goHome,
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 10,
-                      offset: Offset(0, -2),
-                    ),
-                  ],
-                ),
-                child: SafeArea(
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.popUntil(context, (route) => route.isFirst);
-                      },
-                      icon: const Icon(Icons.home_outlined, color: Color(0xFFE91E63)),
-                      label: const Text(
-                        'Back to Home',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFE91E63),
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFE91E63), width: 1.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
+              )
+            : null,
       ),
     );
   }
 
-  Widget _buildStepCircle(int stepNumber, IconData icon, String label, int currentStep) {
-    bool isDone = stepNumber <= currentStep;
-    return Expanded(
-      child: Column(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isDone ? const Color(0xFF16A34A) : const Color(0xFFF1F5F9),
-              border: Border.all(
-                color: isDone ? const Color(0xFF16A34A) : const Color(0xFFCBD5E1),
-              ),
-            ),
-            child: Icon(
-              icon,
-              size: 18,
-              color: isDone ? Colors.white : const Color(0xFF64748B),
+  List<Widget> _buildContent(
+    AsyncSnapshot<DocumentSnapshot<Map<String, dynamic>>> snapshot,
+  ) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const [
+        AppShimmer(width: double.infinity, height: 88),
+        SizedBox(height: AppSpacing.lg),
+        AppShimmer(width: double.infinity, height: 240),
+      ];
+    }
+
+    if (!snapshot.hasData || !snapshot.data!.exists) {
+      return const [
+        AppEmptyState(
+          title: 'Order not found',
+          message: 'We could not find this order.',
+          icon: Icons.receipt_long_outlined,
+        ),
+      ];
+    }
+
+    final d = snapshot.data!.data()!;
+
+    final String? status = d['status'] as String?;
+    int currentStep = 1;
+    switch (status) {
+      case 'placed':
+        currentStep = 1;
+        break;
+      case 'agent_assigned':
+        currentStep = 2;
+        break;
+      case 'inspection':
+        currentStep = 3;
+        break;
+      case 'paid':
+        currentStep = 4;
+        break;
+      default:
+        currentStep = 1;
+    }
+
+    final modelName = (d['modelName'] as String?) ?? '';
+    final storage = (d['storage'] as String?) ?? '';
+    // The quote. The settled figure, when an agent has been, is shown by
+    // _buildInspection below and is what actually gets paid.
+    final finalPayout = payoutOf(d).quoted;
+    final addressFull = (d['addressFullText'] as String?) ?? '';
+
+    return [
+      AppReveal(
+        index: 0,
+        child: _buildConfirmation(d['reference'] as String?),
+      ),
+      const SizedBox(height: AppSpacing.lg),
+      AppReveal(index: 1, child: _buildTimeline(currentStep)),
+      const SizedBox(height: AppSpacing.lg),
+      if (_inspectionOf(d) case final inspection?) ...[
+        AppReveal(
+          index: 2,
+          child: _buildInspection(inspection, finalPayout, d),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+      ],
+      AppReveal(
+        index: 2,
+        child: _buildDetails(modelName, storage, finalPayout, addressFull),
+      ),
+    ];
+  }
+
+  /// What the agent settled on at pickup, when they have been.
+  ///
+  /// The quote said this figure would be confirmed on inspection, so the
+  /// confirmation has to be visible here — a push notification that leads to a
+  /// screen still showing the old number is worse than no notification.
+  ({int confirmed, String? reason})? _inspectionOf(Map<String, dynamic> d) {
+    final raw = d['inspection'];
+    if (raw is! Map) return null;
+    final confirmed = (raw['confirmedPayout'] as num?)?.round();
+    if (confirmed == null) return null;
+    final reason = (raw['reason'] as String?)?.trim();
+    return (
+      confirmed: confirmed,
+      reason: (reason == null || reason.isEmpty) ? null : reason,
+    );
+  }
+
+  /// Whether the seller has already answered, and what they said.
+  String? _responseOf(Map<String, dynamic> d) {
+    final raw = d['sellerResponse'];
+    if (raw is! Map) return null;
+    final decision = raw['decision'];
+    return decision is String ? decision : null;
+  }
+
+  /// Records the seller's answer to a revised amount.
+  ///
+  /// The status moves to `declined` on a refusal, which is what actually stops
+  /// the order — the response on its own is a note, and a note does not
+  /// prevent anybody being paid the wrong thing.
+  Future<void> _answer(String decision) async {
+    setState(() => _answering = true);
+    try {
+      await catalogFirestore.collection('orders').doc(widget.orderId).update({
+        'sellerResponse': {
+          'decision': decision,
+          'at': FieldValue.serverTimestamp(),
+        },
+        if (decision == 'declined') 'status': 'declined',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not send your answer. Check your connection '
+              'and try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _answering = false);
+    }
+  }
+
+  Future<void> _confirmDecline() async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Decline this amount?'),
+        // Said plainly, because it is the end of the order and the agent may
+        // be standing in front of them.
+        content: const Text(
+          'Your phone will not be collected and you will not be paid. '
+          'You can place a new order later if you change your mind.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep the order'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Decline',
+              style: TextStyle(color: AppColors.error),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 10,
-              height: 1.2,
-              fontWeight: isDone ? FontWeight.bold : FontWeight.normal,
-              color: isDone ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+        ],
+      ),
+    );
+    if (sure == true) await _answer('declined');
+  }
+
+  Widget _buildInspection(
+    ({int confirmed, String? reason}) inspection,
+    int quoted,
+    Map<String, dynamic> d,
+  ) {
+    final lowered = inspection.confirmed < quoted;
+    final answered = _responseOf(d);
+    return AppSurface(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(
+                lowered
+                    ? Icons.info_outline_rounded
+                    : Icons.verified_rounded,
+                size: 20,
+                color: lowered ? AppColors.warning : AppColors.success,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  lowered ? 'Amount changed at pickup' : 'Amount confirmed',
+                  style: AppTextStyles.h3,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text('₹${inspection.confirmed}', style: AppTextStyles.h2),
+          if (lowered)
+            Text(
+              'Quoted ₹$quoted',
+              style: AppTextStyles.caption.copyWith(
+                decoration: TextDecoration.lineThrough,
+              ),
+            ),
+          if (inspection.reason != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              inspection.reason!,
+              style: AppTextStyles.body
+                  .copyWith(color: AppColors.textSecondary),
+            ),
+          ],
+
+          // Only when the amount actually went down. Asking somebody to
+          // approve the number they already agreed to is a pointless
+          // interruption.
+          if (lowered && answered == null) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'Do you accept this amount?',
+              style: AppTextStyles.bodyMedium,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Expanded(
+                  child: AppPrimaryButton(
+                    label: 'Accept',
+                    loading: _answering,
+                    onPressed: _answering ? null : () => _answer('accepted'),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _answering ? null : _confirmDecline,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error),
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    child: const Text('Decline'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          if (answered != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              answered == 'declined'
+                  ? 'You declined this amount. The phone was not collected.'
+                  : 'You accepted this amount.',
+              style: AppTextStyles.caption,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConfirmation(String? reference) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.successSoft,
+        borderRadius: AppRadius.card,
+      ),
+      child: Row(
+        children: [
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: AppMotion.slow,
+            curve: AppMotion.emphasis,
+            builder: (context, v, child) =>
+                Transform.scale(scale: v, child: child),
+            child: const Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.success,
+              size: 32,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Order placed successfully',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.success,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  // The speakable reference, not the Firestore ID: this is
+                  // the number a seller reads out when they ring up.
+                  'Order ${displayReference(widget.orderId, reference)}',
+                  style: AppTextStyles.caption,
+                ),
+              ],
             ),
           ),
         ],
@@ -241,33 +440,173 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
     );
   }
 
-  Widget _buildLine(int stepNumber, int currentStep) {
-    bool isDone = stepNumber < currentStep;
+  Widget _buildTimeline(int currentStep) {
     return Container(
-      width: 16,
-      height: 3,
-      margin: const EdgeInsets.only(bottom: 24),
-      color: isDone ? const Color(0xFF16A34A) : const Color(0xFFE2E8F0),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Order progress', style: AppTextStyles.h3),
+          const SizedBox(height: AppSpacing.lg),
+          for (var i = 0; i < _steps.length; i++)
+            _TimelineRow(
+              icon: _steps[i].$1,
+              title: _steps[i].$2,
+              description: _steps[i].$3,
+              done: i + 1 <= currentStep,
+              active: i + 1 == currentStep,
+              isLast: i == _steps.length - 1,
+            ),
+        ],
+      ),
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String title, String value) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: Colors.grey),
-        const SizedBox(width: 10),
-        Text(
-          '$title: ',
-          style: const TextStyle(color: Colors.grey, fontSize: 13),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-            overflow: TextOverflow.ellipsis,
+  Widget _buildDetails(
+    String modelName,
+    String storage,
+    int finalPayout,
+    String addressFull,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Order details', style: AppTextStyles.h3),
+          const SizedBox(height: AppSpacing.md),
+          if (modelName.isNotEmpty)
+            _detailRow(
+              'Device',
+              [modelName, storage].where((s) => s.isNotEmpty).join(' · '),
+            ),
+          _detailRow('Payout', '₹ $finalPayout'),
+          if (addressFull.isNotEmpty) _detailRow('Pickup', addressFull),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(label, style: AppTextStyles.caption),
           ),
-        ),
-      ],
+          Expanded(
+            flex: 3,
+            child: Text(value, style: AppTextStyles.bodyMedium),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One milestone in the pickup timeline, with the connector to the next.
+class _TimelineRow extends StatelessWidget {
+  const _TimelineRow({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.done,
+    required this.active,
+    required this.isLast,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final bool done;
+  final bool active;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final markColor = done ? AppColors.primary : AppColors.surfaceMuted;
+    final iconColor = done ? AppColors.onPrimary : AppColors.textTertiary;
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                height: 32,
+                width: 32,
+                decoration: BoxDecoration(
+                  color: markColor,
+                  shape: BoxShape.circle,
+                  border: active
+                      ? Border.all(color: AppColors.primarySoft, width: 3)
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, size: 16, color: iconColor),
+              ),
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                    color: done ? AppColors.primary : AppColors.border,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: done
+                                ? AppColors.textPrimary
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      if (active) ...[
+                        const SizedBox(width: AppSpacing.sm),
+                        const AppBadge(
+                          label: 'NOW',
+                          tone: AppBadgeTone.primary,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(description, style: AppTextStyles.caption),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

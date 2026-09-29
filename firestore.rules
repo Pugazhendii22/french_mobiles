@@ -1,0 +1,229 @@
+rules_version = '2';
+
+// Real rules, replacing the wide-open ones that expired on 2026-09-24 and took
+// the whole app down.
+//
+// The shape of this file is dictated by one fact: the app browses before anyone
+// signs in. `main.dart` opens straight onto MainShell, not a login screen, so
+// brands, models, variants and deduction rules are read with no user attached.
+// Requiring auth on those does not restrict the catalogue, it empties the home
+// screen — which is exactly what happened to the second-hand listings when the
+// other project added a blanket `request.auth != null`.
+//
+// Everything belonging to a person is owner-scoped instead.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- who is who ------------------------------------------------------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Costs a document read per evaluation, which is why it is called only on
+    // writes and on the admin panel's own collections — never on a catalogue
+    // read that every visitor performs.
+    function isAdmin() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // --- the catalogue: public to read, admin to change ------------------
+
+    // Read by anyone, including visitors who have not signed in. This is a
+    // shop window; the prices are the product.
+    match /brands/{brandId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /models/{modelId} {
+        allow read: if true;
+        allow write: if isAdmin();
+
+        match /variants/{variantId} {
+          allow read: if true;
+          allow write: if isAdmin();
+        }
+      }
+    }
+
+    // The grading questions and their percentages. Read before sign-in,
+    // because the quote is shown before anyone is asked to log in.
+    match /deduction_rules/{ruleId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // --- people ----------------------------------------------------------
+
+    // Includes `fcmToken`/`fcmTokens`, which the app writes on its own
+    // document at launch. Admins can read a profile to answer a support call
+    // but cannot edit one — there is no reason for staff to rewrite somebody's
+    // name or phone number.
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update: if isOwner(uid);
+      allow delete: if false;
+
+      match /addresses/{addressId} {
+        allow read, write: if isOwner(uid);
+        // An inspector needs the pickup address, but it is copied onto the
+        // order at checkout, so they never read it from here.
+        allow read: if isAdmin();
+      }
+    }
+
+    match /wishlist/{uid}/items/{itemId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // --- staff -----------------------------------------------------------
+
+    // Readable only by the account it describes, which is what the panel's
+    // sign-in check does. Never writable from a browser: membership is the
+    // gate itself, so letting a client add itself here would be the whole
+    // security model undone.
+    match /admins/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+
+      // Membership is never granted from a browser — being in here IS the
+      // gate, so a client that could add itself would undo the whole model.
+      allow create, delete: if false;
+
+      // The one exception: an admin registering this browser for web push,
+      // and only that field. Without it the panel cannot receive the
+      // new-order notification it exists to show.
+      allow update: if isOwner(uid) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['fcmTokens']);
+    }
+
+    // An inspector may update only their own push tokens; everything else
+    // about them — their name, whether they are active — belongs to an admin.
+    match /inspectors/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() ||
+        (isOwner(uid) &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['fcmTokens']));
+    }
+
+    // --- orders ----------------------------------------------------------
+
+    // What an inspector is allowed to record about a phone.
+    //
+    // Checked in rules rather than trusted to the panel, because the panel is
+    // a browser: anyone who can sign in as an inspector can send whatever
+    // fields they like straight to Firestore. The audit trail is only worth
+    // having if it cannot be forged, so the inspector's own id and a server
+    // timestamp are required and pinned to the caller.
+    function inspectionIsHonest() {
+      let i = request.resource.data.inspection;
+      return i.keys().hasOnly(
+               ['confirmedPayout', 'quotedPayout', 'reason', 'inspectorId', 'at']
+             )
+        && i.keys().hasAll(['confirmedPayout', 'inspectorId', 'at'])
+        && i.confirmedPayout is int
+        && i.confirmedPayout >= 0
+        // Someone cannot record a finding under a colleague's name.
+        && i.inspectorId == request.auth.uid
+        && i.at == request.time
+        // The quote as it stood, so a later edit cannot rewrite what was
+        // disputed. Must match the order's own figure, not an invented one.
+        && (!i.keys().hasAny(['quotedPayout'])
+            || i.quotedPayout == resource.data.finalPayout)
+        // A reason is required whenever the amount changes. Reducing somebody's
+        // payout silently is the behaviour this whole record exists to prevent.
+        && (i.confirmedPayout == resource.data.finalPayout
+            || (i.keys().hasAny(['reason']) && i.reason is string
+                && i.reason.size() >= 10));
+    }
+
+    // A seller answering a revised offer.
+    //
+    // Only allowed once there is something to answer: an inspection must
+    // already be recorded, or a seller could pre-emptively "decline" an order
+    // nobody has looked at. Only once, because reversing a decision after an
+    // agent has left is a conversation, not a button. And only their own
+    // decision — the timestamp is pinned to the server so the record of when
+    // they answered cannot be dressed up afterwards.
+    function sellerResponseIsHonest() {
+      let r = request.resource.data.sellerResponse;
+      let status = request.resource.data.status;
+      return resource.data.keys().hasAny(['inspection'])
+        && !resource.data.keys().hasAny(['sellerResponse'])
+        && r.keys().hasOnly(['decision', 'at'])
+        && r.keys().hasAll(['decision', 'at'])
+        && (r.decision == 'accepted' || r.decision == 'declined')
+        && r.at == request.time
+        // The status has to agree with the answer. Declining while leaving the
+        // order marked for payment is the one combination that would quietly
+        // cost somebody a phone.
+        && ((r.decision == 'declined' && status == 'declined')
+            || (r.decision == 'accepted' && status == resource.data.status));
+    }
+
+    match /orders/{orderId} {
+
+      // Three readers, and no fourth: the seller it belongs to, the inspector
+      // it has been assigned to, and an admin. An inspector must not be able
+      // to list other people's pickups.
+      // Written as a plain field comparison, not `.get()` with a default:
+      // Firestore has to prove a *query* is allowed from its constraints
+      // alone, and it only recognises the direct form. The inspector's
+      // `where('inspectorId', '==', uid)` listener silently fails otherwise.
+      allow read: if isAdmin()
+        || isOwner(resource.data.userId)
+        || (signedIn() && resource.data.inspectorId == request.auth.uid);
+
+      // A seller places their own order, at 'placed', and cannot invent an
+      // assignment or a status further down the line.
+      allow create: if isOwner(request.resource.data.userId)
+        && request.resource.data.status == 'placed'
+        && !request.resource.data.keys().hasAny(['inspectorId', 'inspectorName']);
+
+      // An assigned inspector moves the order along and records what they
+      // found, and nothing else.
+      //
+      // `finalPayout` is deliberately NOT in this list. It is the quote the
+      // seller accepted, and it must stay what it was — an inspector who could
+      // edit it could quietly rewrite the agreement rather than dispute it.
+      // What they *can* write is `inspection`, a separate record of what the
+      // phone turned out to be worth, which carries who said so and when. The
+      // two numbers then disagree in the open instead of one overwriting the
+      // other.
+      allow update: if isAdmin()
+        || (signedIn()
+            && resource.data.inspectorId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['status', 'updatedAt', 'inspection'])
+            // Only checked when a finding is actually being written. Requiring
+            // it unconditionally blocked a plain status change, which has no
+            // `inspection` field to validate — caught by the test that asserts
+            // an inspector can move an order along.
+            && (!request.resource.data.diff(resource.data).affectedKeys()
+                  .hasAny(['inspection'])
+                || inspectionIsHonest()));
+
+      // A seller answers the revised amount, and that is the only write they
+      // ever make to an order after placing it. Everything else about it
+      // belongs to staff.
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['sellerResponse', 'status', 'updatedAt'])
+        && sellerResponseIsHonest();
+
+      // Nothing is ever deleted from a browser. An order is a financial
+      // record, and a seller changing their mind is a status, not an erasure.
+      allow delete: if false;
+    }
+
+    // Anything not named above is denied, which is the point of listing them.
+  }
+}

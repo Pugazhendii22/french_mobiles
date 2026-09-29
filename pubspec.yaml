@@ -9,25 +9,57 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
   flutter_svg: ^2.0.10+1
   cloud_firestore: ^5.6.0
   firebase_core: ^3.6.0
   google_fonts: ^6.2.1
   cupertino_icons: ^1.0.6
-  palette_generator: ^0.3.3
   firebase_auth: ^5.7.0
   google_sign_in: ^7.2.0
   geolocator: ^14.0.3
-  geocoding: ^5.0.0
   image_picker: ^0.8.7
   http: ^1.6.0
   share_plus: ^13.0.0
   cached_network_image: ^4.0.0
+  camera: ^0.11.0
+  local_auth: ^2.3.0
+  connectivity_plus: ^6.1.0
+  wifi_scan: ^0.5.0
+  flutter_blue_plus: ^1.35.0
+  sim_data: ^0.0.2
+  permission_handler: ^12.0.0
+  sensors_plus: ^6.1.2
+  flutter_animate: ^4.5.2
+  proximity_sensor: ^2.0.0
+  audioplayers: ^6.8.1
+  # Order status pushes. The token comes from the app's *default* Firebase
+  # app, which must stay french-mobiles-marketplace — see
+  # lib/firebase/second_hand_firebase.dart.
+  firebase_messaging: ^15.2.10
+  flutter_local_notifications: ^18.0.1
+  # Renders the earpiece test's spoken number to a file, which audioplayers
+  # then plays through the receiver. Speaking it directly would come out of
+  # the loudspeaker — see earpiece_test_page.dart.
+  flutter_tts: ^4.2.0
+  path_provider: ^2.1.5
+  record: ^7.1.1
+  vibration: ^3.2.1
+  google_maps_flutter: ^2.9.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  # Direct, so tests can swap PermissionHandlerPlatform.instance for a fake;
+  # permission_handler pulls it in anyway.
+  permission_handler_platform_interface: ^4.4.1
+
+dependency_overrides:
+  sim_data:
+    path: third_party/sim_data
+  camera_android_camerax:
+    path: third_party/camera_android_camerax
 
 flutter:
   uses-material-design: true

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 class BrandModel {
   final String name;
-  final String discountText;
   final String logoText;
   final Color themeColor;
   final Widget? logo;
@@ -14,7 +13,6 @@ class BrandModel {
 
   BrandModel({
     required this.name,
-    required this.discountText,
     required this.logoText,
     required this.themeColor,
     this.logo,
@@ -224,7 +222,6 @@ const Widget googleLogo = Row(
 final List<BrandModel> brandData = [
   BrandModel(
     name: 'Samsung',
-    discountText: 'Up to 30% off',
     logoText: 'SAMSUNG',
     themeColor: const Color(0xFF1D4ED8),
     logo: samsungLogo,
@@ -233,7 +230,6 @@ final List<BrandModel> brandData = [
   ),
   BrandModel(
     name: 'Motorola',
-    discountText: 'Up to 40% off',
     logoText: 'M motorola',
     themeColor: const Color(0xFF334155),
     logo: motorolaLogo,
@@ -242,7 +238,6 @@ final List<BrandModel> brandData = [
   ),
   BrandModel(
     name: 'Oppo',
-    discountText: 'Up to 35% off',
     logoText: 'oppo',
     themeColor: const Color(0xFF15803D),
     logo: oppoLogo,
@@ -251,7 +246,6 @@ final List<BrandModel> brandData = [
   ),
   BrandModel(
     name: 'Apple',
-    discountText: 'Up to 50% off',
     logoText: 'Apple',
     themeColor: const Color(0xFF111827),
     logo: appleLogo,
@@ -264,7 +258,6 @@ final List<BrandModel> brandData = [
 final List<BrandModel> moreBrandData = [
   BrandModel(
     name: 'OnePlus',
-    discountText: 'Up to 35% off',
     logoText: 'OnePlus',
     themeColor: const Color(0xFFDC2626),
     logo: oneplusLogo,
@@ -273,7 +266,6 @@ final List<BrandModel> moreBrandData = [
   ),
   BrandModel(
     name: 'Xiaomi',
-    discountText: 'Up to 45% off',
     logoText: 'Xiaomi',
     themeColor: const Color(0xFFEA580C),
     logo: xiaomiLogo,
@@ -282,7 +274,6 @@ final List<BrandModel> moreBrandData = [
   ),
   BrandModel(
     name: 'Vivo',
-    discountText: 'Up to 40% off',
     logoText: 'vivo',
     themeColor: const Color(0xFF2563EB),
     logo: vivoLogo,
@@ -291,20 +282,133 @@ final List<BrandModel> moreBrandData = [
   ),
   BrandModel(
     name: 'Realme',
-    discountText: 'Up to 30% off',
     logoText: 'realme',
     themeColor: const Color(0xFFCA8A04),
     logo: realmeLogo,
     logoImageUrl: 'https://logo.clearbit.com/realme.com',
+    logoAssetPath: 'assets/logos/realme.svg',
   ),
   BrandModel(
     name: 'Google',
-    discountText: 'Up to 35% off',
     logoText: 'Google',
     themeColor: const Color(0xFF059669),
     logo: googleLogo,
     logoImageUrl: 'https://logo.clearbit.com/google.com',
     logoAssetPath: 'assets/logos/google.svg',
+  ),
+  BrandModel(
+    name: 'Asus',
+    logoText: 'ASUS',
+    themeColor: const Color(0xFF00539B),
+    logoAssetPath: 'assets/logos/asus.svg',
+  ),
+  BrandModel(
+    name: 'BlackBerry',
+    logoText: 'BlackBerry',
+    themeColor: const Color(0xFF1F2937),
+    logoAssetPath: 'assets/logos/blackberry.svg',
+  ),
+  BrandModel(
+    name: 'Honor',
+    logoText: 'HONOR',
+    themeColor: const Color(0xFF0F6FC5),
+    logoAssetPath: 'assets/logos/honor.svg',
+  ),
+  BrandModel(
+    name: 'HTC',
+    logoText: 'HTC',
+    themeColor: const Color(0xFF78BE20),
+    logoAssetPath: 'assets/logos/htc.svg',
+  ),
+  BrandModel(
+    name: 'Huawei',
+    logoText: 'HUAWEI',
+    themeColor: const Color(0xFFCF0A2C),
+    logoAssetPath: 'assets/logos/huawei.svg',
+  ),
+  BrandModel(
+    name: 'Infinix',
+    logoText: 'Infinix',
+    themeColor: const Color(0xFF0A84C1),
+    logoAssetPath: 'assets/logos/infinix.svg',
+  ),
+  BrandModel(
+    name: 'iQOO',
+    logoText: 'iQOO',
+    themeColor: const Color(0xFF163E9E),
+    logoAssetPath: 'assets/logos/iqoo.svg',
+  ),
+  BrandModel(
+    name: 'Lava',
+    logoText: 'LAVA',
+    themeColor: const Color(0xFFD71920),
+    logoAssetPath: 'assets/logos/lava.svg',
+  ),
+  BrandModel(
+    name: 'Lenovo',
+    logoText: 'Lenovo',
+    themeColor: const Color(0xFFE2231A),
+    logoAssetPath: 'assets/logos/lenovo.svg',
+  ),
+  BrandModel(
+    name: 'LG',
+    logoText: 'LG',
+    themeColor: const Color(0xFFA50034),
+    logoAssetPath: 'assets/logos/lg.svg',
+  ),
+  BrandModel(
+    name: 'Meizu',
+    logoText: 'MEIZU',
+    themeColor: const Color(0xFF0B7CD4),
+    logoAssetPath: 'assets/logos/meizu.svg',
+  ),
+  BrandModel(
+    name: 'Micromax',
+    logoText: 'Micromax',
+    themeColor: const Color(0xFFC8102E),
+    logoAssetPath: 'assets/logos/micromax.svg',
+  ),
+  BrandModel(
+    name: 'Nokia',
+    logoText: 'NOKIA',
+    themeColor: const Color(0xFF124191),
+    logoAssetPath: 'assets/logos/nokia.svg',
+  ),
+  BrandModel(
+    name: 'Nothing',
+    logoText: 'Nothing',
+    themeColor: const Color(0xFF111827),
+    logoAssetPath: 'assets/logos/nothing.svg',
+  ),
+  BrandModel(
+    name: 'Panasonic',
+    logoText: 'Panasonic',
+    themeColor: const Color(0xFF0041C0),
+    logoAssetPath: 'assets/logos/panasonic.svg',
+  ),
+  BrandModel(
+    name: 'Poco',
+    logoText: 'POCO',
+    themeColor: const Color(0xFFD97706),
+    logoAssetPath: 'assets/logos/poco.svg',
+  ),
+  BrandModel(
+    name: 'Sony',
+    logoText: 'SONY',
+    themeColor: const Color(0xFF1F2937),
+    logoAssetPath: 'assets/logos/sony.svg',
+  ),
+  BrandModel(
+    name: 'Tecno',
+    logoText: 'TECNO',
+    themeColor: const Color(0xFF1351A5),
+    logoAssetPath: 'assets/logos/tecno.svg',
+  ),
+  BrandModel(
+    name: 'ZTE',
+    logoText: 'ZTE',
+    themeColor: const Color(0xFF004F9F),
+    logoAssetPath: 'assets/logos/zte.svg',
   ),
 ];
 

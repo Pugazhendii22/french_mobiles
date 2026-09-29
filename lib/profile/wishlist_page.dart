@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -6,8 +5,12 @@ import '../firebase/catalog_firebase.dart';
 import '../firebase/wishlist_service.dart';
 import '../screens/inventory_detail_page.dart';
 import '../screens/login_page.dart';
-import '../widgets/app_back_button.dart';
-import 'profile_widgets.dart';
+import '../shared/motion/motion.dart';
+import '../shared/theme/app_colors.dart';
+import '../shared/theme/app_text_styles.dart';
+import '../shared/theme/app_theme.dart';
+import '../shared/widgets/widgets.dart';
+import '../firebase/second_hand_firebase.dart';
 
 class WishlistPage extends StatelessWidget {
   const WishlistPage({super.key});
@@ -23,7 +26,7 @@ class WishlistPage extends StatelessWidget {
     };
 
     try {
-      final doc = await FirebaseFirestore.instance
+      final doc = await secondHandFirestore
           .collection('second_hand_mobiles')
           .doc(item.productId)
           .get();
@@ -33,223 +36,209 @@ class WishlistPage extends StatelessWidget {
     } catch (_) {}
 
     if (!context.mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => InventoryDetailPlaceholder(
+    context.pushScreen(InventoryDetailPlaceholder(
           documentId: item.productId,
-          data: data,
-        ),
-      ),
+          data: data),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kProfileSurface,
-      appBar: AppBar(
-        backgroundColor: kProfilePrimaryTheme,
-        elevation: 0,
-        title: const Text(
-          'My Wishlist',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        leading: const AppBackButton.dark(),
-      ),
-      body: StreamBuilder<User?>(
-        stream: catalogAuth.authStateChanges(),
-        builder: (context, authSnap) {
-          final user = authSnap.data;
-          if (user == null) {
-            return _SignInPrompt(
-              onSignIn: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginPage()),
-                );
-              },
-            );
-          }
-          return StreamBuilder<List<WishlistItem>>(
-              stream: WishlistService.watchAll(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'Could not load wishlist. ${snapshot.error}',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  );
-                }
-
-                final items = snapshot.data ?? const <WishlistItem>[];
-                if (items.isEmpty) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.favorite_border, size: 64, color: Colors.grey),
-                        SizedBox(height: 12),
-                        Text(
-                          'Your Wishlist is Empty',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+    return Theme(
+      data: AppTheme.light,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.screenGutter,
+                  AppSpacing.lg,
+                  AppSpacing.screenGutter,
+                  AppSpacing.lg,
+                ),
+                child: AppScreenHeader(title: 'My wishlist'),
+              ),
+              Expanded(
+                child: StreamBuilder<User?>(
+                  stream: catalogAuth.authStateChanges(),
+                  builder: (context, authSnap) {
+                    final user = authSnap.data;
+                    if (user == null) {
+                      return Padding(
+                        padding: const EdgeInsets.all(AppSpacing.screenGutter),
+                        child: AppEmptyState(
+                          title: 'Sign in to see your wishlist',
+                          message: 'Saved devices appear here once you sign in.',
+                          icon: Icons.favorite_border_rounded,
+                          retryLabel: 'Sign in',
+                          onRetry: () => context.pushScreen(const LoginPage(),
                           ),
                         ),
-                        SizedBox(height: 6),
-                        Text(
-                          'Tap the heart on a phone to save it here.',
-                          style: TextStyle(color: Colors.grey, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.72,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: items.length,
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    return GestureDetector(
-                      onTap: () => _openItem(context, item),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: kProfileBorder),
-                        ),
-                        child: Stack(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: item.imageUrl.isEmpty
-                                          ? const Center(
-                                              child: Icon(
-                                                Icons.phone_android,
-                                                size: 54,
-                                                color: kProfilePrimaryTheme,
-                                              ),
-                                            )
-                                          : Image.network(
-                                              item.imageUrl,
-                                              width: double.infinity,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) =>
-                                                  const Center(
-                                                child: Icon(
-                                                  Icons.phone_android,
-                                                  size: 54,
-                                                  color: kProfilePrimaryTheme,
-                                                ),
-                                              ),
-                                            ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    item.brand.isNotEmpty ? item.brand : item.title,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    item.title,
-                                    style: const TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 11,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    item.price,
-                                    style: const TextStyle(
-                                      color: kProfilePrimaryTheme,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Positioned(
-                              top: 4,
-                              right: 4,
-                              child: IconButton(
-                                icon: const Icon(Icons.favorite, color: Colors.red),
-                                onPressed: () =>
-                                    WishlistService.remove(item.productId),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
+                      );
+                    }
+                    return _buildList(context);
                   },
-                );
-              },
-            );
-        },
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+
+  Widget _buildList(BuildContext context) {
+    return StreamBuilder<List<WishlistItem>>(
+      stream: WishlistService.watchAll(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return ListView.separated(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.screenGutter,
+            ),
+            itemCount: 4,
+            separatorBuilder: (_, __) => const Divider(
+              height: 1,
+              thickness: 1,
+              color: AppColors.border,
+            ),
+            // 88 is what a WishlistRow measures now the card around it is
+            // gone; matching it exactly is what stops the list shifting when
+            // items land.
+            itemBuilder: (_, __) => const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: AppShimmer(width: double.infinity, height: 64),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.all(AppSpacing.screenGutter),
+            child: AppEmptyState(
+              title: 'Could not load wishlist',
+              message: '${snapshot.error}',
+              icon: Icons.wifi_off_rounded,
+            ),
+          );
+        }
+
+        final items = snapshot.data ?? const <WishlistItem>[];
+        if (items.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(AppSpacing.screenGutter),
+            child: AppEmptyState(
+              title: 'Your wishlist is empty',
+              message: 'Tap the heart on a phone to save it here.',
+              icon: Icons.favorite_border_rounded,
+              branded: true,
+            ),
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenGutter,
+            0,
+            AppSpacing.screenGutter,
+            AppSpacing.xxl,
+          ),
+          itemCount: items.length,
+          separatorBuilder: (_, __) => const Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.border,
+          ),
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return AppReveal(
+              index: index,
+              child: WishlistRow(
+                item: item,
+                onTap: () => _openItem(context, item),
+                onRemove: () => WishlistService.remove(item.productId),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
 
-class _SignInPrompt extends StatelessWidget {
-  final VoidCallback onSignIn;
+@visibleForTesting
+class WishlistRow extends StatelessWidget {
+  const WishlistRow({
+    super.key,
+    required this.item,
+    required this.onTap,
+    required this.onRemove,
+  });
 
-  const _SignInPrompt({required this.onSignIn});
+  final WishlistItem item;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return AppPressable(
+      onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+        child: Row(
           children: [
-            const Icon(Icons.favorite_border, size: 64, color: Colors.grey),
-            const SizedBox(height: 12),
-            const Text(
-              'Sign in to see your wishlist',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
+            SizedBox(
+              height: 64,
+              width: 64,
+              child: AppNetworkImage(
+                url: item.imageUrl,
+                fit: BoxFit.contain,
+                borderRadius: BorderRadius.zero,
+              ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Saved phones stay in your account so you can come back later.',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-              textAlign: TextAlign.center,
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (item.brand.isNotEmpty)
+                    Text(
+                      item.brand.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.overline.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.bodyMedium,
+                  ),
+                  if (item.price.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      item.price,
+                      style: AppTextStyles.priceSmall
+                          .copyWith(color: AppColors.onPrimarySoft),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: onSignIn,
-              child: const Text('Sign in'),
+            IconButton(
+              tooltip: 'Remove from wishlist',
+              icon: const Icon(
+                Icons.favorite_rounded,
+                size: 20,
+                color: AppColors.error,
+              ),
+              onPressed: onRemove,
             ),
           ],
         ),
